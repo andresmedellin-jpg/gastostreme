@@ -10,8 +10,7 @@ export const BUCKET_COMPROBANTES = 'comprobantes';
 export const MODULOS = [
   { id: 'inicio',     titulo: 'Inicio',      icono: '◧', roles: ['dueno','administracion'], listo: false },
   { id: 'gastos',     titulo: 'Gastos',      icono: '◫', roles: ['dueno','administracion','operacion'], listo: true },
-  { id: 'cobranza',   titulo: 'Cobranza',    icono: '◩', roles: ['dueno','administracion','cobranza'], listo: false,
-    legacy: [['Cobranza Elysium','https://andresmedellin-jpg.github.io/cobranzaelysium/'],['Rentas Treme','https://andresmedellin-jpg.github.io/rentastreme/']] },
+  { id: 'cobranza',   titulo: 'Cobranza',    icono: '◩', roles: ['dueno','administracion','cobranza'], listo: true },
   { id: 'personal',   titulo: 'Personal',    icono: '◪', roles: ['dueno','administracion','encargado'], listo: false,
     legacy: [['Elysium · Mi día','https://andresmedellin-jpg.github.io/victorolazaran/']] },
   { id: 'patrimonio', titulo: 'Patrimonio',  icono: '◨', roles: ['dueno'], listo: false },
@@ -47,4 +46,5 @@ export const CATEGORIAS = {
   'Impuestos':'🧾','Retiro socios':'💸','Otro':'•'
 };
 export const FORMAS_PAGO = ['Transferencia','Efectivo','Tarjeta','Cheque','Otro'];
+export const FORMAS_COBRO = ['Transferencia','Efectivo','Depósito','Tarjeta','Otro'];
 export const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];

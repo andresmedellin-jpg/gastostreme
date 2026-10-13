@@ -4,6 +4,7 @@ import { sb, db, estado, esc, toast, abrirModal, cerrarModal, tieneRol } from '.
 const vistas = {
   gastos: () => import('./modulos/gastos.js'),
   usuarios: () => import('./modulos/usuarios.js'),
+  cobranza: () => import('./modulos/cobranza.js'),
 };
 const pendiente = () => import('./modulos/pendiente.js');
 

@@ -43,7 +43,20 @@ El respaldo completo del sistema viejo está en el esquema `respaldo_20261012`.
 |---|---|---|
 | Usuarios | ✅ En la plataforma | — |
 | Gastos | ✅ En la plataforma | Centro de Control (pestaña Gastos), Gastos Treme |
-| Cobranza | En proceso | Cobranza Elysium, Rentas Treme |
+| Cobranza Elysium | ✅ En la plataforma | Cobranza Elysium |
+| Rentas Treme | En proceso | Rentas Treme |
 | Personal | En proceso | Elysium · Mi día (victorolazaran), Nómina del Centro de Control. Acceso Elysium: retirado |
 | Patrimonio | En proceso | — |
 | Reportes | En proceso | Reporte Mensual |
+
+## Publicar cambios
+
+Antes de cada commit que toque `js/` o `css/`, corre `python3 publicar.py`: sube la versión en `index.html`
+para que todos vean lo nuevo con solo recargar.
+
+## Notas de datos (cobranza Elysium)
+
+- 256 pagos de enero a mayo vivían solo dentro del código de la página vieja; se pasaron a la base
+  (respaldo en `respaldo_20261012.catalogo_cobranza`).
+- Las oficinas *904/*905 eran las mismas que 904/905 (se renombraron en julio); su historial se unió.
+- Regla de cobranza (igual que la página vieja): una unidad está pagada en un mes si tiene al menos un pago.
