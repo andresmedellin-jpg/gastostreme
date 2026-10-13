@@ -2,7 +2,7 @@
 // Ingresos = rentas + mantenimiento + luz cobrados + ventas + ingresos capturados a mano.
 // Gastos = todos los gastos, menos Casa y Socios (no son gasto de la empresa).
 import { MESES, FORMAS_COBRO } from '../config.js';
-import { db, estado, tieneRol, esAdmin, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal, normalizar } from '../lib.js';
+import { db, todo, estado, tieneRol, esAdmin, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal, normalizar } from '../lib.js';
 
 const PRIVADOS = ['socio', 'personal'];
 const FUENTES = {
@@ -66,12 +66,12 @@ async function cargar() {
   const desde = iso(meses[0].a, meses[0].m);
   const fin = st.mes === 11 ? iso(st.anio + 1, 0) : iso(st.anio, st.mes + 1);
   const [p, i, g, c, u, x] = await Promise.all([
-    db().from('pagos').select('id, empresa_id, centro_id, unidad_id, contrato_id, cxc_id, concepto, periodo, fecha, monto, forma_pago, notas')
-      .or(`periodo.gte.${desde},fecha.gte.${desde}`).limit(20000),
-    db().from('ingresos').select('id, empresa_id, centro_id, fecha, monto, concepto, cliente, categoria, forma_pago, notas, capturado_por')
-      .gte('fecha', desde).lt('fecha', fin).limit(5000),
-    db().from('gastos').select('empresa_id, centro_id, fecha, monto, categoria')
-      .gte('fecha', desde).lt('fecha', fin).limit(20000),
+    todo(() => db().from('pagos').select('id, empresa_id, centro_id, unidad_id, contrato_id, cxc_id, concepto, periodo, fecha, monto, forma_pago, notas')
+      .or(`periodo.gte.${desde},fecha.gte.${desde}`)),
+    todo(() => db().from('ingresos').select('id, empresa_id, centro_id, fecha, monto, concepto, cliente, categoria, forma_pago, notas, capturado_por')
+      .gte('fecha', desde).lt('fecha', fin)),
+    todo(() => db().from('gastos').select('id, empresa_id, centro_id, fecha, monto, categoria')
+      .gte('fecha', desde).lt('fecha', fin)),
     db().from('contratos').select('id, arrendatario'),
     db().from('unidades').select('id, identificador'),
     db().from('cuentas_por_cobrar').select('id, cliente'),

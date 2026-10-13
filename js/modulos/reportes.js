@@ -2,7 +2,7 @@
 // Reemplaza la página "Reporte mensual". Se arma como documento aparte (iframe) para que
 // se vea igual en tema claro u oscuro y salga limpio al guardarlo como PDF.
 import { MESES } from '../config.js';
-import { db, estado, fmtFecha, esc, toast, normalizar } from '../lib.js';
+import { db, todo, estado, fmtFecha, esc, toast, normalizar } from '../lib.js';
 
 const st = { anio: new Date().getFullYear(), mes: new Date().getMonth(), inversionistas: false };
 let centro, raiz;
@@ -63,11 +63,11 @@ async function cargar() {
   const [u, c, p, g, e] = await Promise.all([
     db().from('unidades').select('id, identificador, tipo, ocupante').eq('centro_id', centro.id).eq('activo', true),
     db().from('cuotas').select('unidad_id, monto, activo, en_padron').eq('concepto', 'mantenimiento').eq('en_padron', true),
-    db().from('pagos').select('unidad_id, periodo, monto, forma_pago, fecha')
+    todo(() => db().from('pagos').select('id, unidad_id, periodo, monto, forma_pago, fecha')
       .eq('centro_id', centro.id).eq('concepto', 'mantenimiento')
-      .gte('periodo', iso(pa, pm)).lt('periodo', iso(sa, sm)).limit(5000),
-    db().from('gastos').select('fecha, concepto, proveedor, categoria, monto')
-      .eq('centro_id', centro.id).gte('fecha', iso(pa, pm)).lt('fecha', iso(sa, sm)).order('fecha').limit(5000),
+      .gte('periodo', iso(pa, pm)).lt('periodo', iso(sa, sm))),
+    todo(() => db().from('gastos').select('id, fecha, concepto, proveedor, categoria, monto')
+      .eq('centro_id', centro.id).gte('fecha', iso(pa, pm)).lt('fecha', iso(sa, sm)).order('fecha')),
     db().from('empleados').select('nombre, puesto'),
   ]);
   const err = u.error || c.error || p.error || g.error;

@@ -128,3 +128,15 @@ export function abrirComprobante(ruta) {
     ? `<embed src="${ruta}" style="position:fixed;inset:0;width:100%;height:100%" type="application/pdf">`
     : `<body style="margin:0;background:#111;display:grid;place-items:center;height:100vh"><img src="${ruta}" style="max-width:100%;max-height:100%"></body>`);
 }
+
+// La base entrega como máximo 1,000 filas por consulta. Esto pide de 1,000 en 1,000 hasta traer todo.
+// Uso: const { data, error } = await todo(() => db().from('gastos').select('…').gte(…));
+export async function todo(consulta, tam = 1000) {
+  const filas = [];
+  for (let desde = 0; ; desde += tam) {
+    const { data, error } = await consulta().order('id').range(desde, desde + tam - 1);
+    if (error) return { data: null, error };
+    filas.push(...data);
+    if (data.length < tam) return { data: filas, error: null };
+  }
+}

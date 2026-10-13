@@ -1,7 +1,7 @@
 // Cobranza de Torre Elysium: mantenimiento y luz por unidad y por mes.
 // Reemplaza la página "Cobranza Elysium".
 import { MESES, FORMAS_COBRO } from '../config.js';
-import { db, estado, tieneRol, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal } from '../lib.js';
+import { db, todo, estado, tieneRol, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal } from '../lib.js';
 
 const CONCEPTOS = {
   mantenimiento: { titulo: 'Mantenimiento', icono: '🏠' },
@@ -51,9 +51,9 @@ async function cargar() {
   const [u, c, p] = await Promise.all([
     db().from('unidades').select('id, identificador, tipo, ocupante, notas, activo').eq('centro_id', centro.id).eq('activo', true),
     db().from('cuotas').select('id, unidad_id, concepto, monto, activo, en_padron').in('concepto', ['mantenimiento', 'luz']),
-    db().from('pagos').select('id, unidad_id, concepto, periodo, monto, forma_pago, fecha, notas, capturado_por')
+    todo(() => db().from('pagos').select('id, unidad_id, concepto, periodo, monto, forma_pago, fecha, notas, capturado_por')
       .eq('centro_id', centro.id).in('concepto', ['mantenimiento', 'luz'])
-      .gte('periodo', desde).lt('periodo', hasta).limit(10000),
+      .gte('periodo', desde).lt('periodo', hasta)),
   ]);
   const err = u.error || c.error || p.error;
   if (err) { toast('No se pudo cargar la cobranza: ' + err.message, true); return; }

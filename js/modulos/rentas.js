@@ -1,7 +1,7 @@
 // Rentas Treme: contratos, cobro mensual por día pactado, adeudos, historial y recibos.
 // Reemplaza la página "Rentas — Treme".
 import { MESES, FORMAS_COBRO } from '../config.js';
-import { db, estado, tieneRol, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal } from '../lib.js';
+import { db, todo, estado, tieneRol, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal } from '../lib.js';
 
 const st = {
   tab: 'rentas',                                   // rentas | adeudos | historial | contratos
@@ -40,8 +40,8 @@ async function cargar() {
   const [c, p, a] = await Promise.all([
     db().from('contratos').select('id, centro_id, unidad_id, arrendatario, monto, moneda, dia_pago, fecha_fin, telefono, email, notas, activo')
       .order('arrendatario'),
-    db().from('pagos').select('id, contrato_id, periodo, monto, moneda, forma_pago, fecha, folio, notas, capturado_por, creado_en')
-      .eq('concepto', 'renta').order('fecha', { ascending: false }).limit(10000),
+    todo(() => db().from('pagos').select('id, contrato_id, periodo, monto, moneda, forma_pago, fecha, folio, notas, capturado_por, creado_en')
+      .eq('concepto', 'renta').order('fecha', { ascending: false })),
     db().from('cuentas_por_cobrar').select('id, contrato_id, meses, monto_original, notas, creado_en').eq('tipo', 'adeudo_inicial'),
   ]);
   const err = c.error || p.error || a.error;

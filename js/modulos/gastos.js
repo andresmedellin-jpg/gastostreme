@@ -1,5 +1,5 @@
 import { CATEGORIAS, FORMAS_PAGO, MESES, BUCKET_COMPROBANTES } from '../config.js';
-import { sb, db, estado, esAdmin, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal,
+import { sb, db, todo, estado, esAdmin, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal,
          comprimirImagen, blobADataURL, abrirComprobante } from '../lib.js';
 
 const PRIVADOS = ['socio', 'personal'];   // Casa y Socios: fuera de "Todos" (como en el Centro de Control)
@@ -87,10 +87,10 @@ async function cargar() {
   const hasta = new Date(f.anio, f.mes + 1, 1);
   const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
   raiz.querySelector('#g-tbody').innerHTML = `<tr><td colspan="8" class="vacio">Cargando…</td></tr>`;
-  const { data, error } = await db().from('gastos')
+  const { data, error } = await todo(() => db().from('gastos')
     .select('id, fecha, monto, concepto, proveedor, categoria, forma_pago, comprobante_path, notas, centro_id, empresa_id, capturado_por')
     .gte('fecha', iso(desde)).lt('fecha', iso(hasta))
-    .order('fecha', { ascending: false }).limit(5000);
+    .order('fecha', { ascending: false }));
   if (error) { toast('No se pudieron cargar los gastos: ' + error.message, true); datos = []; }
   else datos = data;
   pintar();
