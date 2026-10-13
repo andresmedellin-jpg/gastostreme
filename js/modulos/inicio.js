@@ -9,10 +9,14 @@ const FUENTES = {
   renta:         { t: 'Rentas',          i: '🏢' },
   mantenimiento: { t: 'Mantenimiento',   i: '🏠' },
   luz:           { t: 'Luz cobrada',     i: '⚡' },
-  venta:         { t: 'Ventas',          i: '🏗' },
+  construccion:  { t: 'Obras y construcción', i: '🏗' },
+  venta:         { t: 'Ventas',          i: '🏷' },
   manual:        { t: 'Otros ingresos',  i: '💰' },
 };
-const CATEGORIAS_INGRESO = ['Venta', 'Servicio de construcción', 'Anticipo', 'Comisión', 'Intereses', 'Reembolso', 'Otro'];
+// Los ingresos capturados a mano se agrupan por su categoría
+const fuenteDeCategoria = (c) => ({ 'Obra / construcción': 'construccion', 'Servicio de construcción': 'construccion',
+  'Venta': 'venta' }[c] || 'manual');
+const CATEGORIAS_INGRESO = ['Obra / construcción', 'Venta', 'Anticipo', 'Comisión', 'Intereses', 'Reembolso', 'Otro'];
 const CORTO = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
 
 const st = { anio: new Date().getFullYear(), mes: new Date().getMonth(), empresa: '', fuente: '', q: '' };
@@ -91,7 +95,7 @@ async function cargar() {
         concepto: `${titulo}${quien ? ' — ' + quien : ''}`, forma: r.forma_pago, editable: false };
     }),
     ...i.data.map((r) => ({ id: r.id, mes: r.fecha.slice(0, 7), fecha: r.fecha, empresa_id: r.empresa_id, centro: centroDe(r.centro_id)?.nombre,
-      fuente: 'manual', monto: Number(r.monto), concepto: r.concepto + (r.cliente ? ' — ' + r.cliente : ''), forma: r.forma_pago,
+      fuente: fuenteDeCategoria(r.categoria), monto: Number(r.monto), concepto: r.concepto + (r.cliente ? ' — ' + r.cliente : ''), forma: r.forma_pago,
       categoria: r.categoria, notas: r.notas, editable: true })),
   ].filter((r) => r.mes >= desde.slice(0, 7) && r.mes < fin.slice(0, 7));
 
