@@ -61,7 +61,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 
 /* ---------- acceso ---------- */
 .login { min-height: 100%; display: grid; place-items: center; padding: 24px 16px; }
-.login-card { width: 100%; max-width: 360px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; box-shadow: var(--shadow); }
+.login-card { width: 100%; max-width: 360px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; box-shadow: var(--shadow); }
 .login-card form { display: grid; gap: 12px; margin-top: 20px; }
 .login-card label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--text-2); }
 .login-sub { margin: 4px 0 0; color: var(--text-3); }
@@ -377,3 +377,12 @@ h4.grupo:first-of-type { margin-top: 4px; }
 #pt-cuerpo > * { min-width: 0; }
 #c-cuerpo, #p-cuerpo, #r-cuerpo { display: grid; gap: 16px; min-width: 0; }
 #c-cuerpo > *, #p-cuerpo > *, #r-cuerpo > * { min-width: 0; }
+
+/* ---------- logotipos en el acceso ---------- */
+.login-logos { display: flex; align-items: center; justify-content: center; gap: 22px; padding: 4px 0 20px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
+.login-logos picture { flex: 0 1 auto; min-width: 0; }
+.login-logos img { display: block; max-width: 100%; height: auto; }
+.login-logos .logo-treme { width: 146px; }
+.login-logos .logo-medco { width: 134px; }
+.login-logos-sep { flex: none; width: 1px; height: 44px; background: var(--border); }
+.login-card .login-sub { text-align: center; margin-top: 14px; }
