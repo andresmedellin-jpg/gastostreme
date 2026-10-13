@@ -10,7 +10,8 @@ export const estado = { user: null, miembro: null, empresas: [], centros: [] };
 
 // Rol principal + roles extra de la persona que entró
 export const misRoles = () => estado.miembro ? [estado.miembro.rol, ...(estado.miembro.roles || [])] : [];
-export const tieneRol = (lista) => misRoles().some((r) => lista.includes(r));
+// El dueño siempre cuenta, igual que en la base (tiene_rol)
+export const tieneRol = (lista) => misRoles().some((r) => r === 'dueno' || lista.includes(r));
 export const esAdmin = () => tieneRol(['dueno', 'administracion']);
 
 // ---------- formato ----------
@@ -96,6 +97,23 @@ export const blobADataURL = (blob) => new Promise((res, rej) => {
   fr.onerror = rej;
   fr.readAsDataURL(blob);
 });
+
+// Sube una foto o PDF al almacenamiento y regresa su dirección.
+// Si el almacenamiento la rechaza, la guarda dentro del registro (como hacían las páginas viejas).
+export async function subirArchivo(blob, carpeta, ext = 'jpg', tipo = 'image/jpeg') {
+  const ruta = `app/${estado.miembro.org_id}/${carpeta}/${new Date().toISOString().slice(0, 7)}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await sb.storage.from('comprobantes').upload(ruta, blob, { contentType: tipo, upsert: false });
+  if (!error) return sb.storage.from('comprobantes').getPublicUrl(ruta).data.publicUrl;
+  console.warn('Subida falló, se guarda en la base:', error.message);
+  return blobADataURL(blob);
+}
+
+export function verFoto(url) {
+  if (!url) return;
+  abrirModal({ titulo: 'Foto', cuerpo: `<img src="${esc(url)}" alt="" style="width:100%;border-radius:8px">` });
+}
+
+export const normalizar = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
 export function abrirComprobante(ruta) {
   if (!ruta) return;

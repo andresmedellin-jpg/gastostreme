@@ -6,6 +6,7 @@ const vistas = {
   usuarios: () => import('./modulos/usuarios.js'),
   cobranza: () => import('./modulos/cobranza.js'),
   rentas: () => import('./modulos/rentas.js'),
+  personal: () => import('./modulos/personal.js'),
 };
 const pendiente = () => import('./modulos/pendiente.js');
 

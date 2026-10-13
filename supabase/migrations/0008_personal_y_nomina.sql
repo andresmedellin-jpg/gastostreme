@@ -1,0 +1,8 @@
+-- Aplicado como app_personal_y_nomina y app_prestamo_abonos (13/oct/2026). Resumen:
+-- * asistencia: hora_entrada, hora_salida, horas_descontadas (recuperadas del respaldo)
+-- * tareas: hora_registro (recuperada del respaldo)
+-- * nomina_lineas: fecha real de pago (recuperada del JSON de nómina) y gasto_id (gasto de "Nómina" ligado)
+-- * empleados, nómina, préstamos y vacaciones: solo dueño y administración (el encargado no ve sueldos)
+-- * funciones: equipo_de(centro), asistencia_marcar(empleado, fecha, accion), nomina_pagar(...)
+-- * tabla prestamo_abonos
+-- El SQL completo quedó en el historial de migraciones del proyecto en Supabase.
