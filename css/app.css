@@ -7,21 +7,7 @@
   --sidebar: 232px;
   color-scheme: light;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #121212; --surface: #1a1a1a; --surface-2: #222222; --border: #2e2e2e;
-    --text: #ededed; --text-2: #b5b5b5; --text-3: #8a8a8a;
-    --primary: #ef6a6a; --primary-2: #f58c8c; --primary-soft: #3a1c1d;
-    --neg: #f97066; --ok: #47cd89; --warn: #fdb022;
-    --shadow: none; color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #121212; --surface: #1a1a1a; --surface-2: #222222; --border: #2e2e2e;
-  --text: #ededed; --text-2: #b5b5b5; --text-3: #8a8a8a;
-  --primary: #ef6a6a; --primary-2: #f58c8c; --primary-soft: #3a1c1d;
-  --neg: #f97066; --ok: #47cd89; --warn: #fdb022; --shadow: none; color-scheme: dark;
-}
+/* Solo modo claro: la plataforma no cambia con el modo oscuro del equipo. */
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
