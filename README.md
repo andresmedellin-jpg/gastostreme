@@ -37,6 +37,7 @@ Rentas Treme, Acceso Elysium y Reporte Mensual.
 8. `0010_cerrar_tablas_viejas_fase1.sql`: las tablas viejas de gastos, cobranza, ingresos y patrimonio ya no se pueden
    leer ni escribir desde internet (se quedan como respaldo).
 9. `0011_rol_socio.sql`: rol Socio (todo menos administrar usuarios).
+10. `0012_cerrar_tablas_viejas_fase2.sql`: se cierran las últimas tablas viejas; el esquema `public` ya no se usa.
 
 `supabase/functions/usuarios/`: función del servidor que crea usuarios, cambia contraseñas y da o quita acceso.
 Solo responde al dueño; usa la llave de servicio, que nunca llega al navegador.
@@ -50,8 +51,8 @@ El respaldo completo del sistema viejo está en el esquema `respaldo_20261012`.
 | Inicio (estado de resultados) | ✅ En la plataforma | Centro de Control: retirado |
 | Gastos | ✅ En la plataforma | Gastos Treme: retirado |
 | Cobranza Elysium | ✅ En la plataforma | Cobranza Elysium: retirado |
-| Rentas Treme | ✅ En la plataforma | Rentas Treme: se retira cuando Miguel tenga usuario |
-| Personal y nómina | ✅ En la plataforma | Elysium · Mi día (victorolazaran): se retira cuando Víctor tenga usuario. Acceso Elysium: retirado |
+| Rentas Treme | ✅ En la plataforma | Rentas Treme: retirado |
+| Personal y nómina | ✅ En la plataforma | Elysium · Mi día (victorolazaran) y Acceso Elysium: retirados |
 | Patrimonio | ✅ En la plataforma | — |
 | Reporte mensual | ✅ En la plataforma | Reporte Mensual: retirado |
 | Usuarios | ✅ En la plataforma | — |
