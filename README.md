@@ -31,6 +31,10 @@ Rentas Treme, Acceso Elysium y Reporte Mensual.
 3. `0003_migracion_datos.sql`: paso de datos del sistema viejo (esquema `public`) sin duplicados.
 4. `0004_login_usuario_y_privacidad.sql`: acceso con usuario, Casa y Socios visibles solo para dueño y administración, índices.
 5. `0005_usuarios_y_permisos.sql`: varios roles por persona, contraseña temporal obligatoria de cambiar, lista de usuarios.
+6. `0006` a `0008`: cobranza Elysium, rentas, personal y nómina.
+7. `0009_patrimonio_solo_dueno.sql`: activos y pasivos solo los ve y edita el dueño.
+8. `0010_cerrar_tablas_viejas_fase1.sql`: las tablas viejas de gastos, cobranza, ingresos y patrimonio ya no se pueden
+   leer ni escribir desde internet (se quedan como respaldo).
 
 `supabase/functions/usuarios/`: función del servidor que crea usuarios, cambia contraseñas y da o quita acceso.
 Solo responde al dueño; usa la llave de servicio, que nunca llega al navegador.
@@ -41,13 +45,16 @@ El respaldo completo del sistema viejo está en el esquema `respaldo_20261012`.
 
 | Módulo | Estado | Herramienta vieja |
 |---|---|---|
+| Inicio (estado de resultados) | ✅ En la plataforma | Centro de Control: retirado |
+| Gastos | ✅ En la plataforma | Gastos Treme: retirado |
+| Cobranza Elysium | ✅ En la plataforma | Cobranza Elysium: retirado |
+| Rentas Treme | ✅ En la plataforma | Rentas Treme: se retira cuando Miguel tenga usuario |
+| Personal y nómina | ✅ En la plataforma | Elysium · Mi día (victorolazaran): se retira cuando Víctor tenga usuario. Acceso Elysium: retirado |
+| Patrimonio | ✅ En la plataforma | — |
+| Reporte mensual | ✅ En la plataforma | Reporte Mensual: retirado |
 | Usuarios | ✅ En la plataforma | — |
-| Gastos | ✅ En la plataforma | Centro de Control (pestaña Gastos), Gastos Treme |
-| Cobranza Elysium | ✅ En la plataforma | Cobranza Elysium |
-| Rentas Treme | ✅ En la plataforma | Rentas Treme |
-| Personal y nómina | ✅ En la plataforma | Elysium · Mi día (victorolazaran), Nómina del Centro de Control. Acceso Elysium: retirado |
-| Patrimonio | En proceso | — |
-| Reportes | En proceso | Reporte Mensual |
+
+Las páginas retiradas muestran un aviso y mandan a la plataforma; su código sigue en el historial de cada repositorio.
 
 ## Publicar cambios
 
