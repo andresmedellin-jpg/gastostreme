@@ -1,5 +1,5 @@
 import { MODULOS } from './config.js';
-import { sb, db, estado, esc, toast } from './lib.js';
+import { sb, db, estado, esc, toast, abrirModal, cerrarModal } from './lib.js';
 
 const vistas = {
   gastos: () => import('./modulos/gastos.js'),
@@ -9,24 +9,74 @@ const pendiente = () => import('./modulos/pendiente.js');
 const $ = (id) => document.getElementById(id);
 
 // ================= ACCESO =================
+// Usuarios sin correo propio reciben uno interno con este dominio (nunca recibe mensajes)
+const DOMINIO_INTERNO = '@usuarios.medco.mx';
+
+// El usuario puede escribir su nombre de usuario o, si tiene, su correo
+async function correoDe(usuario) {
+  if (usuario.includes('@')) return usuario;
+  const { data, error } = await db().rpc('correo_para_login', { p_usuario: usuario });
+  if (error) throw new Error('No se pudo conectar. Intenta de nuevo en un momento.');
+  return data;
+}
+
 $('login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const email = $('login-email').value.trim();
+  const usuario = $('login-user').value.trim();
   const password = $('login-pass').value;
-  if (!password) return mensajeLogin('Escribe tu contraseña o pide un enlace al correo.');
+  if (!usuario || !password) return mensajeLogin('Escribe tu usuario y contraseña.');
   $('login-btn').disabled = true;
-  const { error } = await sb.auth.signInWithPassword({ email, password });
-  $('login-btn').disabled = false;
-  if (error) mensajeLogin(error.message === 'Invalid login credentials' ? 'Correo o contraseña incorrectos.' : error.message);
+  mensajeLogin('');
+  try {
+    const email = await correoDe(usuario);
+    const { error } = email
+      ? await sb.auth.signInWithPassword({ email, password })
+      : { error: { message: 'Invalid login credentials' } };
+    if (error) mensajeLogin(error.message === 'Invalid login credentials' ? 'Usuario o contraseña incorrectos.' : error.message);
+  } catch (err) {
+    mensajeLogin(err.message);
+  } finally {
+    $('login-btn').disabled = false;
+  }
 });
 
-$('login-link').addEventListener('click', async () => {
-  const email = $('login-email').value.trim();
-  if (!email) return mensajeLogin('Escribe tu correo primero.');
-  const { error } = await sb.auth.signInWithOtp({
-    email, options: { shouldCreateUser: false, emailRedirectTo: location.origin + location.pathname },
-  });
-  mensajeLogin(error ? error.message : 'Listo: revisa tu correo y abre el enlace desde este mismo dispositivo.');
+$('login-olvide').addEventListener('click', async () => {
+  const usuario = $('login-user').value.trim();
+  if (!usuario) return mensajeLogin('Escribe tu usuario y vuelve a darle a "¿Olvidaste tu contraseña?".');
+  try {
+    const email = await correoDe(usuario);
+    if (email && !email.endsWith(DOMINIO_INTERNO)) {
+      await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+    }
+    // Mismo mensaje exista o no el usuario, para no revelar quién tiene cuenta
+    mensajeLogin('Si tu usuario tiene correo, te llegó un enlace para cambiar la contraseña. Si no tienes correo, pídele a Andrés que te la cambie.');
+  } catch (err) {
+    mensajeLogin(err.message);
+  }
+});
+
+// Al abrir el enlace de "olvidé mi contraseña", pedir la nueva
+sb.auth.onAuthStateChange((evento) => {
+  if (evento !== 'PASSWORD_RECOVERY') return;
+  setTimeout(() => {
+    const modal = abrirModal({
+      titulo: 'Nueva contraseña',
+      cuerpo: `<form class="form" id="np-form">
+          <label>Contraseña nueva<input type="password" id="np-1" minlength="8" autocomplete="new-password" required></label>
+          <label>Repítela<input type="password" id="np-2" minlength="8" autocomplete="new-password" required></label>
+          <small>Mínimo 8 caracteres.</small></form>`,
+      pie: `<button class="btn btn-primary" id="np-guardar">Guardar</button>`,
+    });
+    modal.querySelector('#np-guardar').addEventListener('click', async () => {
+      const a = modal.querySelector('#np-1').value, b = modal.querySelector('#np-2').value;
+      if (a.length < 8) return toast('La contraseña debe tener al menos 8 caracteres', true);
+      if (a !== b) return toast('Las contraseñas no coinciden', true);
+      const { error } = await sb.auth.updateUser({ password: a });
+      if (error) return toast(error.message, true);
+      cerrarModal();
+      toast('Contraseña actualizada ✓');
+    });
+  }, 0);
 });
 
 $('logout').addEventListener('click', () => sb.auth.signOut());

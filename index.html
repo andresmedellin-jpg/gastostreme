@@ -17,14 +17,15 @@
       <div class="brand"><span class="brand-mark">▲</span> Plataforma</div>
       <p class="login-sub">Treme · MEDCO</p>
       <form id="login-form" autocomplete="on">
-        <label>Correo
-          <input type="email" id="login-email" required autocomplete="email" placeholder="tu@correo.com">
+        <label>Usuario
+          <input type="text" id="login-user" required autocomplete="username" autocapitalize="none"
+                 autocorrect="off" spellcheck="false" placeholder="tu usuario">
         </label>
         <label>Contraseña
-          <input type="password" id="login-pass" autocomplete="current-password" placeholder="••••••••">
+          <input type="password" id="login-pass" required autocomplete="current-password" placeholder="••••••••">
         </label>
         <button type="submit" class="btn btn-primary btn-block" id="login-btn">Entrar</button>
-        <button type="button" class="btn btn-ghost btn-block" id="login-link">Mandarme un enlace al correo</button>
+        <button type="button" class="link-btn" id="login-olvide">¿Olvidaste tu contraseña?</button>
         <p class="login-msg" id="login-msg" role="status"></p>
       </form>
     </div>

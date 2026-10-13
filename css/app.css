@@ -41,6 +41,8 @@ small { color: var(--text-3); font-weight: 400; }
 .btn-ghost:hover { background: var(--surface-2); color: var(--text); }
 .btn-sm { height: 28px; padding: 0 10px; font-size: 12px; }
 .btn-block { width: 100%; }
+.link-btn { background: none; border: 0; padding: 4px; font: inherit; font-size: 13px; color: var(--text-2); cursor: pointer; justify-self: center; }
+.link-btn:hover { color: var(--primary); text-decoration: underline; }
 .icon-btn { width: 32px; height: 32px; border: 0; background: transparent; color: var(--text-2); border-radius: 8px; cursor: pointer; font-size: 16px; }
 .icon-btn:hover { background: var(--surface-2); color: var(--text); }
 .icon-btn.peligro:hover { color: var(--neg); }
