@@ -44,7 +44,7 @@ El respaldo completo del sistema viejo está en el esquema `respaldo_20261012`.
 | Usuarios | ✅ En la plataforma | — |
 | Gastos | ✅ En la plataforma | Centro de Control (pestaña Gastos), Gastos Treme |
 | Cobranza Elysium | ✅ En la plataforma | Cobranza Elysium |
-| Rentas Treme | En proceso | Rentas Treme |
+| Rentas Treme | ✅ En la plataforma | Rentas Treme |
 | Personal | En proceso | Elysium · Mi día (victorolazaran), Nómina del Centro de Control. Acceso Elysium: retirado |
 | Patrimonio | En proceso | — |
 | Reportes | En proceso | Reporte Mensual |

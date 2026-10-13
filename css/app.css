@@ -265,3 +265,32 @@ tr.inactivo td { opacity: .55; }
   .tabla td[data-l="Cuota"]:not(:empty)::before { content: "Cuota "; color: var(--text-3); }
   .sub-meta { width: 100%; }
 }
+
+/* ---------- rentas ---------- */
+.nav-mes { display: flex; align-items: center; gap: 6px; }
+.nav-mes strong { min-width: 140px; text-align: center; font-size: 15px; }
+.nav-mes .icon-btn { font-size: 20px; border: 1px solid var(--border); background: var(--surface); }
+.semana { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-radius: var(--radius); background: var(--primary-soft); }
+.semana .badge { border: 0; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; }
+h4.grupo { margin: 16px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); }
+h4.grupo:first-of-type { margin-top: 4px; }
+.rentas { display: grid; gap: 8px; }
+.renta { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 10px 14px; border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 10px; cursor: pointer; background: var(--surface); }
+.renta:hover { background: var(--surface-2); }
+.renta.atrasado { border-left-color: var(--neg); } .renta.porv { border-left-color: var(--warn); } .renta.pagado { border-left-color: var(--ok); }
+.renta.inactivo { opacity: .55; }
+.dia { display: grid; justify-items: center; width: 42px; height: 42px; align-content: center; border-radius: 50%; background: var(--surface-2); line-height: 1; }
+.dia strong { font-size: 16px; } .dia small { font-size: 9px; }
+.renta-info { display: grid; gap: 2px; min-width: 0; } .renta-info strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .renta-info small { font-size: 12px; }
+.renta-der { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.deudor.clic { text-align: left; font: inherit; color: inherit; background: var(--surface); cursor: pointer; }
+.deudor.clic:hover { background: var(--surface-2); }
+.lista-pagos .fuerte { margin-right: 4px; }
+@media (max-width: 760px) {
+  .renta { grid-template-columns: auto 1fr; }
+  .renta-der { grid-column: 1 / -1; justify-content: flex-start; }
+}
+@media (max-width: 760px) {
+  .segmento { max-width: 100%; overflow-x: auto; }
+  .segmento button { white-space: nowrap; }
+}

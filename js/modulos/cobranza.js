@@ -29,7 +29,7 @@ export async function render(view) {
         ${[['resumen','Resumen'],['mantenimiento','🏠 Mantenimiento'],['luz','⚡ Luz'],['deudores','Deudores']]
           .map(([id, t]) => `<button role="tab" data-vista="${id}">${t}</button>`).join('')}
       </div>
-      <div class="sub-meta">Torre Elysium · <a href="https://andresmedellin-jpg.github.io/rentastreme/" target="_blank" rel="noopener">Rentas Treme ↗</a></div>
+      <div class="sub-meta">Torre Elysium · cuotas de condominio</div>
     </div>
     <div class="periodo">
       <div class="pills" id="c-meses"></div>

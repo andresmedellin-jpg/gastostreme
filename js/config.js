@@ -10,8 +10,9 @@ export const BUCKET_COMPROBANTES = 'comprobantes';
 export const MODULOS = [
   { id: 'inicio',     titulo: 'Inicio',      icono: '◧', roles: ['dueno','administracion'], listo: false },
   { id: 'gastos',     titulo: 'Gastos',      icono: '◫', roles: ['dueno','administracion','operacion'], listo: true },
-  { id: 'cobranza',   titulo: 'Cobranza',    icono: '◩', roles: ['dueno','administracion','cobranza'], listo: true },
-  { id: 'personal',   titulo: 'Personal',    icono: '◪', roles: ['dueno','administracion','encargado'], listo: false,
+  { id: 'cobranza',   titulo: 'Cobranza Elysium', icono: '◩', roles: ['dueno','administracion','cobranza'], listo: true },
+  { id: 'rentas',     titulo: 'Rentas',      icono: '◪', roles: ['dueno','administracion','cobranza'], listo: true },
+  { id: 'personal',   titulo: 'Personal',    icono: '◑', roles: ['dueno','administracion','encargado'], listo: false,
     legacy: [['Elysium · Mi día','https://andresmedellin-jpg.github.io/victorolazaran/']] },
   { id: 'patrimonio', titulo: 'Patrimonio',  icono: '◨', roles: ['dueno'], listo: false },
   { id: 'reportes',   titulo: 'Reportes',    icono: '◰', roles: ['dueno','administracion'], listo: false,
