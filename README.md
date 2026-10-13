@@ -1,4 +1,6 @@
-# Plataforma administrativa · Treme · MEDCO
+# Treme / MEDCO · plataforma administrativa
+
+**Liga para todos: https://app.medco.mx** (registro CNAME `app` → `andresmedellin-jpg.github.io` en el DNS de medco.mx, en WordPress.com; archivo `CNAME` en este repositorio).
 
 Una sola app (con login) que reemplaza los HTML sueltos: Centro de Control, Gastos, Cobranza Elysium,
 Rentas Treme, Acceso Elysium y Reporte Mensual.
