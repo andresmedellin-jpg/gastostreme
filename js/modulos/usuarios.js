@@ -117,7 +117,7 @@ function formulario(u = null, pre = {}) {
             ${empresasActuales == null || empresasActuales.includes(e.id) ? 'checked' : ''} ${empresasActuales == null ? 'disabled' : ''}> ${esc(e.nombre)}</label>`).join('')}
         </fieldset>
         ${editando ? '' : `<label>Contraseña temporal <small>(se la das en persona; la cambia al entrar)</small>
-          <div class="campo-boton"><input name="password" required minlength="8" value="${esc(generarPassword())}" spellcheck="false">
+          <div class="campo-boton"><input name="password" required minlength="6" value="${esc(generarPassword())}" spellcheck="false">
             <button type="button" class="btn btn-ghost btn-sm" id="uf-gen">Otra</button></div></label>`}
       </form>`,
     pie: `<button class="btn btn-ghost" id="uf-cancelar">Cancelar</button>
@@ -146,7 +146,7 @@ function formulario(u = null, pre = {}) {
     if (!cuerpo.nombre) return toast('Escribe el nombre', true);
     if (empresas && !empresas.length) return toast('Elige al menos una empresa', true);
     if (!editando && !/^[a-z0-9._-]{3,30}$/.test(cuerpo.usuario)) return toast('El usuario debe tener de 3 a 30 letras o números, sin espacios ni acentos', true);
-    if (!editando && cuerpo.password.length < 8) return toast('La contraseña debe tener al menos 8 caracteres', true);
+    if (!editando && cuerpo.password.length < 6) return toast('La contraseña debe tener al menos 6 caracteres', true);
 
     btn.disabled = true; btn.textContent = 'Guardando…';
     try {
@@ -170,7 +170,7 @@ function cambiarPassword(u) {
       <p class="nota">${propio ? 'Escribe tu nueva contraseña.'
         : 'Dale esta contraseña temporal en persona. Al entrar, la plataforma le pedirá cambiarla por una suya.'}</p>
       <label>Contraseña nueva
-        <div class="campo-boton"><input name="password" minlength="8" spellcheck="false" ${propio ? 'type="password" autocomplete="new-password"' : `value="${esc(generarPassword())}"`}>
+        <div class="campo-boton"><input name="password" minlength="6" spellcheck="false" ${propio ? 'type="password" autocomplete="new-password"' : `value="${esc(generarPassword())}"`}>
           ${propio ? '' : '<button type="button" class="btn btn-ghost btn-sm" id="pf-gen">Otra</button>'}</div></label>
     </form>`,
     pie: `<button class="btn btn-ghost" id="pf-cancelar">Cancelar</button><button class="btn btn-primary" id="pf-guardar">Guardar</button>`,
@@ -181,7 +181,7 @@ function cambiarPassword(u) {
   modal.querySelector('#pf-guardar').addEventListener('click', async (ev) => {
     const btn = ev.currentTarget;
     const password = form.password.value;
-    if (password.length < 8) return toast('Mínimo 8 caracteres', true);
+    if (password.length < 6) return toast('Mínimo 6 caracteres', true);
     btn.disabled = true;
     try {
       await llamar({ accion: 'password', user_id: u.user_id, password });

@@ -69,15 +69,15 @@ function pedirNuevaPassword({ obligatoria = false } = {}) {
     bloqueado: obligatoria,
     cuerpo: `<form class="form" id="np-form">
         ${obligatoria ? '<p class="nota">Estás entrando con una contraseña temporal. Elige una tuya que solo tú sepas.</p>' : ''}
-        <label>Contraseña nueva<input type="password" id="np-1" minlength="8" autocomplete="new-password" required></label>
-        <label>Repítela<input type="password" id="np-2" minlength="8" autocomplete="new-password" required></label>
-        <small>Mínimo 8 caracteres.</small></form>`,
+        <label>Contraseña nueva<input type="password" id="np-1" minlength="6" autocomplete="new-password" required></label>
+        <label>Repítela<input type="password" id="np-2" minlength="6" autocomplete="new-password" required></label>
+        <small>Mínimo 6 caracteres.</small></form>`,
     pie: `<button class="btn btn-primary" id="np-guardar">Guardar</button>`,
   });
   modal.querySelector('#np-guardar').addEventListener('click', async (ev) => {
     const btn = ev.currentTarget;
     const a = modal.querySelector('#np-1').value, b = modal.querySelector('#np-2').value;
-    if (a.length < 8) return toast('La contraseña debe tener al menos 8 caracteres', true);
+    if (a.length < 6) return toast('La contraseña debe tener al menos 6 caracteres', true);
     if (a !== b) return toast('Las contraseñas no coinciden', true);
     btn.disabled = true;
     const { error } = await sb.auth.updateUser({ password: a });

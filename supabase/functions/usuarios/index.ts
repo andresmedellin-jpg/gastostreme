@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     return (data?.length ?? 0) === empresas.length ? null : "Empresa inválida";
   };
   const validarPassword = (p: unknown) =>
-    typeof p === "string" && p.length >= 8 && p.length <= 72 ? null : "La contraseña debe tener entre 8 y 72 caracteres";
+    typeof p === "string" && p.length >= 6 && p.length <= 72 ? null : "La contraseña debe tener entre 6 y 72 caracteres";
 
   const miembroDeMiOrg = async (userId: unknown) => {
     if (typeof userId !== "string") return null;
