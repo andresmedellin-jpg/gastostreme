@@ -467,9 +467,15 @@ function pagarModal(e, monto) {
 async function empleados(el) {
   document.getElementById('page-actions').innerHTML = `<button class="btn btn-primary" id="e-nuevo">＋ Empleado</button>`;
   document.getElementById('e-nuevo').addEventListener('click', () => editarEmpleado(null));
-  const { data, error } = await db().from('empleados').select('*').order('activo', { ascending: false }).order('nombre');
+  const { data: todos, error } = await db().from('empleados').select('*').order('activo', { ascending: false }).order('nombre');
   if (error) throw error;
-  el.innerHTML = `<section class="panel"><div class="tabla-wrap"><table class="tabla">
+  // Los dados de baja se guardan por su historial de nómina, pero no se muestran salvo que se pidan
+  const bajas = todos.filter((e) => !e.activo).length;
+  const data = verBajas ? todos : todos.filter((e) => e.activo);
+  el.innerHTML = `<section class="panel">
+    <div class="panel-head"><h3>${todos.length - bajas} empleado${todos.length - bajas === 1 ? '' : 's'} activo${todos.length - bajas === 1 ? '' : 's'}</h3>
+      ${bajas ? `<button class="btn btn-sm btn-ghost" id="e-bajas">${verBajas ? 'Ocultar dados de baja' : `Ver dados de baja (${bajas})`}</button>` : ''}</div>
+    <div class="tabla-wrap"><table class="tabla">
     <thead><tr><th>Nombre</th><th>Puesto</th><th>Centro</th><th class="num">Sueldo semanal</th><th>Horario</th><th></th></tr></thead>
     <tbody>${data.map((e) => `<tr class="${e.activo ? '' : 'inactivo'}">
       <td data-l="Nombre"><strong>${esc(e.nombre)}</strong>${e.activo ? '' : ' <span class="tag tag-suave">baja</span>'}</td>
@@ -480,7 +486,9 @@ async function empleados(el) {
       <td class="acciones"><button class="btn btn-sm btn-ghost" data-editar="${e.id}">Editar</button></td></tr>`).join('')}</tbody>
   </table></div></section>`;
   el.querySelectorAll('[data-editar]').forEach((b) => b.addEventListener('click', () => editarEmpleado(data.find((x) => x.id === b.dataset.editar))));
+  el.querySelector('#e-bajas')?.addEventListener('click', () => { verBajas = !verBajas; empleados(el); });
 }
+let verBajas = false;
 
 function editarEmpleado(e) {
   const dl = (e?.dias_laborales || 'LUN,MAR,MIE,JUE,VIE,SAB').split(',');
