@@ -10,8 +10,10 @@ export const estado = { user: null, miembro: null, empresas: [], centros: [] };
 
 // Rol principal + roles extra de la persona que entró
 export const misRoles = () => estado.miembro ? [estado.miembro.rol, ...(estado.miembro.roles || [])] : [];
-// El dueño siempre cuenta, igual que en la base (tiene_rol)
-export const tieneRol = (lista) => misRoles().some((r) => r === 'dueno' || lista.includes(r));
+// Igual que en la base (tiene_rol): el dueño siempre cuenta; el socio cuenta para todo
+// lo que no sea exclusivo del dueño (administrar usuarios).
+export const tieneRol = (lista) => misRoles().some((r) =>
+  r === 'dueno' || lista.includes(r) || (r === 'socio' && lista.some((x) => x !== 'dueno')));
 export const esAdmin = () => tieneRol(['dueno', 'administracion']);
 
 // ---------- formato ----------

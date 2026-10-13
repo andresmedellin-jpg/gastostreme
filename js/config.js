@@ -13,13 +13,15 @@ export const MODULOS = [
   { id: 'cobranza',   titulo: 'Cobranza Elysium', icono: '◩', roles: ['dueno','administracion','cobranza'], listo: true },
   { id: 'rentas',     titulo: 'Rentas',      icono: '◪', roles: ['dueno','administracion','cobranza'], listo: true },
   { id: 'personal',   titulo: 'Personal',    icono: '◑', roles: ['dueno','administracion','encargado'], listo: true },
-  { id: 'patrimonio', titulo: 'Patrimonio',  icono: '◨', roles: ['dueno'], listo: true },
+  { id: 'patrimonio', titulo: 'Patrimonio',  icono: '◨', roles: ['dueno','socio'], listo: true },
   { id: 'reportes',   titulo: 'Reporte mensual', icono: '◰', roles: ['dueno','administracion'], listo: true },
   { id: 'usuarios',   titulo: 'Usuarios',    icono: '◉', roles: ['dueno'], listo: true },
 ];
 
 // Perfiles listos para dar de alta a alguien: un rol principal + roles extra
 export const PERFILES = [
+  { id: 'socio',     titulo: 'Socio: todo',                rol: 'socio',     roles: [],
+    desc: 'Ve y hace todo, igual que el dueño: Casa, Socios, nómina y patrimonio. Solo no puede dar de alta usuarios.' },
   { id: 'captura',   titulo: 'Captura: gastos y cobranza', rol: 'cobranza',  roles: ['operacion'],
     desc: 'Captura gastos de obra y oficina, y registra cobranza. No ve Casa, Socios, nómina ni patrimonio.' },
   { id: 'cobranza',  titulo: 'Cobranza y rentas',          rol: 'cobranza',  roles: [],
@@ -36,7 +38,7 @@ export const PERFILES = [
 export const SUGERIDOS = [
   { nombre: 'Victoria Carrillo', usuario: 'victoria', perfil: 'captura',   empresas: 'todas' },
   { nombre: 'Víctor Olazarán',   usuario: 'victor',   perfil: 'encargado', empresas: ['Treme'] },
-  { nombre: 'Miguel Medellín',   usuario: 'miguel',   perfil: 'cobranza',  empresas: ['Treme'] },
+  { nombre: 'Miguel Medellín',   usuario: 'miguel',   perfil: 'socio',     empresas: 'todas' },
 ];
 
 export const CATEGORIAS = {

@@ -33,7 +33,7 @@ export async function render(view) {
       <div class="tabs" role="tablist">
         <button role="tab" data-vista="activos">🏢 Activos</button><button role="tab" data-vista="pasivos">💳 Pasivos</button>
       </div>
-      <div class="sub-meta">Solo tú ves esta sección</div>
+      <div class="sub-meta">Solo lo ven el dueño y los socios</div>
     </div>
     <div id="pt-kpis"></div>
     <div id="pt-cuerpo"><div class="cargando">Cargando…</div></div>`;

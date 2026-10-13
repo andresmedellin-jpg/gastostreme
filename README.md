@@ -18,6 +18,7 @@ Rentas Treme, Acceso Elysium y Reporte Mensual.
 | Rol | Ve |
 |---|---|
 | Dueño | Todo, incluidos Casa y Socios |
+| Socio | Igual que el dueño, menos dar de alta usuarios |
 | Administración | Todo menos Patrimonio |
 | Cobranza | Cobranza |
 | Operación / Encargado | Gastos de obra, personal y tareas de su centro |
@@ -35,6 +36,7 @@ Rentas Treme, Acceso Elysium y Reporte Mensual.
 7. `0009_patrimonio_solo_dueno.sql`: activos y pasivos solo los ve y edita el dueño.
 8. `0010_cerrar_tablas_viejas_fase1.sql`: las tablas viejas de gastos, cobranza, ingresos y patrimonio ya no se pueden
    leer ni escribir desde internet (se quedan como respaldo).
+9. `0011_rol_socio.sql`: rol Socio (todo menos administrar usuarios).
 
 `supabase/functions/usuarios/`: función del servidor que crea usuarios, cambia contraseñas y da o quita acceso.
 Solo responde al dueño; usa la llave de servicio, que nunca llega al navegador.

@@ -149,7 +149,7 @@ async function entrar(user) {
   return entrando;
 }
 
-const rolLegible = (r) => ({ dueno: 'Dueño', administracion: 'Administración', cobranza: 'Cobranza',
+const rolLegible = (r) => ({ dueno: 'Dueño', socio: 'Socio', administracion: 'Administración', cobranza: 'Cobranza',
   operacion: 'Gastos', encargado: 'Encargado', lectura: 'Solo lectura' }[r] || r);
 
 // ================= NAVEGACIÓN =================

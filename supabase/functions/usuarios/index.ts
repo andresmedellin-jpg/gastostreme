@@ -3,7 +3,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const DOMINIO_INTERNO = "usuarios.medco.mx"; // correo interno para quien no tiene correo propio
-const ROLES = ["dueno", "administracion", "cobranza", "operacion", "encargado", "lectura"];
+const ROLES = ["dueno", "socio", "administracion", "cobranza", "operacion", "encargado", "lectura"];
 const ORIGENES = ["https://app.medco.mx", "https://andresmedellin-jpg.github.io", "http://localhost:8000", "http://127.0.0.1:8000"];
 
 function cors(req: Request) {
