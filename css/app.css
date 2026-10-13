@@ -362,3 +362,10 @@ h4.grupo:first-of-type { margin-top: 4px; }
 .leyenda i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 #i-cuerpo { display: grid; gap: 16px; min-width: 0; }
 #i-cuerpo > * { min-width: 0; }
+
+/* ---------- patrimonio ---------- */
+.form-2 .ancho { grid-column: 1 / -1; }
+.tabla tr.clic { cursor: pointer; }
+.tabla tr.clic:hover td, .tabla tr.clic:focus-visible td { background: var(--surface-2); }
+#pt-cuerpo { display: grid; gap: 16px; min-width: 0; }
+#pt-cuerpo > * { min-width: 0; }

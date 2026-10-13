@@ -13,7 +13,7 @@ export const MODULOS = [
   { id: 'cobranza',   titulo: 'Cobranza Elysium', icono: '◩', roles: ['dueno','administracion','cobranza'], listo: true },
   { id: 'rentas',     titulo: 'Rentas',      icono: '◪', roles: ['dueno','administracion','cobranza'], listo: true },
   { id: 'personal',   titulo: 'Personal',    icono: '◑', roles: ['dueno','administracion','encargado'], listo: true },
-  { id: 'patrimonio', titulo: 'Patrimonio',  icono: '◨', roles: ['dueno'], listo: false },
+  { id: 'patrimonio', titulo: 'Patrimonio',  icono: '◨', roles: ['dueno'], listo: true },
   { id: 'reportes',   titulo: 'Reporte mensual', icono: '◰', roles: ['dueno','administracion'], listo: true },
   { id: 'usuarios',   titulo: 'Usuarios',    icono: '◉', roles: ['dueno'], listo: true },
 ];
