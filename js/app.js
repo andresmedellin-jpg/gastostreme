@@ -2,6 +2,7 @@ import { MODULOS } from './config.js';
 import { sb, db, estado, esc, toast, abrirModal, cerrarModal, tieneRol } from './lib.js';
 
 const vistas = {
+  inicio: () => import('./modulos/inicio.js'),
   gastos: () => import('./modulos/gastos.js'),
   usuarios: () => import('./modulos/usuarios.js'),
   cobranza: () => import('./modulos/cobranza.js'),

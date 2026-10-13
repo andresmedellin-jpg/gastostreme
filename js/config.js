@@ -8,7 +8,7 @@ export const BUCKET_COMPROBANTES = 'comprobantes';
 // Módulos de la plataforma y qué roles los ven.
 // "legacy" = página vieja que se sigue usando mientras el módulo se migra.
 export const MODULOS = [
-  { id: 'inicio',     titulo: 'Inicio',      icono: '◧', roles: ['dueno','administracion'], listo: false },
+  { id: 'inicio',     titulo: 'Inicio',      icono: '◧', roles: ['dueno','administracion'], listo: true },
   { id: 'gastos',     titulo: 'Gastos',      icono: '◫', roles: ['dueno','administracion','operacion'], listo: true },
   { id: 'cobranza',   titulo: 'Cobranza Elysium', icono: '◩', roles: ['dueno','administracion','cobranza'], listo: true },
   { id: 'rentas',     titulo: 'Rentas',      icono: '◪', roles: ['dueno','administracion','cobranza'], listo: true },
