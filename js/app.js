@@ -1,8 +1,9 @@
 import { MODULOS } from './config.js';
-import { sb, db, estado, esc, toast, abrirModal, cerrarModal } from './lib.js';
+import { sb, db, estado, esc, toast, abrirModal, cerrarModal, tieneRol } from './lib.js';
 
 const vistas = {
   gastos: () => import('./modulos/gastos.js'),
+  usuarios: () => import('./modulos/usuarios.js'),
 };
 const pendiente = () => import('./modulos/pendiente.js');
 
@@ -55,28 +56,39 @@ $('login-olvide').addEventListener('click', async () => {
   }
 });
 
+// Pide una contraseña nueva. obligatoria = primera entrada con la contraseña temporal
+function pedirNuevaPassword({ obligatoria = false } = {}) {
+  const modal = abrirModal({
+    titulo: obligatoria ? 'Crea tu contraseña' : 'Nueva contraseña',
+    bloqueado: obligatoria,
+    cuerpo: `<form class="form" id="np-form">
+        ${obligatoria ? '<p class="nota">Estás entrando con una contraseña temporal. Elige una tuya que solo tú sepas.</p>' : ''}
+        <label>Contraseña nueva<input type="password" id="np-1" minlength="8" autocomplete="new-password" required></label>
+        <label>Repítela<input type="password" id="np-2" minlength="8" autocomplete="new-password" required></label>
+        <small>Mínimo 8 caracteres.</small></form>`,
+    pie: `<button class="btn btn-primary" id="np-guardar">Guardar</button>`,
+  });
+  modal.querySelector('#np-guardar').addEventListener('click', async (ev) => {
+    const btn = ev.currentTarget;
+    const a = modal.querySelector('#np-1').value, b = modal.querySelector('#np-2').value;
+    if (a.length < 8) return toast('La contraseña debe tener al menos 8 caracteres', true);
+    if (a !== b) return toast('Las contraseñas no coinciden', true);
+    btn.disabled = true;
+    const { error } = await sb.auth.updateUser({ password: a });
+    if (error) {
+      btn.disabled = false;
+      return toast(error.message.includes('different') ? 'Debe ser distinta a la temporal' : error.message, true);
+    }
+    await db().rpc('marcar_password_cambiado');
+    if (estado.miembro) estado.miembro.debe_cambiar_password = false;
+    cerrarModal();
+    toast('Contraseña guardada ✓');
+  });
+}
+
 // Al abrir el enlace de "olvidé mi contraseña", pedir la nueva
 sb.auth.onAuthStateChange((evento) => {
-  if (evento !== 'PASSWORD_RECOVERY') return;
-  setTimeout(() => {
-    const modal = abrirModal({
-      titulo: 'Nueva contraseña',
-      cuerpo: `<form class="form" id="np-form">
-          <label>Contraseña nueva<input type="password" id="np-1" minlength="8" autocomplete="new-password" required></label>
-          <label>Repítela<input type="password" id="np-2" minlength="8" autocomplete="new-password" required></label>
-          <small>Mínimo 8 caracteres.</small></form>`,
-      pie: `<button class="btn btn-primary" id="np-guardar">Guardar</button>`,
-    });
-    modal.querySelector('#np-guardar').addEventListener('click', async () => {
-      const a = modal.querySelector('#np-1').value, b = modal.querySelector('#np-2').value;
-      if (a.length < 8) return toast('La contraseña debe tener al menos 8 caracteres', true);
-      if (a !== b) return toast('Las contraseñas no coinciden', true);
-      const { error } = await sb.auth.updateUser({ password: a });
-      if (error) return toast(error.message, true);
-      cerrarModal();
-      toast('Contraseña actualizada ✓');
-    });
-  }, 0);
+  if (evento === 'PASSWORD_RECOVERY') setTimeout(() => pedirNuevaPassword(), 0);
 });
 
 $('logout').addEventListener('click', () => sb.auth.signOut());
@@ -102,7 +114,7 @@ async function entrar(user) {
   entrando = (async () => {
     estado.user = user;
     const { data: miembro, error } = await db().from('miembros')
-      .select('org_id, nombre, rol, empresas').eq('user_id', user.id).eq('activo', true).maybeSingle();
+      .select('org_id, nombre, rol, roles, empresas, debe_cambiar_password').eq('user_id', user.id).eq('activo', true).maybeSingle();
 
     if (error || !miembro) {
       $('login').hidden = false; $('shell').hidden = true;
@@ -120,20 +132,22 @@ async function entrar(user) {
     estado.empresas = emp.data || [];
     estado.centros = cen.data || [];
 
-    $('user-box').innerHTML = `<strong>${esc(miembro.nombre)}</strong><span>${esc(rolLegible(miembro.rol))}</span>`;
+    const etiquetas = [miembro.rol, ...(miembro.roles || [])].map(rolLegible);
+    $('user-box').innerHTML = `<strong>${esc(miembro.nombre)}</strong><span>${esc([...new Set(etiquetas)].join(' · '))}</span>`;
     pintarNav();
     $('login').hidden = true;
     $('shell').hidden = false;
     navegar();
+    if (miembro.debe_cambiar_password) pedirNuevaPassword({ obligatoria: true });
   })().finally(() => (entrando = null));
   return entrando;
 }
 
 const rolLegible = (r) => ({ dueno: 'Dueño', administracion: 'Administración', cobranza: 'Cobranza',
-  operacion: 'Operación', encargado: 'Encargado', lectura: 'Solo lectura' }[r] || r);
+  operacion: 'Gastos', encargado: 'Encargado', lectura: 'Solo lectura' }[r] || r);
 
 // ================= NAVEGACIÓN =================
-const modulosDelUsuario = () => MODULOS.filter((m) => m.roles.includes(estado.miembro.rol));
+const modulosDelUsuario = () => MODULOS.filter((m) => tieneRol(m.roles));
 
 function pintarNav() {
   $('nav').innerHTML = modulosDelUsuario().map((m) => `
@@ -152,6 +166,11 @@ async function navegar() {
   let mod = mios.find((m) => m.id === id);
   if (!mod) {
     mod = mios.find((m) => m.listo) || mios[0];
+    if (!mod) {
+      $('page-title').textContent = 'Sin módulos';
+      $('view').innerHTML = '<div class="vacio">Tu usuario todavía no tiene módulos asignados. Pídele a Andrés que te dé acceso.</div>';
+      return;
+    }
     history.replaceState(null, '', '#/' + mod.id);
   }
   document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('active', a.dataset.mod === mod.id));

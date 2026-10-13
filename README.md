@@ -30,6 +30,10 @@ Rentas Treme, Acceso Elysium y Reporte Mensual.
 2. `0002_ajustes_migracion.sql`: ajustes previos a la carga.
 3. `0003_migracion_datos.sql`: paso de datos del sistema viejo (esquema `public`) sin duplicados.
 4. `0004_login_usuario_y_privacidad.sql`: acceso con usuario, Casa y Socios visibles solo para dueño y administración, índices.
+5. `0005_usuarios_y_permisos.sql`: varios roles por persona, contraseña temporal obligatoria de cambiar, lista de usuarios.
+
+`supabase/functions/usuarios/`: función del servidor que crea usuarios, cambia contraseñas y da o quita acceso.
+Solo responde al dueño; usa la llave de servicio, que nunca llega al navegador.
 
 El respaldo completo del sistema viejo está en el esquema `respaldo_20261012`.
 
@@ -37,8 +41,9 @@ El respaldo completo del sistema viejo está en el esquema `respaldo_20261012`.
 
 | Módulo | Estado | Herramienta vieja |
 |---|---|---|
+| Usuarios | ✅ En la plataforma | — |
 | Gastos | ✅ En la plataforma | Centro de Control (pestaña Gastos), Gastos Treme |
 | Cobranza | En proceso | Cobranza Elysium, Rentas Treme |
-| Personal | En proceso | Acceso Elysium, Nómina del Centro de Control |
+| Personal | En proceso | Elysium · Mi día (victorolazaran), Nómina del Centro de Control. Acceso Elysium: retirado |
 | Patrimonio | En proceso | — |
 | Reportes | En proceso | Reporte Mensual |

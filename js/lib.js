@@ -8,7 +8,10 @@ export const db = () => sb.schema(ESQUEMA);
 // Estado de la sesión: usuario, membresía y catálogos compartidos
 export const estado = { user: null, miembro: null, empresas: [], centros: [] };
 
-export const esAdmin = () => ['dueno', 'administracion'].includes(estado.miembro?.rol);
+// Rol principal + roles extra de la persona que entró
+export const misRoles = () => estado.miembro ? [estado.miembro.rol, ...(estado.miembro.roles || [])] : [];
+export const tieneRol = (lista) => misRoles().some((r) => lista.includes(r));
+export const esAdmin = () => tieneRol(['dueno', 'administracion']);
 
 // ---------- formato ----------
 const mxn = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 2 });
@@ -35,12 +38,13 @@ export function toast(msg, error = false) {
 }
 
 // ---------- modal ----------
-export function abrirModal({ titulo, cuerpo, pie }) {
+// bloqueado: no se puede cerrar sin terminar (p. ej. cambio obligatorio de contraseña)
+export function abrirModal({ titulo, cuerpo, pie, bloqueado = false }) {
   const root = document.getElementById('modal-root');
   root.innerHTML = `
-    <div class="modal-back" data-cerrar>
+    <div class="modal-back" ${bloqueado ? 'data-bloqueado' : 'data-cerrar'}>
       <div class="modal" role="dialog" aria-modal="true" aria-label="${esc(titulo)}">
-        <div class="modal-head"><h2>${esc(titulo)}</h2><button class="icon-btn" data-cerrar aria-label="Cerrar">✕</button></div>
+        <div class="modal-head"><h2>${esc(titulo)}</h2>${bloqueado ? '' : '<button class="icon-btn" data-cerrar aria-label="Cerrar">✕</button>'}</div>
         <div class="modal-body">${cuerpo}</div>
         ${pie ? `<div class="modal-foot">${pie}</div>` : ''}
       </div>
@@ -52,7 +56,18 @@ export function abrirModal({ titulo, cuerpo, pie }) {
   return root.querySelector('.modal');
 }
 export const cerrarModal = () => (document.getElementById('modal-root').innerHTML = '');
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrarModal(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !document.querySelector('#modal-root [data-bloqueado]')) cerrarModal();
+});
+
+// Contraseña legible para dar en persona: palabra-palabra-número
+export function generarPassword() {
+  const palabras = ['sol','mar','rio','luz','pino','roca','nube','lago','faro','trigo','cobre','plata','monte','brisa','cedro','olivo','arena','norte','cielo','bosque'];
+  const r = (n) => crypto.getRandomValues(new Uint32Array(1))[0] % n;
+  const a = r(palabras.length);
+  const b = (a + 1 + r(palabras.length - 1)) % palabras.length;   // dos palabras distintas
+  return `${palabras[a]}-${palabras[b]}-${1000 + r(9000)}`;
+}
 
 // ---------- imágenes ----------
 export function comprimirImagen(file, maxDim = 1600, calidad = 0.72) {

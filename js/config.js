@@ -9,14 +9,36 @@ export const BUCKET_COMPROBANTES = 'comprobantes';
 // "legacy" = página vieja que se sigue usando mientras el módulo se migra.
 export const MODULOS = [
   { id: 'inicio',     titulo: 'Inicio',      icono: '◧', roles: ['dueno','administracion'], listo: false },
-  { id: 'gastos',     titulo: 'Gastos',      icono: '◫', roles: ['dueno','administracion','operacion','encargado'], listo: true },
+  { id: 'gastos',     titulo: 'Gastos',      icono: '◫', roles: ['dueno','administracion','operacion'], listo: true },
   { id: 'cobranza',   titulo: 'Cobranza',    icono: '◩', roles: ['dueno','administracion','cobranza'], listo: false,
     legacy: [['Cobranza Elysium','https://andresmedellin-jpg.github.io/cobranzaelysium/'],['Rentas Treme','https://andresmedellin-jpg.github.io/rentastreme/']] },
   { id: 'personal',   titulo: 'Personal',    icono: '◪', roles: ['dueno','administracion','encargado'], listo: false,
-    legacy: [['Acceso Elysium','https://andresmedellin-jpg.github.io/elysiumacceso/']] },
+    legacy: [['Elysium · Mi día','https://andresmedellin-jpg.github.io/victorolazaran/']] },
   { id: 'patrimonio', titulo: 'Patrimonio',  icono: '◨', roles: ['dueno'], listo: false },
   { id: 'reportes',   titulo: 'Reportes',    icono: '◰', roles: ['dueno','administracion'], listo: false,
     legacy: [['Reporte mensual Elysium','https://andresmedellin-jpg.github.io/reportemensual/']] },
+  { id: 'usuarios',   titulo: 'Usuarios',    icono: '◉', roles: ['dueno'], listo: true },
+];
+
+// Perfiles listos para dar de alta a alguien: un rol principal + roles extra
+export const PERFILES = [
+  { id: 'captura',   titulo: 'Captura: gastos y cobranza', rol: 'cobranza',  roles: ['operacion'],
+    desc: 'Captura gastos de obra y oficina, y registra cobranza. No ve Casa, Socios, nómina ni patrimonio.' },
+  { id: 'cobranza',  titulo: 'Cobranza y rentas',          rol: 'cobranza',  roles: [],
+    desc: 'Rentas, cobranza de Elysium y adeudos. No ve gastos.' },
+  { id: 'gastos',    titulo: 'Solo gastos',                rol: 'operacion', roles: [],
+    desc: 'Captura y consulta gastos de obra y oficina.' },
+  { id: 'encargado', titulo: 'Encargado de sitio',         rol: 'encargado', roles: [],
+    desc: 'Tareas, rondines, incidencias y asistencia de su personal. No ve dinero.' },
+  { id: 'admin',     titulo: 'Administración',             rol: 'administracion', roles: [],
+    desc: 'Todo, incluidos Casa, Socios y nómina, menos Patrimonio y Usuarios.' },
+];
+
+// Altas sugeridas (desaparecen al crearlas)
+export const SUGERIDOS = [
+  { nombre: 'Victoria Carrillo', usuario: 'victoria', perfil: 'captura',   empresas: 'todas' },
+  { nombre: 'Víctor Olazarán',   usuario: 'victor',   perfil: 'encargado', empresas: ['Treme'] },
+  { nombre: 'Miguel Medellín',   usuario: 'miguel',   perfil: 'cobranza',  empresas: ['Treme'] },
 ];
 
 export const CATEGORIAS = {
