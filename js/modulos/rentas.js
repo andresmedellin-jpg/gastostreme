@@ -517,9 +517,9 @@ async function recibo(p, r) {
   const campo = (k, v, grande) => `<div class="c"><div class="k">${k}</div><div class="v${grande ? ' g' : ''}">${v}</div></div>`;
   const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(p.folio || 'Recibo')} · ${esc(r.arrendatario)}</title>
 <style>
-  *{box-sizing:border-box} body{margin:0;background:#eef0f3;font-family:Inter,Arial,sans-serif;color:#1a1a1a}
+  *{box-sizing:border-box} body{margin:0;background:#eef0f3;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a}
   .barra{position:sticky;top:0;display:flex;gap:8px;justify-content:center;padding:12px;background:#0f172a}
-  .barra button{font:600 14px Inter,Arial,sans-serif;padding:9px 16px;border-radius:8px;border:0;cursor:pointer}
+  .barra button{font:600 14px Arial,Helvetica,sans-serif;padding:9px 16px;border-radius:8px;border:0;cursor:pointer}
   .doc{width:680px;max-width:100%;margin:24px auto;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.08)}
   .top{display:flex;align-items:center;justify-content:space-between;padding:24px 32px 16px;border-bottom:3px solid #1A1D2E}
   .top img{height:52px} .top div{text-align:right;font-size:11px;color:#555;line-height:1.8}

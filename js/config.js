@@ -5,17 +5,29 @@ export const SUPABASE_KEY = 'sb_publishable_y1lW-QidgXb4LoVtqoC2rw_5Oj4GpKJ';
 export const ESQUEMA = 'app';
 export const BUCKET_COMPROBANTES = 'comprobantes';
 
-// Módulos de la plataforma y qué roles los ven.
-// "legacy" = página vieja que se sigue usando mientras el módulo se migra.
+// Íconos de línea (heredan el color del texto)
+const svg = (d) => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICONOS = {
+  inicio:     svg('<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>'),
+  reportes:   svg('<path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/>'),
+  gastos:     svg('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
+  cobranza:   svg('<rect x="5" y="3" width="14" height="18" rx="1"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M10 21v-4h4v4"/>'),
+  rentas:     svg('<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l2 2M15 8l2 2"/>'),
+  patrimonio: svg('<path d="M3 21h18M5 21V10M19 21V10M9.5 21V10M14.5 21V10M2 10l10-6 10 6z"/>'),
+  personal:   svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/>'),
+  usuarios:   svg('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
+};
+
+// Módulos de la plataforma, en el orden y grupo del menú, y qué roles los ven.
 export const MODULOS = [
-  { id: 'inicio',     titulo: 'Inicio',      icono: '◧', roles: ['dueno','administracion'], listo: true },
-  { id: 'gastos',     titulo: 'Gastos',      icono: '◫', roles: ['dueno','administracion','operacion'], listo: true },
-  { id: 'cobranza',   titulo: 'Cobranza Elysium', icono: '◩', roles: ['dueno','administracion','cobranza'], listo: true },
-  { id: 'rentas',     titulo: 'Rentas',      icono: '◪', roles: ['dueno','administracion','cobranza'], listo: true },
-  { id: 'personal',   titulo: 'Personal',    icono: '◑', roles: ['dueno','administracion','encargado'], listo: true },
-  { id: 'patrimonio', titulo: 'Patrimonio',  icono: '◨', roles: ['dueno','socio'], listo: true },
-  { id: 'reportes',   titulo: 'Reporte mensual', icono: '◰', roles: ['dueno','administracion'], listo: true },
-  { id: 'usuarios',   titulo: 'Usuarios',    icono: '◉', roles: ['dueno'], listo: true },
+  { id: 'inicio',     grupo: 'General',   titulo: 'Inicio',           icono: ICONOS.inicio,     roles: ['dueno','administracion'], listo: true },
+  { id: 'reportes',   grupo: 'General',   titulo: 'Reporte mensual',  icono: ICONOS.reportes,   roles: ['dueno','administracion'], listo: true },
+  { id: 'gastos',     grupo: 'Finanzas',  titulo: 'Gastos',           icono: ICONOS.gastos,     roles: ['dueno','administracion','operacion'], listo: true },
+  { id: 'cobranza',   grupo: 'Finanzas',  titulo: 'Cobranza Elysium', icono: ICONOS.cobranza,   roles: ['dueno','administracion','cobranza'], listo: true },
+  { id: 'rentas',     grupo: 'Finanzas',  titulo: 'Rentas',           icono: ICONOS.rentas,     roles: ['dueno','administracion','cobranza'], listo: true },
+  { id: 'patrimonio', grupo: 'Finanzas',  titulo: 'Patrimonio',       icono: ICONOS.patrimonio, roles: ['dueno','socio'], listo: true },
+  { id: 'personal',   grupo: 'Operación', titulo: 'Personal',         icono: ICONOS.personal,   roles: ['dueno','administracion','encargado'], listo: true },
+  { id: 'usuarios',   grupo: 'Operación', titulo: 'Usuarios',         icono: ICONOS.usuarios,   roles: ['dueno'], listo: true },
 ];
 
 // Perfiles listos para dar de alta a alguien: un rol principal + roles extra

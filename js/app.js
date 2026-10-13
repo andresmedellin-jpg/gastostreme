@@ -139,7 +139,8 @@ async function entrar(user) {
     estado.centros = cen.data || [];
 
     const etiquetas = [miembro.rol, ...(miembro.roles || [])].map(rolLegible);
-    $('user-box').innerHTML = `<strong>${esc(miembro.nombre)}</strong><span>${esc([...new Set(etiquetas)].join(' · '))}</span>`;
+    $('user-box').innerHTML = `<span class="user-avatar" aria-hidden="true">${esc((miembro.nombre || '?').trim().charAt(0).toUpperCase())}</span>
+      <span class="user-txt"><strong>${esc(miembro.nombre)}</strong><span>${esc([...new Set(etiquetas)].join(' · '))}</span></span>`;
     pintarNav();
     $('login').hidden = true;
     $('shell').hidden = false;
@@ -156,11 +157,17 @@ const rolLegible = (r) => ({ dueno: 'Dueño', socio: 'Socio', administracion: 'A
 const modulosDelUsuario = () => MODULOS.filter((m) => tieneRol(m.roles));
 
 function pintarNav() {
-  $('nav').innerHTML = modulosDelUsuario().map((m) => `
-    <a href="#/${m.id}" data-mod="${m.id}">
-      <span class="nav-ico">${m.icono}</span>${esc(m.titulo)}
-      ${m.listo ? '' : '<span class="nav-tag">pronto</span>'}
-    </a>`).join('');
+  const mios = modulosDelUsuario();
+  const grupos = [...new Set(mios.map((m) => m.grupo))];
+  $('nav').innerHTML = grupos.map((g) => `
+    <div class="nav-grupo">
+      ${grupos.length > 1 ? `<span class="nav-titulo">${esc(g)}</span>` : ''}
+      ${mios.filter((m) => m.grupo === g).map((m) => `
+        <a href="#/${m.id}" data-mod="${m.id}">
+          <span class="nav-ico">${m.icono}</span>${esc(m.titulo)}
+          ${m.listo ? '' : '<span class="nav-tag">pronto</span>'}
+        </a>`).join('')}
+    </div>`).join('');
 }
 
 window.addEventListener('hashchange', navegar);

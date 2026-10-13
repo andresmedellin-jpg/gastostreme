@@ -157,10 +157,10 @@ function documento(d, logo, inv) {
 
   return `<!doctype html><html lang="es"><head><meta charset="utf-8">
 <title>Reporte mensual Torre Elysium · ${mes}</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Inter,system-ui,sans-serif;background:#F0F0F0;color:#0A0A0A;padding:24px 12px}
+body{font-family:Arial,Helvetica,sans-serif;background:#F0F0F0;color:#0A0A0A;padding:24px 12px}
 .hoja{max-width:820px;margin:0 auto;background:#fff;border-radius:4px;box-shadow:0 2px 24px rgba(0,0,0,.08);overflow:hidden}
 .cab{padding:32px 44px 24px;border-bottom:3px solid #0A0A0A;display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
 .cab img{height:72px;object-fit:contain}
