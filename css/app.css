@@ -332,3 +332,9 @@ h4.grupo:first-of-type { margin-top: 4px; }
   .tarjeta-top { flex-wrap: wrap; }
   .nomina-der { width: 100%; justify-content: flex-start; }
 }
+
+/* ---------- reportes ---------- */
+.check-linea { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text-2); cursor: pointer; user-select: none; }
+.check-linea input { width: 18px; height: 18px; min-height: 0; padding: 0; flex: none; margin: 0; }
+.reporte-marco { margin-top: 12px; border-radius: 10px; overflow: hidden; background: #F0F0F0; }
+.reporte-marco iframe { display: block; width: 100%; border: 0; min-height: 70vh; background: #F0F0F0; }

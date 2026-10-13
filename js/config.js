@@ -14,8 +14,7 @@ export const MODULOS = [
   { id: 'rentas',     titulo: 'Rentas',      icono: '◪', roles: ['dueno','administracion','cobranza'], listo: true },
   { id: 'personal',   titulo: 'Personal',    icono: '◑', roles: ['dueno','administracion','encargado'], listo: true },
   { id: 'patrimonio', titulo: 'Patrimonio',  icono: '◨', roles: ['dueno'], listo: false },
-  { id: 'reportes',   titulo: 'Reportes',    icono: '◰', roles: ['dueno','administracion'], listo: false,
-    legacy: [['Reporte mensual Elysium','https://andresmedellin-jpg.github.io/reportemensual/']] },
+  { id: 'reportes',   titulo: 'Reporte mensual', icono: '◰', roles: ['dueno','administracion'], listo: true },
   { id: 'usuarios',   titulo: 'Usuarios',    icono: '◉', roles: ['dueno'], listo: true },
 ];
 
