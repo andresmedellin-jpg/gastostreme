@@ -40,6 +40,10 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 - Gastos "por pagar" (`gastos.estado = 'por_pagar'`): pedidos a proveedores aún sin pagar. Cuentan como costo de la
   obra desde el pedido; en Inicio el gasto cuenta en el mes en que se paga (`fecha_pago`, o `fecha` si se pagó al
   momento) y lo pendiente se muestra aparte. Se pagan con "Marcar pagado" en Gastos (mismo registro, no se duplica).
+- Facturas de proveedores que llegan por correo (Gmail de Andrés): se registran como gasto "por pagar" en la obra que
+  dice la factura ("Orden de compra"), con `cfdi_uuid`, `legacy_id = 'cfdi:<UUID>'` (evita duplicados) y el enlace al
+  correo en `comprobante_path`. Home Center Ferretera (RFC HCF141121TT3): crédito a 15 días; su deuda vieja vive en
+  Patrimonio → pasivos.
 - Obras (módulo `obras.js`): centros tipo `obra`; valor = cuenta por cobrar tipo venta; costo = pagado + por pagar.
 - Reporte mensual de Elysium: sin CFE en egresos; suma todos los pagos del mes de cada unidad.
 - Empleados dados de baja: se conservan por su historial de nómina, ocultos por defecto.
