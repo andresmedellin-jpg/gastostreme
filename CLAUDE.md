@@ -67,7 +67,8 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   tras el aniversario; prima 25 %. Cada registro va ligado a su año de servicio (`vacaciones.periodo`), tipo
   `disfrutadas` o `pagadas`, con `monto` y `prima`. Antigüedad = `empleados.fecha_ingreso` (la que la familia les
   reconoce, aunque el alta del IMSS sea posterior). Se muestran y pagan en **semanas de sueldo** (semana = `dias_semana`
-  días; 12 días = 2 semanas): pagadas = semanas × sueldo semanal + 25 % de prima; disfrutadas = solo la prima.
+  días; 12 días = 2 semanas): se muestran en pesos (semanas × sueldo semanal); prima del 25 % solo a quien tiene `empleados.prima_vacacional`
+  (Víctor, Bárbara, Victoria y Liz).
 - Reporte mensual de Elysium: sin CFE en egresos; suma todos los pagos del mes de cada unidad.
 - Empleados dados de baja: se conservan por su historial de nómina, ocultos por defecto.
 - Contraseña mínima: 6 caracteres. Usuario sin correo: `usuario@usuarios.medco.mx`.
