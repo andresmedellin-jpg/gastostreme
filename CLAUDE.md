@@ -35,6 +35,9 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   Administración, Impuestos, Retiro socios, Otros. Ya no existen General/Otro/Auto/Reparaciones/Electricidad (se migraron).
   El formulario de gasto sugiere la categoría según el proveedor.
 - Gastos: "Todos" excluye Casa y Socios. Nómina pagada crea su gasto (categoría Nómina).
+- Corregir/borrar gastos: botón ✎ "Corregir gasto" (mismo registro) para administración y operación. Borrar (✕):
+  administración cualquiera; operación (Victoria) solo los que ella capturó (`capturado_por` = su nombre, RLS 0020).
+  Los 415 viejos con `capturado_por = 'Victoria'` del sistema anterior solo los borra administración.
 - Cobranza Elysium: una unidad está pagada en el mes si tiene al menos un pago (igual que la página vieja).
 - Inicio: ingresos = rentas + mantenimiento + luz + ventas + ingresos a mano (agrupados por categoría:
   "Obra / construcción", "Venta", otros). La luz cobrada sí cuenta como ingreso (el recibo de CFE es gasto).

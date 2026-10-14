@@ -1,5 +1,5 @@
 import { CATEGORIAS, CATEGORIA_AYUDA, FORMAS_PAGO, MESES, BUCKET_COMPROBANTES } from '../config.js';
-import { sb, db, todo, estado, esAdmin, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal,
+import { sb, db, todo, estado, esAdmin, tieneRol, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal,
          comprimirImagen, blobADataURL, abrirComprobante } from '../lib.js';
 
 const PRIVADOS = ['socio', 'personal'];   // Casa y Socios: fuera de "Todos" (como en el Centro de Control)
@@ -185,6 +185,8 @@ function pintarTabla() {
     return;
   }
   const admin = esAdmin();
+  const editor = tieneRol(['administracion', 'operacion']);
+  const yo = estado.miembro?.nombre;
   tbody.innerHTML = d.map((g) => {
     const c = centro(g.centro_id);
     return `<tr>
@@ -197,7 +199,8 @@ function pintarTabla() {
       <td class="num fuerte" data-l="Monto">${fmt(g.monto)}</td>
       <td class="acciones">
         ${g.comprobante_path ? `<button class="icon-btn" data-ver="${g.id}" title="Ver comprobante" aria-label="Ver comprobante">📎</button>` : ''}
-        ${admin ? `<button class="icon-btn peligro" data-borrar="${g.id}" aria-label="Eliminar gasto">✕</button>` : ''}
+        ${editor ? `<button class="icon-btn" data-editar="${g.id}" title="Corregir gasto" aria-label="Corregir gasto">✎</button>` : ''}
+        ${admin || (editor && g.capturado_por === yo) ? `<button class="icon-btn peligro" data-borrar="${g.id}" title="Eliminar gasto" aria-label="Eliminar gasto">✕</button>` : ''}
       </td></tr>`;
   }).join('');
   raiz.querySelector('#g-tfoot').innerHTML =
@@ -206,6 +209,8 @@ function pintarTabla() {
   tbody.querySelectorAll('[data-ver]').forEach((b) => b.addEventListener('click', () =>
     abrirComprobante(datos.find((g) => g.id === b.dataset.ver)?.comprobante_path)));
   tbody.querySelectorAll('[data-borrar]').forEach((b) => b.addEventListener('click', () => borrar(b.dataset.borrar)));
+  tbody.querySelectorAll('[data-editar]').forEach((b) => b.addEventListener('click', () =>
+    abrirFormulario(datos.find((g) => g.id === b.dataset.editar))));
 }
 
 // ================= POR PAGAR =================
@@ -239,10 +244,12 @@ function pintarPorPagar() {
         <td class="concepto" data-l="Concepto">${esc(g.concepto)}</td>
         <td class="mut corto" data-l="Proveedor">${esc(g.proveedor || '—')}</td>
         <td class="num fuerte" data-l="Monto">${fmt(g.monto)}</td>
-        <td class="acciones"><button class="btn btn-sm btn-primary" data-pagar="${g.id}">Marcar pagado</button></td>
+        <td class="acciones">${tieneRol(['administracion', 'operacion']) ? `<button class="icon-btn" data-editar-pp="${g.id}" title="Corregir pedido" aria-label="Corregir pedido">✎</button>` : ''}<button class="btn btn-sm btn-primary" data-pagar="${g.id}">Marcar pagado</button></td>
       </tr>`).join('')}</tbody>
     </table></div>`;
   el.querySelectorAll('[data-pagar]').forEach((b) => b.addEventListener('click', () => marcarPagado(b.dataset.pagar)));
+  el.querySelectorAll('[data-editar-pp]').forEach((b) => b.addEventListener('click', () =>
+    abrirFormulario(porPagar.find((g) => g.id === b.dataset.editarPp))));
 }
 
 function marcarPagado(id) {
@@ -309,19 +316,21 @@ async function leerArchivo(file, lbl) {
 async function borrar(id) {
   const g = datos.find((x) => x.id === id);
   if (!confirm(`¿Eliminar "${g?.concepto}" por ${fmt(g?.monto)}?\nQueda registrado en la bitácora.`)) return;
-  const { error } = await db().from('gastos').delete().eq('id', id);
+  const { data, error } = await db().from('gastos').delete().eq('id', id).select('id');
   if (error) return toast('No se pudo eliminar: ' + error.message, true);
+  if (!data?.length) return toast('No se pudo eliminar: solo puedes borrar los gastos que tú capturaste', true);
   datos = datos.filter((x) => x.id !== id);
   porPagar = porPagar.filter((x) => x.id !== id);
   pintar();
   toast('Gasto eliminado');
 }
 
-// ================= ALTA DE GASTO =================
-function abrirFormulario() {
-  const centroInicial = f.centro && !f.centro.startsWith('emp:') && f.centro !== 'todos' ? f.centro : '';
+// ================= ALTA / CORRECCIÓN DE GASTO =================
+// Sin argumento: gasto nuevo. Con un gasto: lo corrige (mismo registro; el cambio queda en la bitácora).
+function abrirFormulario(g = null) {
+  const centroInicial = g ? g.centro_id : (f.centro && !f.centro.startsWith('emp:') && f.centro !== 'todos' ? f.centro : '');
   const modal = abrirModal({
-    titulo: 'Nuevo gasto',
+    titulo: g ? 'Corregir gasto' : 'Nuevo gasto',
     cuerpo: `
       <form id="gf" class="form" novalidate>
         <fieldset class="opciones"><legend>¿Ya se pagó?</legend><div class="form-2">
@@ -344,14 +353,26 @@ function abrirFormulario() {
         <label>Notas <small>(opcional)</small><textarea name="notas" rows="2"></textarea></label>
         <label class="archivo">Comprobante <small>(foto o PDF)</small>
           <input type="file" name="archivo" accept="image/*,application/pdf" capture="environment">
-          <span class="archivo-estado" id="gf-archivo">Sin comprobante</span>
+          <span class="archivo-estado" id="gf-archivo">${g?.comprobante_path ? 'Ya tiene comprobante; si subes otro, lo reemplaza' : 'Sin comprobante'}</span>
         </label>
       </form>`,
     pie: `<button class="btn btn-ghost" data-cerrar-btn>Cancelar</button>
-          <button class="btn btn-primary" id="gf-guardar">Guardar gasto</button>`,
+          <button class="btn btn-primary" id="gf-guardar">${g ? 'Guardar cambios' : 'Guardar gasto'}</button>`,
   });
   const form = modal.querySelector('#gf');
   form.centro_id.value = centroInicial;
+  if (g) {
+    form.querySelector(`input[name="estado"][value="${g.estado === 'por_pagar' ? 'por_pagar' : 'pagado'}"]`).checked = true;
+    form.fecha.value = g.fecha;
+    form.monto.value = Number(g.monto);
+    form.concepto.value = g.concepto || '';
+    form.proveedor.value = g.proveedor || '';
+    form.categoria.value = CATEGORIAS[g.categoria] ? g.categoria : 'Otros';
+    if (g.forma_pago && FORMAS_PAGO.includes(g.forma_pago)) form.forma_pago.value = g.forma_pago;
+    form.fecha_vencimiento.value = g.fecha_vencimiento || '';
+    form.notas.value = g.notas || '';
+    form.archivo.removeAttribute('capture');
+  }
   modal.querySelector('[data-cerrar-btn]').addEventListener('click', cerrarModal);
   const alCambiarEstado = () => {
     const pendiente = form.estado.value === 'por_pagar';
@@ -360,10 +381,11 @@ function abrirFormulario() {
     modal.querySelector('#gf-lbl-fecha').textContent = pendiente ? 'Fecha del pedido' : 'Fecha';
   };
   form.querySelectorAll('input[name="estado"]').forEach((r) => r.addEventListener('change', alCambiarEstado));
+  alCambiarEstado();
 
   // Categoría: explica qué va en cada una y la sugiere según el proveedor (la que más se le ha puesto antes)
   const ayuda = () => { modal.querySelector('#gf-cat-ayuda').textContent = CATEGORIA_AYUDA[form.categoria.value] || ''; };
-  let tocada = false;
+  let tocada = !!g;          // al corregir no se cambia la categoría sola
   form.categoria.addEventListener('change', () => { tocada = true; ayuda(); });
   ayuda();
   const historial = {}, nombres = {};
@@ -416,25 +438,31 @@ function abrirFormulario() {
     btn.disabled = true; btn.textContent = 'Guardando…';
     try {
       const c = centro(v.centro_id);
-      const comprobante_path = archivo ? await subirComprobante(archivo, v.fecha) : null;
-      const { error } = await db().from('gastos').insert({
-        org_id: estado.miembro.org_id, empresa_id: c.empresa_id, centro_id: c.id,
+      const pendiente = v.estado === 'por_pagar';
+      const campos = {
+        empresa_id: c.empresa_id, centro_id: c.id,
         fecha: v.fecha, monto: Math.round(monto * 100) / 100, concepto: v.concepto.trim(),
         proveedor: v.proveedor.trim() || null, categoria: v.categoria,
-        estado: v.estado === 'por_pagar' ? 'por_pagar' : 'pagado',
-        forma_pago: v.estado === 'por_pagar' ? null : v.forma_pago,
-        fecha_vencimiento: v.estado === 'por_pagar' ? (v.fecha_vencimiento || null) : null,
-        notas: v.notas.trim() || null, comprobante_path, capturado_por: estado.miembro.nombre,
-      });
+        estado: pendiente ? 'por_pagar' : 'pagado',
+        forma_pago: pendiente ? null : v.forma_pago,
+        fecha_vencimiento: pendiente ? (v.fecha_vencimiento || null) : null,
+        notas: v.notas.trim() || null,
+      };
+      if (pendiente) campos.fecha_pago = null;
+      if (archivo) campos.comprobante_path = await subirComprobante(archivo, v.fecha);
+      const { error } = g
+        ? await db().from('gastos').update(campos).eq('id', g.id)
+        : await db().from('gastos').insert({ ...campos, org_id: estado.miembro.org_id,
+            comprobante_path: campos.comprobante_path || null, capturado_por: estado.miembro.nombre });
       if (error) throw error;
       cerrarModal();
-      toast(v.estado === 'por_pagar' ? 'Pedido registrado como por pagar ✓' : 'Gasto registrado ✓');
+      toast(g ? 'Gasto corregido ✓' : pendiente ? 'Pedido registrado como por pagar ✓' : 'Gasto registrado ✓');
       const fd = new Date(v.fecha + 'T12:00:00');
       if (fd.getMonth() !== f.mes || fd.getFullYear() !== f.anio) { f.mes = fd.getMonth(); f.anio = fd.getFullYear(); render(raiz); }
       else cargar();
     } catch (e) {
       toast('No se pudo guardar: ' + (e.message || e), true);
-      btn.disabled = false; btn.textContent = 'Guardar gasto';
+      btn.disabled = false; btn.textContent = g ? 'Guardar cambios' : 'Guardar gasto';
     }
   });
 }
