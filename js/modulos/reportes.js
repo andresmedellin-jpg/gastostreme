@@ -52,7 +52,7 @@ const sigMes = (a, m) => (m === 11 ? [a + 1, 0] : [a, m + 1]);
 const antMes = (a, m) => (m === 0 ? [a - 1, 11] : [a, m - 1]);
 // La luz (CFE) se cobra y se factura aparte: no entra en este reporte.
 // A veces se captura con otra categoría, por eso también se revisa el proveedor.
-const esCFE = (g) => g.categoria === 'Electricidad' || String(g.proveedor || '').toUpperCase().includes('CFE');
+const esCFE = (g) => ['Luz', 'Electricidad'].includes(g.categoria) || String(g.proveedor || '').toUpperCase().includes('CFE');
 
 async function cargar() {
   const a = st.anio, m = st.mes;

@@ -30,6 +30,10 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 7. Commits como `-c user.name="Andrés Medellín" -c user.email="andres.medellin@medco.mx"`.
 
 ## Reglas de negocio que ya se acordaron
+- Categorías de gasto: una sola lista en `CATEGORIAS` de `js/config.js` (con `CATEGORIA_AYUDA`), usada en todo. Construcción,
+  Nómina, Seguro social e ISN, Gasolina, Vehículos, Mantenimiento, Limpieza, Seguridad, Luz, Agua, Gas, Teléfono e internet,
+  Administración, Impuestos, Retiro socios, Otros. Ya no existen General/Otro/Auto/Reparaciones/Electricidad (se migraron).
+  El formulario de gasto sugiere la categoría según el proveedor.
 - Gastos: "Todos" excluye Casa y Socios. Nómina pagada crea su gasto (categoría Nómina).
 - Cobranza Elysium: una unidad está pagada en el mes si tiene al menos un pago (igual que la página vieja).
 - Inicio: ingresos = rentas + mantenimiento + luz + ventas + ingresos a mano (agrupados por categoría:

@@ -97,7 +97,7 @@ function resumen(el) {
 
 function detalle(el, o) {
   const cats = new Map();
-  o.gastos.forEach((g) => cats.set(g.categoria || 'General', (cats.get(g.categoria || 'General') || 0) + Number(g.monto)));
+  o.gastos.forEach((g) => cats.set(g.categoria || 'Otros', (cats.get(g.categoria || 'Otros') || 0) + Number(g.monto)));
   const catFilas = [...cats.entries()].sort((a, b) => b[1] - a[1]);
   const maxCat = catFilas[0]?.[1] || 1;
   const provs = new Map();

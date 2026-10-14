@@ -55,10 +55,30 @@ export const SUGERIDOS = [
   { nombre: 'Miguel Medellín',   usuario: 'miguel',   perfil: 'socio',     empresas: 'todas' },
 ];
 
+// Una sola lista de categorías de gasto para toda la plataforma (Gastos, Obras, Inicio, reportes).
 export const CATEGORIAS = {
-  'General':'📌','Mantenimiento':'🔧','Electricidad':'⚡','Agua':'💧','Gas':'🔥','Auto':'🚗','Limpieza':'🧹',
-  'Seguridad':'🔒','Reparaciones':'🛠','Construcción':'🏗','Administración':'📋','Nómina':'👷',
-  'Impuestos':'🧾','Seguro social e ISN':'🏥','Retiro socios':'💸','Otro':'•'
+  'Construcción':'🏗','Nómina':'👷','Seguro social e ISN':'🏥','Gasolina':'⛽','Vehículos':'🚗',
+  'Mantenimiento':'🔧','Limpieza':'🧹','Seguridad':'🔒','Luz':'⚡','Agua':'💧','Gas':'🔥',
+  'Teléfono e internet':'📶','Administración':'📋','Impuestos':'🧾','Retiro socios':'💸','Otros':'📌'
+};
+// Qué va en cada una (se muestra al capturar, para que todos usen la misma)
+export const CATEGORIA_AYUDA = {
+  'Construcción': 'Material y servicios de obra: acero, concreto, ferretería, grúas, renta de maquinaria',
+  'Nómina': 'Raya y sueldos, vacaciones, aguinaldo',
+  'Seguro social e ISN': 'IMSS, Infonavit, impuesto sobre nómina, recargos',
+  'Gasolina': 'Gasolina y diésel (Oxxo Gas, BP, Mobil, Petromax…)',
+  'Vehículos': 'Servicio, refacciones, llantas, taller, tenencia y control vehicular',
+  'Mantenimiento': 'Reparaciones y mantenimiento de edificios: elevadores, climas, pintura, jardinería',
+  'Limpieza': 'Productos y servicios de limpieza, fumigación, basura, uniformes',
+  'Seguridad': 'Vigilancia, cámaras, cerrajería',
+  'Luz': 'Recibos de CFE',
+  'Agua': 'Agua y Drenaje, garrafones',
+  'Gas': 'Gas natural o LP (Naturgy, gas de tanque)',
+  'Teléfono e internet': 'Telcel, Telmex, Starlink',
+  'Administración': 'Oficina, papelería, software, contador, trámites',
+  'Impuestos': 'Predial, SAT y otros impuestos (no nómina)',
+  'Retiro socios': 'Dinero que sacan los socios',
+  'Otros': 'Solo si no cabe en ninguna de las anteriores',
 };
 export const FORMAS_PAGO = ['Transferencia','Efectivo','Tarjeta','Cheque','Otro'];
 export const FORMAS_COBRO = ['Transferencia','Efectivo','Depósito','Tarjeta','Otro'];

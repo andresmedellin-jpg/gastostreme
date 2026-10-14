@@ -1,4 +1,4 @@
-import { CATEGORIAS, FORMAS_PAGO, MESES, BUCKET_COMPROBANTES } from '../config.js';
+import { CATEGORIAS, CATEGORIA_AYUDA, FORMAS_PAGO, MESES, BUCKET_COMPROBANTES } from '../config.js';
 import { sb, db, todo, estado, esAdmin, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal,
          comprimirImagen, blobADataURL, abrirComprobante } from '../lib.js';
 
@@ -121,7 +121,7 @@ function pintarKPIs() {
   const porEmpresa = estado.empresas.map((e) => ({
     e, t: suma(datos.filter((g) => g.empresa_id === e.id && !PRIVADOS.includes(centro(g.centro_id)?.tipo))),
   }));
-  const cats = agrupar(d, (g) => g.categoria || 'General');
+  const cats = agrupar(d, (g) => g.categoria || 'Otros');
   const top = cats[0];
   raiz.querySelector('#g-kpis').innerHTML = `
     <div class="kpi"><span>Total del mes</span><strong class="neg">${fmt(total)}</strong><small>${d.length} gasto${d.length === 1 ? '' : 's'}${
@@ -151,7 +151,7 @@ function barras(filas, etiqueta, alClic) {
 }
 
 function pintarCategorias() {
-  const filas = agrupar(filtrados(), (g) => g.categoria || 'General');
+  const filas = agrupar(filtrados(), (g) => g.categoria || 'Otros');
   raiz.querySelector('#g-cats').innerHTML = barras(filas, (r) => `${CATEGORIAS[r.k] || '•'} ${esc(r.k)}`);
 }
 
@@ -173,7 +173,7 @@ function pintarCentros() {
 
 function pintarTabla() {
   let d = filtrados();
-  if (f.categoria) d = d.filter((g) => (g.categoria || 'General') === f.categoria);
+  if (f.categoria) d = d.filter((g) => (g.categoria || 'Otros') === f.categoria);
   if (f.forma) d = d.filter((g) => g.forma_pago === f.forma);
   if (f.q) d = d.filter((g) => (g.concepto || '').toLowerCase().includes(f.q) || (g.proveedor || '').toLowerCase().includes(f.q));
 
@@ -192,7 +192,7 @@ function pintarTabla() {
       <td data-l="Centro"><span class="tag">${esc(c?.nombre || '—')}</span></td>
       <td class="concepto" data-l="Concepto" title="${esc(g.notas || g.concepto)}">${esc(g.concepto)}</td>
       <td class="mut corto" data-l="Proveedor" title="${esc(g.proveedor || '')}">${esc(g.proveedor || '—')}</td>
-      <td data-l="Categoría"><span class="tag tag-suave">${CATEGORIAS[g.categoria] || '•'} ${esc(g.categoria || 'General')}</span></td>
+      <td data-l="Categoría"><span class="tag tag-suave">${CATEGORIAS[g.categoria] || '•'} ${esc(g.categoria || 'Otros')}</span></td>
       <td class="mut" data-l="Forma">${g.estado === 'por_pagar' ? '<span class="tag tag-aviso">Por pagar</span>' : esc(g.forma_pago || '—')}</td>
       <td class="num fuerte" data-l="Monto">${fmt(g.monto)}</td>
       <td class="acciones">
@@ -336,7 +336,8 @@ function abrirFormulario() {
         <label>Concepto<input name="concepto" required maxlength="200" placeholder="¿En qué se gastó?"></label>
         <label>Proveedor <small>(opcional)</small><input name="proveedor" maxlength="120"></label>
         <div class="form-2">
-          <label>Categoría<select name="categoria">${Object.keys(CATEGORIAS).map((c) => `<option>${c}</option>`).join('')}</select></label>
+          <label>Categoría<select name="categoria">${Object.keys(CATEGORIAS).map((c) => `<option ${c === 'Otros' ? 'selected' : ''}>${c}</option>`).join('')}</select>
+            <small class="sub" id="gf-cat-ayuda"></small></label>
           <label id="gf-forma">Forma de pago<select name="forma_pago">${FORMAS_PAGO.map((x) => `<option>${x}</option>`).join('')}</select></label>
           <label id="gf-vence" hidden>Vence <small>(opcional)</small><input type="date" name="fecha_vencimiento"></label>
         </div>
@@ -359,6 +360,31 @@ function abrirFormulario() {
     modal.querySelector('#gf-lbl-fecha').textContent = pendiente ? 'Fecha del pedido' : 'Fecha';
   };
   form.querySelectorAll('input[name="estado"]').forEach((r) => r.addEventListener('change', alCambiarEstado));
+
+  // Categoría: explica qué va en cada una y la sugiere según el proveedor (la que más se le ha puesto antes)
+  const ayuda = () => { modal.querySelector('#gf-cat-ayuda').textContent = CATEGORIA_AYUDA[form.categoria.value] || ''; };
+  let tocada = false;
+  form.categoria.addEventListener('change', () => { tocada = true; ayuda(); });
+  ayuda();
+  const historial = {}, nombres = {};
+  const lista = document.createElement('datalist');
+  lista.id = 'gf-provs'; form.appendChild(lista);
+  form.proveedor.setAttribute('list', 'gf-provs');
+  db().from('gastos').select('proveedor, categoria').not('proveedor', 'is', null).order('fecha', { ascending: false }).limit(1000)
+    .then(({ data }) => {
+      (data || []).forEach((g) => {
+        const k = (g.proveedor || '').trim().toLowerCase();
+        if (!k || !CATEGORIAS[g.categoria] || g.categoria === 'Nómina') return;
+        nombres[k] = nombres[k] || g.proveedor.trim();
+        (historial[k] = historial[k] || {})[g.categoria] = (historial[k][g.categoria] || 0) + 1;
+      });
+      lista.innerHTML = Object.values(nombres).sort((x, y) => x.localeCompare(y, 'es')).map((n) => `<option value="${esc(n)}">`).join('');
+    });
+  form.proveedor.addEventListener('change', () => {
+    const h = historial[form.proveedor.value.trim().toLowerCase()];
+    if (!h || tocada) return;
+    form.categoria.value = Object.entries(h).sort((a, b) => b[1] - a[1])[0][0]; ayuda();
+  });
 
   let archivo = null;          // { blob, nombre, tipo }
   form.archivo.addEventListener('change', async () => {
