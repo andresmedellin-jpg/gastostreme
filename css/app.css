@@ -127,6 +127,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 .vacio, .cargando { padding: 28px; text-align: center; color: var(--text-3); }
 .nota { margin: 0; font-size: 13px; color: var(--text-2); }
 .tag-aviso { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+.tag-ok { background: color-mix(in srgb, var(--ok) 12%, transparent); color: var(--ok); border-color: transparent; }
 tr.inactivo td { opacity: .55; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; font-weight: 600; letter-spacing: .02em; }
 

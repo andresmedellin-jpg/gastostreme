@@ -539,46 +539,172 @@ function editarEmpleado(e) {
 }
 
 // ================= VACACIONES =================
+// Ley Federal del Trabajo (reforma "vacaciones dignas", vigente desde 2023):
+// al cumplir cada año de servicio le tocan días (Art. 76), debe disfrutarlos dentro de los 6 meses siguientes (Art. 81)
+// y se paga prima vacacional de al menos 25 % sobre el salario de esos días (Art. 80).
+const diasLey = (anios) => anios < 1 ? 0 : anios <= 5 ? 10 + 2 * anios : 22 + 2 * Math.floor((anios - 6) / 5);
+const sumarAnios = (iso, n) => { const [y, m, d] = iso.split('-').map(Number); const f = new Date(Date.UTC(y + n, m - 1, d)); return f.toISOString().slice(0, 10); };
+const sumarMeses = (iso, n) => { const [y, m, d] = iso.split('-').map(Number); const f = new Date(Date.UTC(y, m - 1 + n, d)); return f.toISOString().slice(0, 10); };
+const aniosCumplidos = (ingreso, hoy) => { let n = 0; while (sumarAnios(ingreso, n + 1) <= hoy) n++; return n; };
+const antiguedadTxt = (ingreso, hoy) => {
+  const n = aniosCumplidos(ingreso, hoy);
+  let m = 0; while (sumarMeses(sumarAnios(ingreso, n), m + 1) <= hoy) m++;
+  return [n ? `${n} año${n === 1 ? '' : 's'}` : '', m ? `${m} mes${m === 1 ? '' : 'es'}` : ''].filter(Boolean).join(' ') || 'menos de 1 mes';
+};
+const salarioDiario = (e) => Number(e.salario_semanal || 0) / 7;
+
 async function vacaciones(el) {
-  const anio = new Date().getFullYear();
+  const hoy = hoyISO();
   const [emp, vac] = await Promise.all([
-    db().from('empleados').select('id, nombre, puesto, centro_id, fecha_ingreso').eq('activo', true).order('nombre'),
+    db().from('empleados').select('id, nombre, puesto, centro_id, fecha_ingreso, salario_semanal').eq('activo', true).order('nombre'),
     db().from('vacaciones').select('*').order('fecha_inicio', { ascending: false }),
   ]);
   if (emp.error || vac.error) throw emp.error || vac.error;
-  el.innerHTML = `<section class="panel"><div class="panel-head"><h3>Vacaciones ${anio}</h3></div>
-    <ul class="checklist">${emp.data.map((e) => {
-      const suyas = vac.data.filter((v) => v.empleado_id === e.id);
-      const tomados = suyas.filter((v) => v.fecha_inicio.startsWith(String(anio))).reduce((s, v) => s + v.dias, 0);
-      return `<li><div class="check-txt"><strong>${esc(e.nombre)}</strong>
-          <small class="mut">${tomados} día${tomados === 1 ? '' : 's'} tomados este año${e.fecha_ingreso ? ' · ingresó ' + fmtFecha(e.fecha_ingreso) : ''}</small>
-          ${suyas.length ? `<small>${suyas.slice(0, 4).map((v) => `${fmtFecha(v.fecha_inicio)} → ${fmtFecha(v.fecha_fin)} (${v.dias}) <button class="link-btn" data-borrarvac="${v.id}">quitar</button>`).join(' · ')}</small>` : ''}</div>
-        <button class="btn btn-sm btn-ghost" data-vac="${e.id}">＋ Vacaciones</button></li>`;
-    }).join('')}</ul></section>`;
-  el.querySelectorAll('[data-vac]').forEach((b) => b.addEventListener('click', () => {
-    const e = emp.data.find((x) => x.id === b.dataset.vac);
-    const modal = abrirModal({ titulo: `Vacaciones · ${e.nombre}`,
-      cuerpo: `<form class="form" id="vf"><div class="form-2"><label>Desde<input type="date" name="ini" value="${hoyISO()}"></label>
-        <label>Hasta<input type="date" name="fin" value="${hoyISO()}"></label></div>
-        <label>Días hábiles<input type="number" name="dias" min="1" value="1"></label><label>Notas<input name="notas"></label></form>`,
-      pie: `<button class="btn btn-ghost" id="vf-no">Cancelar</button><button class="btn btn-primary" id="vf-si">Guardar</button>` });
-    const f = modal.querySelector('#vf');
-    const calc = () => { const d = Math.round((new Date(f.fin.value) - new Date(f.ini.value)) / 864e5) + 1; if (d > 0) f.dias.value = d; };
-    f.ini.addEventListener('change', calc); f.fin.addEventListener('change', calc);
-    modal.querySelector('#vf-no').addEventListener('click', cerrarModal);
-    modal.querySelector('#vf-si').addEventListener('click', async () => {
-      if (f.fin.value < f.ini.value) return toast('La fecha final es antes de la inicial', true);
-      const { error } = await db().from('vacaciones').insert({ org_id: estado.miembro.org_id, empleado_id: e.id, fecha_inicio: f.ini.value,
-        fecha_fin: f.fin.value, dias: +f.dias.value || 1, notas: f.notas.value.trim() || null });
-      if (error) return toast(error.message, true);
-      cerrarModal(); toast('Vacaciones registradas ✓'); pintar();
-    });
+
+  // Situación de cada empleado: periodo vigente (último aniversario cumplido) y el anterior si quedó algo pendiente
+  const filas = emp.data.map((e) => {
+    const suyas = vac.data.filter((v) => v.empleado_id === e.id);
+    if (!e.fecha_ingreso) return { e, suyas, sinFecha: true };
+    const n = aniosCumplidos(e.fecha_ingreso, hoy);
+    const periodos = [];
+    for (const p of [n - 1, n]) {
+      if (p < 1) continue;
+      const dias = diasLey(p), usados = suyas.filter((v) => v.periodo === p).reduce((s, v) => s + Number(v.dias || 0), 0);
+      const desde = sumarAnios(e.fecha_ingreso, p);
+      periodos.push({ p, dias, usados, pendientes: Math.max(0, dias - usados), desde, vence: sumarMeses(desde, 6) });
+    }
+    // El periodo anterior solo cuenta si quedó algo sin dar (después de un año ya no se puede reclamar, Art. 516)
+    const vivos = periodos.filter((x) => x.p === n || (x.pendientes > 0 && sumarAnios(x.desde, 1) > hoy && suyas.some((v) => v.periodo != null)));
+    const proximo = sumarAnios(e.fecha_ingreso, n + 1);
+    return { e, suyas, n, vivos, actual: periodos.find((x) => x.p === n), proximo, diasProx: diasLey(n + 1) };
+  });
+  const pendientesTot = filas.reduce((s, f) => s + (f.vivos || []).reduce((a, x) => a + x.pendientes, 0), 0);
+  const vencidos = filas.filter((f) => (f.vivos || []).some((x) => x.pendientes > 0 && x.vence < hoy));
+  const sinFecha = filas.filter((f) => f.sinFecha);
+  const enMes = filas.filter((f) => f.proximo && f.proximo <= sumarMeses(hoy, 1));
+
+  const estadoDe = (f) => {
+    if (f.sinFecha) return '<span class="tag tag-suave">Sin fecha</span>';
+    if (!f.n) return `<span class="mut">Aún no cumple 1 año</span>`;
+    const pend = f.vivos.reduce((a, x) => a + x.pendientes, 0);
+    if (!pend) return '<span class="tag tag-ok">Al corriente</span>';
+    const venc = f.vivos.some((x) => x.pendientes > 0 && x.vence < hoy);
+    return `<span class="tag ${venc ? 'tag-aviso' : ''}">${venc ? 'Vencidos: ' : 'Debe '}${pend} día${pend === 1 ? '' : 's'}</span>`;
+  };
+  const grupos = {};
+  filas.forEach((f) => (grupos[f.e.centro_id] = grupos[f.e.centro_id] || []).push(f));
+
+  el.innerHTML = `
+    <div class="kpis">
+      <div class="kpi"><span>Días pendientes</span><strong class="${pendientesTot ? 'neg' : ''}">${pendientesTot}</strong><small>de todos los empleados</small></div>
+      <div class="kpi"><span>Fuera de plazo</span><strong class="${vencidos.length ? 'neg' : ''}">${vencidos.length}</strong><small>pasaron 6 meses del aniversario</small></div>
+      <div class="kpi"><span>Cumplen año este mes</span><strong>${enMes.length}</strong><small>${enMes.map((f) => esc(f.e.nombre)).slice(0, 3).join(', ') || '&nbsp;'}</small></div>
+      <div class="kpi"><span>Sin fecha de ingreso</span><strong>${sinFecha.length}</strong><small>no se pueden calcular</small></div>
+    </div>
+    <p class="nota">Días según la Ley Federal del Trabajo (desde 2023): 12 días al cumplir 1 año, +2 por año hasta 20 días al 5º, y +2 cada 5 años después.
+      Se dan dentro de los 6 meses siguientes al aniversario, con prima vacacional de al menos 25 %.</p>
+    ${Object.entries(grupos).sort((a, b) => nombreCentro(a[0]).localeCompare(nombreCentro(b[0]), 'es')).map(([cid, lista]) => `
+    <section class="panel"><h3>${esc(nombreCentro(cid))}</h3>
+      <div class="tabla-wrap"><table class="tabla">
+        <thead><tr><th>Empleado</th><th>Antigüedad</th><th class="num">Le tocan</th><th>Plazo para darlos</th><th>Próximo aniversario</th><th>Estado</th><th></th></tr></thead>
+        <tbody>${lista.map((f) => `<tr>
+          <td data-l="Empleado"><strong>${esc(f.e.nombre)}</strong>${f.e.fecha_ingreso ? `<small class="sub">Ingresó ${fmtFecha(f.e.fecha_ingreso)}</small>` : ''}</td>
+          <td class="mut" data-l="Antigüedad">${f.sinFecha ? '—' : antiguedadTxt(f.e.fecha_ingreso, hoy)}</td>
+          <td class="num fuerte nowrap" data-l="Le tocan">${f.actual ? `${f.actual.dias} días` : '—'}${f.actual ? `<small class="sub">${f.n}º año · ${f.actual.usados} dados</small>` : ''}</td>
+          <td class="nowrap ${f.actual && f.actual.pendientes && f.actual.vence < hoy ? 'neg fuerte' : 'mut'}" data-l="Plazo">${f.actual ? `${fmtFecha(f.actual.desde)} → ${fmtFecha(f.actual.vence)}` : '—'}</td>
+          <td class="mut nowrap" data-l="Próximo">${f.proximo ? `${fmtFecha(f.proximo)} · ${f.diasProx} días` : '—'}</td>
+          <td data-l="Estado">${estadoDe(f)}</td>
+          <td class="acciones">${f.sinFecha ? `<button class="btn btn-sm btn-ghost" data-fecha="${f.e.id}">Poner fecha</button>`
+            : `${f.suyas.length ? `<button class="btn btn-sm btn-ghost" data-hist="${f.e.id}" title="Historial">${f.suyas.length} reg.</button>` : ''}
+               ${f.n ? `<button class="btn btn-sm btn-primary" data-vac="${f.e.id}">＋ Registrar</button>` : ''}`}</td></tr>`).join('')}</tbody>
+      </table></div></section>`).join('')}`;
+
+  const fila = (id) => filas.find((f) => f.e.id === id);
+  el.querySelectorAll('[data-vac]').forEach((b) => b.addEventListener('click', () => registrarVacaciones(fila(b.dataset.vac))));
+  el.querySelectorAll('[data-hist]').forEach((b) => b.addEventListener('click', () => historialVacaciones(fila(b.dataset.hist))));
+  el.querySelectorAll('[data-fecha]').forEach((b) => b.addEventListener('click', async () => {
+    const { data, error } = await db().from('empleados').select('*').eq('id', b.dataset.fecha).single();
+    if (error) return toast(error.message, true);
+    editarEmpleado(data);
   }));
-  el.querySelectorAll('[data-borrarvac]').forEach((b) => b.addEventListener('click', async () => {
-    if (!confirm('¿Quitar este periodo de vacaciones?')) return;
+}
+
+function registrarVacaciones(f) {
+  const e = f.e, hoy = hoyISO();
+  const opciones = [];
+  for (let p = f.n; p >= Math.max(1, f.n - 1); p--) {
+    const usados = f.suyas.filter((v) => v.periodo === p).reduce((s, v) => s + Number(v.dias || 0), 0);
+    opciones.push({ p, dias: diasLey(p), pend: Math.max(0, diasLey(p) - usados), desde: sumarAnios(e.fecha_ingreso, p) });
+  }
+  const sd = salarioDiario(e);
+  const modal = abrirModal({ titulo: `Vacaciones · ${e.nombre}`,
+    cuerpo: `<form class="form" id="vf">
+      <label>¿De qué año de servicio?<select name="periodo">${opciones.map((o) =>
+        `<option value="${o.p}">${o.p}º año (desde ${fmtFecha(o.desde)}) · le tocan ${o.dias}, faltan ${o.pend}</option>`).join('')}</select></label>
+      <fieldset class="opciones"><legend>¿Qué pasó?</legend>
+        <label class="opcion opcion-linea"><input type="radio" name="tipo" value="disfrutadas" checked> Las tomó (descansó esos días)</label>
+        <label class="opcion opcion-linea"><input type="radio" name="tipo" value="pagadas"> Se le pagaron sin descansar</label></fieldset>
+      <div class="form-2" id="vf-fechas"><label>Desde<input type="date" name="ini" value="${hoy}"></label><label>Hasta<input type="date" name="fin" value="${hoy}"></label></div>
+      <div class="form-2"><label>Días<input type="number" name="dias" min="1" max="60" value="${opciones[0]?.pend || 1}"></label>
+        <label id="vf-lfecha" style="display:none">Fecha de pago<input type="date" name="fpago" value="${hoy}"></label></div>
+      <div class="form-2"><label>Pago por los días<input type="number" name="monto" min="0" step="0.01"></label>
+        <label>Prima vacacional (25 %)<input type="number" name="prima" min="0" step="0.01"></label></div>
+      <p class="nota" id="vf-nota"></p>
+      <label>Notas<input name="notas" maxlength="200"></label></form>`,
+    pie: `<button class="btn btn-ghost" id="vf-no">Cancelar</button><button class="btn btn-primary" id="vf-si">Guardar</button>` });
+  const fm = modal.querySelector('#vf');
+  const tipo = () => fm.querySelector('[name=tipo]:checked').value;
+  const sugerir = () => {
+    const d = Number(fm.dias.value) || 0;
+    const pag = tipo() === 'pagadas';
+    fm.monto.value = pag ? (d * sd).toFixed(2) : '0.00'; fm.prima.value = (d * sd * 0.25).toFixed(2);
+    modal.querySelector('#vf-nota').textContent = !sd ? 'Sin sueldo registrado: escribe los montos.'
+      : `Sueldo ${fmt(e.salario_semanal)}/semana = ${fmt(sd)} diarios. ` + (pag ? 'Se pagan los días más la prima.'
+        : 'Su sueldo de esos días va en la nómina normal; aquí solo va la prima.') + ' Puedes cambiar los montos.';
+  };
+  const ajustar = () => {
+    const pag = tipo() === 'pagadas';
+    modal.querySelector('#vf-fechas').style.display = pag ? 'none' : '';
+    modal.querySelector('#vf-lfecha').style.display = pag ? '' : 'none';
+  };
+  const calc = () => { const d = Math.round((new Date(fm.fin.value) - new Date(fm.ini.value)) / 864e5) + 1; if (d > 0) { fm.dias.value = d; sugerir(); } };
+  fm.ini.addEventListener('change', calc); fm.fin.addEventListener('change', calc);
+  fm.dias.addEventListener('input', sugerir);
+  fm.periodo.addEventListener('change', () => { const o = opciones.find((x) => x.p === +fm.periodo.value); if (o) { fm.dias.value = o.pend || 1; sugerir(); } });
+  fm.querySelectorAll('[name=tipo]').forEach((r) => r.addEventListener('change', () => { ajustar(); sugerir(); }));
+  sugerir(); ajustar();
+  modal.querySelector('#vf-no').addEventListener('click', cerrarModal);
+  modal.querySelector('#vf-si').addEventListener('click', async (ev) => {
+    const pag = tipo() === 'pagadas';
+    const dias = Number(fm.dias.value);
+    if (!(dias > 0)) return toast('Escribe los días', true);
+    if (!pag && fm.fin.value < fm.ini.value) return toast('La fecha final es antes de la inicial', true);
+    ev.currentTarget.disabled = true;
+    const { error } = await db().from('vacaciones').insert({ org_id: estado.miembro.org_id, empleado_id: e.id, periodo: +fm.periodo.value,
+      tipo: tipo(), dias, fecha_inicio: pag ? fm.fpago.value : fm.ini.value, fecha_fin: pag ? fm.fpago.value : fm.fin.value,
+      monto: fm.monto.value === '' ? null : Number(fm.monto.value), prima: fm.prima.value === '' ? null : Number(fm.prima.value),
+      notas: fm.notas.value.trim() || null });
+    if (error) { ev.currentTarget.disabled = false; return toast(error.message, true); }
+    cerrarModal(); toast('Vacaciones registradas ✓'); pintar();
+  });
+}
+
+function historialVacaciones(f) {
+  const modal = abrirModal({ titulo: `Historial de vacaciones · ${f.e.nombre}`,
+    cuerpo: f.suyas.length ? `<ul class="lista-pagos">${f.suyas.map((v) => `<li><div>
+        <strong>${v.dias} día${v.dias === 1 ? '' : 's'} ${v.tipo === 'pagadas' ? 'pagados' : 'tomados'}</strong>
+        <span class="mut">${v.periodo ? `· ${v.periodo}º año` : ''} · ${v.tipo === 'pagadas' ? 'pagado el ' + fmtFecha(v.fecha_inicio) : fmtFecha(v.fecha_inicio) + ' → ' + fmtFecha(v.fecha_fin)}</span>
+        ${v.monto != null || v.prima != null ? `<small>Pago ${fmt(v.monto || 0)} + prima ${fmt(v.prima || 0)} = <strong>${fmt(Number(v.monto || 0) + Number(v.prima || 0))}</strong></small>` : ''}
+        ${v.notas ? `<small>${esc(v.notas)}</small>` : ''}</div>
+        <button class="btn btn-sm btn-ghost peligro" data-borrarvac="${v.id}">Quitar</button></li>`).join('')}</ul>`
+      : '<div class="vacio">Sin vacaciones registradas.</div>',
+    pie: `<button class="btn btn-primary" id="hv-ok">Listo</button>` });
+  modal.querySelector('#hv-ok').addEventListener('click', cerrarModal);
+  modal.querySelectorAll('[data-borrarvac]').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm('¿Quitar este registro de vacaciones?')) return;
     const { error } = await db().from('vacaciones').delete().eq('id', b.dataset.borrarvac);
     if (error) return toast(error.message, true);
-    pintar();
+    cerrarModal(); pintar();
   }));
 }
 
