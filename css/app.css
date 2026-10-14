@@ -372,3 +372,5 @@ h4.grupo:first-of-type { margin-top: 4px; }
 .login-logos .logo-medco { width: 134px; }
 .login-logos-sep { flex: none; width: 1px; height: 44px; background: var(--border); }
 .login-card .login-sub { text-align: center; margin-top: 14px; }
+#o-cuerpo { display: grid; gap: 16px; min-width: 0; }
+#o-cuerpo > * { min-width: 0; }

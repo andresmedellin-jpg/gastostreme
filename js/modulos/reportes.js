@@ -67,7 +67,7 @@ async function cargar() {
       .eq('centro_id', centro.id).eq('concepto', 'mantenimiento')
       .gte('periodo', iso(pa, pm)).lt('periodo', iso(sa, sm))),
     todo(() => db().from('gastos').select('id, fecha, concepto, proveedor, categoria, monto')
-      .eq('centro_id', centro.id).gte('fecha', iso(pa, pm)).lt('fecha', iso(sa, sm)).order('fecha')),
+      .eq('centro_id', centro.id).neq('estado', 'por_pagar').gte('fecha', iso(pa, pm)).lt('fecha', iso(sa, sm)).order('fecha')),
     db().from('empleados').select('nombre, puesto'),
   ]);
   const err = u.error || c.error || p.error || g.error;

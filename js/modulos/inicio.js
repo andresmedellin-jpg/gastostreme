@@ -21,7 +21,7 @@ const CATEGORIAS_INGRESO = ['Obra / construcción', 'Venta', 'Anticipo', 'Comisi
 const CORTO = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
 
 const st = { anio: new Date().getFullYear(), mes: new Date().getMonth(), empresa: '', fuente: '', q: '' };
-let raiz, ingresos = [], gastos = [];
+let raiz, ingresos = [], gastos = [], porPagar = [];
 
 export async function render(view) {
   raiz = view;
@@ -71,8 +71,10 @@ async function cargar() {
       .or(`periodo.gte.${desde},fecha.gte.${desde}`)),
     todo(() => db().from('ingresos').select('id, empresa_id, centro_id, fecha, monto, concepto, cliente, categoria, forma_pago, notas, capturado_por')
       .gte('fecha', desde).lt('fecha', fin)),
-    todo(() => db().from('gastos').select('id, empresa_id, centro_id, fecha, monto, categoria')
-      .gte('fecha', desde).lt('fecha', fin)),
+    // Gastos ya pagados: cuentan en el mes en que salió el dinero (fecha de pago, o la fecha si se pagó al momento).
+    // Los pedidos por pagar se muestran aparte y no restan todavía.
+    todo(() => db().from('gastos').select('id, empresa_id, centro_id, fecha, fecha_pago, estado, monto, categoria')
+      .or(`fecha.gte.${desde},fecha_pago.gte.${desde}`)),
     db().from('contratos').select('id, arrendatario'),
     db().from('unidades').select('id, identificador'),
     db().from('cuentas_por_cobrar').select('id, cliente'),
@@ -103,8 +105,11 @@ async function cargar() {
       categoria: r.categoria, notas: r.notas, editable: true })),
   ].filter((r) => r.mes >= desde.slice(0, 7) && r.mes < fin.slice(0, 7));
 
-  gastos = g.data.filter((r) => !PRIVADOS.includes(centroDe(r.centro_id)?.tipo))
-    .map((r) => ({ ...r, mes: r.fecha.slice(0, 7), monto: Number(r.monto), centro: centroDe(r.centro_id)?.nombre || 'Sin centro' }));
+  const base = g.data.filter((r) => !PRIVADOS.includes(centroDe(r.centro_id)?.tipo))
+    .map((r) => ({ ...r, mes: (r.fecha_pago || r.fecha).slice(0, 7), monto: Number(r.monto), centro: centroDe(r.centro_id)?.nombre || 'Sin centro' }));
+  gastos = base.filter((r) => r.estado !== 'por_pagar' && r.mes >= desde.slice(0, 7) && r.mes < fin.slice(0, 7));
+  const pp = await todo(() => db().from('gastos').select('id, empresa_id, centro_id, monto').eq('estado', 'por_pagar'));
+  porPagar = (pp.data || []).filter((r) => !PRIVADOS.includes(centroDe(r.centro_id)?.tipo)).map((r) => ({ ...r, monto: Number(r.monto) }));
   pintar();
 }
 
@@ -143,7 +148,10 @@ function pintar() {
   cuerpo.innerHTML = `
     <div class="kpis">
       <div class="kpi"><span>Ingresos · ${MESES[st.mes]}</span><strong class="pos">${fmt(tIng)}</strong><small>${ing.length} cobros y registros</small></div>
-      <div class="kpi"><span>Gastos · ${MESES[st.mes]}</span><strong class="neg">${fmt(tGas)}</strong><small>${gas.length} gastos</small></div>
+      <div class="kpi"><span>Gastos · ${MESES[st.mes]}</span><strong class="neg">${fmt(tGas)}</strong><small>${gas.length} gastos pagados${(() => {
+        const pp = suma(porPagar.filter(deEmpresa));
+        return pp ? ` · <b class="neg">${fmt(pp)}</b> por pagar a proveedores` : '';
+      })()}</small></div>
       <div class="kpi"><span>Utilidad neta</span><strong class="${util >= 0 ? 'pos' : 'neg'}">${fmt(util)}</strong><small>${tIng ? margen + '% de margen' : 'ingresos − gastos'}</small></div>
       ${st.empresa ? `<div class="kpi"><span>Promedio 6 meses</span><strong>${fmt(promedio)}</strong><small>utilidad mensual</small></div>`
         : `<div class="kpi"><span>Por empresa</span><div class="emp-util">${estado.empresas.map((e) => {

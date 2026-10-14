@@ -37,6 +37,10 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 - Bodegas de MEDCO (clientes Ortegón → Bodega Santa Catarina, Isidro Pérez → Bodega Escobedo): cada cliente es una
   `cuentas_por_cobrar` tipo venta con su precio; sus pagos son `pagos` concepto venta ligados con `cxc_id`.
   En Inicio cuentan como "Obras y construcción". No capturarlos además como ingreso a mano.
+- Gastos "por pagar" (`gastos.estado = 'por_pagar'`): pedidos a proveedores aún sin pagar. Cuentan como costo de la
+  obra desde el pedido; en Inicio el gasto cuenta en el mes en que se paga (`fecha_pago`, o `fecha` si se pagó al
+  momento) y lo pendiente se muestra aparte. Se pagan con "Marcar pagado" en Gastos (mismo registro, no se duplica).
+- Obras (módulo `obras.js`): centros tipo `obra`; valor = cuenta por cobrar tipo venta; costo = pagado + por pagar.
 - Reporte mensual de Elysium: sin CFE en egresos; suma todos los pagos del mes de cada unidad.
 - Empleados dados de baja: se conservan por su historial de nómina, ocultos por defecto.
 - Contraseña mínima: 6 caracteres. Usuario sin correo: `usuario@usuarios.medco.mx`.
@@ -53,7 +57,7 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   Incluir **fondos entregados**: transferencias a un empleado para compras no son gasto hasta que hay ticket;
   saldo por comprobar por empleado. Falta: estados de cuenta de cada cuenta, banco/empresa de cada una,
   en qué cuenta caen mantenimiento/luz y rentas, y a qué empleados les transfiere.
-- Otras propuestas: utilidad por obra (MEDCO), alertas en Inicio, presupuesto por obra, exportar a Excel,
+- Otras propuestas: alertas en Inicio, presupuesto por obra, exportar a Excel,
   pantalla de historial de cambios (la tabla `app.bitacora` ya registra).
 - En unas semanas: Andrés borra los repositorios viejos (gastos, cobranzaelysium, centrodeoperaciones,
   reportemensual, victorolazaran, rentastreme, elysiumacceso); hoy muestran un aviso que manda a app.medco.mx.

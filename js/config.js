@@ -14,6 +14,7 @@ const ICONOS = {
   cobranza:   svg('<rect x="5" y="3" width="14" height="18" rx="1"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M10 21v-4h4v4"/>'),
   rentas:     svg('<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l2 2M15 8l2 2"/>'),
   patrimonio: svg('<path d="M3 21h18M5 21V10M19 21V10M9.5 21V10M14.5 21V10M2 10l10-6 10 6z"/>'),
+  obras:      svg('<path d="M3 18h18M5 18a7 7 0 0 1 14 0M12 7v4M9 8.5v2.5M15 8.5v2.5"/><path d="M4 21h16"/>'),
   personal:   svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/>'),
   usuarios:   svg('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
 };
@@ -25,6 +26,7 @@ export const MODULOS = [
   { id: 'gastos',     grupo: 'Finanzas',  titulo: 'Gastos',           icono: ICONOS.gastos,     roles: ['dueno','administracion','operacion'], listo: true },
   { id: 'cobranza',   grupo: 'Finanzas',  titulo: 'Cobranza Elysium', icono: ICONOS.cobranza,   roles: ['dueno','administracion','cobranza'], listo: true },
   { id: 'rentas',     grupo: 'Finanzas',  titulo: 'Rentas',           icono: ICONOS.rentas,     roles: ['dueno','administracion','cobranza'], listo: true },
+  { id: 'obras',      grupo: 'Finanzas',  titulo: 'Obras',            icono: ICONOS.obras,      roles: ['dueno','administracion'], listo: true },
   { id: 'patrimonio', grupo: 'Finanzas',  titulo: 'Patrimonio',       icono: ICONOS.patrimonio, roles: ['dueno','socio'], listo: true },
   { id: 'personal',   grupo: 'Operación', titulo: 'Personal',         icono: ICONOS.personal,   roles: ['dueno','administracion','encargado'], listo: true },
   { id: 'usuarios',   grupo: 'Operación', titulo: 'Usuarios',         icono: ICONOS.usuarios,   roles: ['dueno'], listo: true },

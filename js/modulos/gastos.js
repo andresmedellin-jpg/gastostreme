@@ -11,6 +11,8 @@ const f = {                                // filtros vigentes
   categoria: '', forma: '', q: '',
 };
 let datos = [];                            // gastos del mes (todos los centros visibles)
+let porPagar = [];                         // pedidos a proveedores sin pagar (cualquier mes)
+const CAMPOS = 'id, fecha, monto, concepto, proveedor, categoria, forma_pago, comprobante_path, notas, centro_id, empresa_id, capturado_por, estado, fecha_vencimiento, fecha_pago';
 let raiz;
 
 export async function render(view) {
@@ -26,6 +28,7 @@ export async function render(view) {
       <select id="g-centro" aria-label="Centro">${opcionesCentro(true)}</select>
     </div>
     <div class="kpis" id="g-kpis"></div>
+    <section class="panel" id="g-porpagar" hidden></section>
     <div class="grid-2">
       <section class="panel"><h3>Por categoría</h3><div id="g-cats"></div></section>
       <section class="panel"><h3>Por centro</h3><div id="g-centros"></div></section>
@@ -88,11 +91,14 @@ async function cargar() {
   const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
   raiz.querySelector('#g-tbody').innerHTML = `<tr><td colspan="8" class="vacio">Cargando…</td></tr>`;
   const { data, error } = await todo(() => db().from('gastos')
-    .select('id, fecha, monto, concepto, proveedor, categoria, forma_pago, comprobante_path, notas, centro_id, empresa_id, capturado_por')
+    .select(CAMPOS)
     .gte('fecha', iso(desde)).lt('fecha', iso(hasta))
     .order('fecha', { ascending: false }));
   if (error) { toast('No se pudieron cargar los gastos: ' + error.message, true); datos = []; }
   else datos = data;
+  // Pedidos por pagar de cualquier mes
+  const pp = await todo(() => db().from('gastos').select(CAMPOS).eq('estado', 'por_pagar'));
+  porPagar = pp.error ? [] : pp.data;
   pintar();
 }
 
@@ -105,7 +111,7 @@ function filtrados() {
   });
 }
 
-function pintar() { pintarKPIs(); pintarCategorias(); pintarCentros(); pintarTabla(); }
+function pintar() { pintarKPIs(); pintarPorPagar(); pintarCategorias(); pintarCentros(); pintarTabla(); }
 
 const suma = (arr) => arr.reduce((s, g) => s + Number(g.monto || 0), 0);
 
@@ -118,7 +124,8 @@ function pintarKPIs() {
   const cats = agrupar(d, (g) => g.categoria || 'General');
   const top = cats[0];
   raiz.querySelector('#g-kpis').innerHTML = `
-    <div class="kpi"><span>Total del mes</span><strong class="neg">${fmt(total)}</strong><small>${d.length} gasto${d.length === 1 ? '' : 's'}</small></div>
+    <div class="kpi"><span>Total del mes</span><strong class="neg">${fmt(total)}</strong><small>${d.length} gasto${d.length === 1 ? '' : 's'}${
+      d.some((g) => g.estado === 'por_pagar') ? ` · incluye ${fmt(suma(d.filter((g) => g.estado === 'por_pagar')))} por pagar` : ''}</small></div>
     <div class="kpi"><span>Promedio por gasto</span><strong>${d.length ? fmt(total / d.length) : '—'}</strong><small>${MESES[f.mes]} ${f.anio}</small></div>
     <div class="kpi"><span>Por empresa</span>${porEmpresa.map(({ e, t }) =>
       `<div class="kpi-linea"><i style="background:${e.color || '#888'}"></i>${esc(e.nombre_corto)}<b>${fmt(t)}</b></div>`).join('')}
@@ -186,7 +193,7 @@ function pintarTabla() {
       <td class="concepto" data-l="Concepto" title="${esc(g.notas || g.concepto)}">${esc(g.concepto)}</td>
       <td class="mut corto" data-l="Proveedor" title="${esc(g.proveedor || '')}">${esc(g.proveedor || '—')}</td>
       <td data-l="Categoría"><span class="tag tag-suave">${CATEGORIAS[g.categoria] || '•'} ${esc(g.categoria || 'General')}</span></td>
-      <td class="mut" data-l="Forma">${esc(g.forma_pago || '—')}</td>
+      <td class="mut" data-l="Forma">${g.estado === 'por_pagar' ? '<span class="tag tag-aviso">Por pagar</span>' : esc(g.forma_pago || '—')}</td>
       <td class="num fuerte" data-l="Monto">${fmt(g.monto)}</td>
       <td class="acciones">
         ${g.comprobante_path ? `<button class="icon-btn" data-ver="${g.id}" title="Ver comprobante" aria-label="Ver comprobante">📎</button>` : ''}
@@ -201,12 +208,111 @@ function pintarTabla() {
   tbody.querySelectorAll('[data-borrar]').forEach((b) => b.addEventListener('click', () => borrar(b.dataset.borrar)));
 }
 
+// ================= POR PAGAR =================
+function visibleEnFiltro(g) {
+  if (f.centro === 'todos') return !PRIVADOS.includes(centro(g.centro_id)?.tipo);
+  if (f.centro.startsWith('emp:')) return g.empresa_id === f.centro.slice(4) && !PRIVADOS.includes(centro(g.centro_id)?.tipo);
+  return g.centro_id === f.centro;
+}
+
+function pintarPorPagar() {
+  const el = raiz.querySelector('#g-porpagar');
+  const lista = porPagar.filter(visibleEnFiltro)
+    .sort((a, b) => (a.fecha_vencimiento || '9999').localeCompare(b.fecha_vencimiento || '9999') || a.fecha.localeCompare(b.fecha));
+  el.hidden = !lista.length;
+  if (!lista.length) { el.innerHTML = ''; return; }
+  const hoy = hoyISO();
+  const vencidos = lista.filter((g) => g.fecha_vencimiento && g.fecha_vencimiento < hoy);
+  const porProv = agrupar(lista, (g) => g.proveedor || 'Sin proveedor');
+  el.innerHTML = `
+    <div class="panel-head">
+      <h3>Por pagar a proveedores · ${fmt(suma(lista))}</h3>
+      <span class="sub-meta">${lista.length} pedido${lista.length === 1 ? '' : 's'}${vencidos.length ? ` · <b class="neg">${vencidos.length} vencido${vencidos.length === 1 ? '' : 's'}</b>` : ''}
+        · ${porProv.slice(0, 3).map((p) => `${esc(p.k)} ${fmt(p.t)}`).join(' · ')}</span>
+    </div>
+    <div class="tabla-wrap"><table class="tabla">
+      <thead><tr><th>Pedido</th><th>Vence</th><th>Centro</th><th>Concepto</th><th>Proveedor</th><th class="num">Monto</th><th></th></tr></thead>
+      <tbody>${lista.map((g) => `<tr>
+        <td class="mut nowrap" data-l="Pedido">${fmtFecha(g.fecha)}</td>
+        <td class="nowrap ${g.fecha_vencimiento && g.fecha_vencimiento < hoy ? 'neg fuerte' : 'mut'}" data-l="Vence">${g.fecha_vencimiento ? fmtFecha(g.fecha_vencimiento) : '—'}</td>
+        <td data-l="Centro"><span class="tag">${esc(centro(g.centro_id)?.nombre || '—')}</span></td>
+        <td class="concepto" data-l="Concepto">${esc(g.concepto)}</td>
+        <td class="mut corto" data-l="Proveedor">${esc(g.proveedor || '—')}</td>
+        <td class="num fuerte" data-l="Monto">${fmt(g.monto)}</td>
+        <td class="acciones"><button class="btn btn-sm btn-primary" data-pagar="${g.id}">Marcar pagado</button></td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+  el.querySelectorAll('[data-pagar]').forEach((b) => b.addEventListener('click', () => marcarPagado(b.dataset.pagar)));
+}
+
+function marcarPagado(id) {
+  const g = porPagar.find((x) => x.id === id);
+  if (!g) return;
+  const modal = abrirModal({
+    titulo: 'Marcar como pagado',
+    cuerpo: `
+      <form id="mp" class="form" novalidate>
+        <p><b>${esc(g.concepto)}</b>${g.proveedor ? ` · ${esc(g.proveedor)}` : ''}<br><span class="mut">${esc(centro(g.centro_id)?.nombre || '')} · pedido el ${fmtFecha(g.fecha)}</span></p>
+        <div class="form-2">
+          <label>Monto pagado<input type="number" name="monto" required min="0.01" step="0.01" inputmode="decimal" value="${Number(g.monto)}"></label>
+          <label>Fecha de pago<input type="date" name="fecha_pago" required value="${hoyISO()}"></label>
+        </div>
+        <label>Forma de pago<select name="forma_pago">${FORMAS_PAGO.map((x) => `<option>${x}</option>`).join('')}</select></label>
+        <label class="archivo">Factura o comprobante <small>(opcional)</small>
+          <input type="file" name="archivo" accept="image/*,application/pdf">
+          <span class="archivo-estado" id="mp-archivo">${g.comprobante_path ? 'Ya tiene un archivo; si subes otro, lo reemplaza' : 'Sin archivo'}</span>
+        </label>
+      </form>`,
+    pie: `<button class="btn btn-ghost" data-cerrar-btn>Cancelar</button><button class="btn btn-primary" id="mp-ok">Guardar pago</button>`,
+  });
+  modal.querySelector('[data-cerrar-btn]').addEventListener('click', cerrarModal);
+  const form = modal.querySelector('#mp');
+  let archivo = null;
+  form.archivo.addEventListener('change', async () => {
+    archivo = await leerArchivo(form.archivo.files[0], modal.querySelector('#mp-archivo'));
+  });
+  modal.querySelector('#mp-ok').addEventListener('click', async (ev) => {
+    const btn = ev.currentTarget;
+    const monto = Number(form.monto.value);
+    if (!(monto > 0)) return toast('El monto debe ser mayor a cero', true);
+    if (!form.fecha_pago.value) return toast('Pon la fecha de pago', true);
+    btn.disabled = true; btn.textContent = 'Guardando…';
+    try {
+      const cambios = { estado: 'pagado', fecha_pago: form.fecha_pago.value, forma_pago: form.forma_pago.value,
+                        monto: Math.round(monto * 100) / 100 };
+      if (archivo) cambios.comprobante_path = await subirComprobante(archivo, form.fecha_pago.value);
+      const { error } = await db().from('gastos').update(cambios).eq('id', id);
+      if (error) throw error;
+      cerrarModal(); toast('Pago registrado ✓'); cargar();
+    } catch (e) {
+      toast('No se pudo guardar: ' + (e.message || e), true);
+      btn.disabled = false; btn.textContent = 'Guardar pago';
+    }
+  });
+}
+
+async function leerArchivo(file, lbl) {
+  if (!file) { lbl.textContent = 'Sin archivo'; return null; }
+  try {
+    if (file.type === 'application/pdf') {
+      if (file.size > 10 * 1024 * 1024) throw new Error('El PDF pesa más de 10 MB');
+      lbl.textContent = '✓ ' + file.name;
+      return { blob: file, nombre: file.name, tipo: 'application/pdf', ext: 'pdf' };
+    }
+    lbl.textContent = 'Procesando foto…';
+    const r = { blob: await comprimirImagen(file), nombre: file.name, tipo: 'image/jpeg', ext: 'jpg' };
+    lbl.textContent = '✓ ' + file.name;
+    return r;
+  } catch (e) { lbl.textContent = 'Sin archivo'; toast(e.message, true); return null; }
+}
+
 async function borrar(id) {
   const g = datos.find((x) => x.id === id);
   if (!confirm(`¿Eliminar "${g?.concepto}" por ${fmt(g?.monto)}?\nQueda registrado en la bitácora.`)) return;
   const { error } = await db().from('gastos').delete().eq('id', id);
   if (error) return toast('No se pudo eliminar: ' + error.message, true);
   datos = datos.filter((x) => x.id !== id);
+  porPagar = porPagar.filter((x) => x.id !== id);
   pintar();
   toast('Gasto eliminado');
 }
@@ -218,16 +324,21 @@ function abrirFormulario() {
     titulo: 'Nuevo gasto',
     cuerpo: `
       <form id="gf" class="form" novalidate>
+        <fieldset class="opciones"><legend>¿Ya se pagó?</legend><div class="form-2">
+          <label class="opcion opcion-linea"><input type="radio" name="estado" value="pagado" checked> Sí, ya se pagó</label>
+          <label class="opcion opcion-linea"><input type="radio" name="estado" value="por_pagar"> No, es un pedido por pagar</label>
+        </div></fieldset>
         <label>Centro<select name="centro_id" required>${opcionesCentro(false)}</select></label>
         <div class="form-2">
-          <label>Fecha<input type="date" name="fecha" required value="${hoyISO()}"></label>
+          <label><span id="gf-lbl-fecha">Fecha</span><input type="date" name="fecha" required value="${hoyISO()}"></label>
           <label>Monto<input type="number" name="monto" required min="0.01" step="0.01" inputmode="decimal" placeholder="0.00"></label>
         </div>
         <label>Concepto<input name="concepto" required maxlength="200" placeholder="¿En qué se gastó?"></label>
         <label>Proveedor <small>(opcional)</small><input name="proveedor" maxlength="120"></label>
         <div class="form-2">
           <label>Categoría<select name="categoria">${Object.keys(CATEGORIAS).map((c) => `<option>${c}</option>`).join('')}</select></label>
-          <label>Forma de pago<select name="forma_pago">${FORMAS_PAGO.map((x) => `<option>${x}</option>`).join('')}</select></label>
+          <label id="gf-forma">Forma de pago<select name="forma_pago">${FORMAS_PAGO.map((x) => `<option>${x}</option>`).join('')}</select></label>
+          <label id="gf-vence" hidden>Vence <small>(opcional)</small><input type="date" name="fecha_vencimiento"></label>
         </div>
         <label>Notas <small>(opcional)</small><textarea name="notas" rows="2"></textarea></label>
         <label class="archivo">Comprobante <small>(foto o PDF)</small>
@@ -241,6 +352,13 @@ function abrirFormulario() {
   const form = modal.querySelector('#gf');
   form.centro_id.value = centroInicial;
   modal.querySelector('[data-cerrar-btn]').addEventListener('click', cerrarModal);
+  const alCambiarEstado = () => {
+    const pendiente = form.estado.value === 'por_pagar';
+    modal.querySelector('#gf-forma').hidden = pendiente;
+    modal.querySelector('#gf-vence').hidden = !pendiente;
+    modal.querySelector('#gf-lbl-fecha').textContent = pendiente ? 'Fecha del pedido' : 'Fecha';
+  };
+  form.querySelectorAll('input[name="estado"]').forEach((r) => r.addEventListener('change', alCambiarEstado));
 
   let archivo = null;          // { blob, nombre, tipo }
   form.archivo.addEventListener('change', async () => {
@@ -276,12 +394,15 @@ function abrirFormulario() {
       const { error } = await db().from('gastos').insert({
         org_id: estado.miembro.org_id, empresa_id: c.empresa_id, centro_id: c.id,
         fecha: v.fecha, monto: Math.round(monto * 100) / 100, concepto: v.concepto.trim(),
-        proveedor: v.proveedor.trim() || null, categoria: v.categoria, forma_pago: v.forma_pago,
+        proveedor: v.proveedor.trim() || null, categoria: v.categoria,
+        estado: v.estado === 'por_pagar' ? 'por_pagar' : 'pagado',
+        forma_pago: v.estado === 'por_pagar' ? null : v.forma_pago,
+        fecha_vencimiento: v.estado === 'por_pagar' ? (v.fecha_vencimiento || null) : null,
         notas: v.notas.trim() || null, comprobante_path, capturado_por: estado.miembro.nombre,
       });
       if (error) throw error;
       cerrarModal();
-      toast('Gasto registrado ✓');
+      toast(v.estado === 'por_pagar' ? 'Pedido registrado como por pagar ✓' : 'Gasto registrado ✓');
       const fd = new Date(v.fecha + 'T12:00:00');
       if (fd.getMonth() !== f.mes || fd.getFullYear() !== f.anio) { f.mes = fd.getMonth(); f.anio = fd.getFullYear(); render(raiz); }
       else cargar();
