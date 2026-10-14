@@ -101,7 +101,9 @@ function detalle(el, o) {
   const catFilas = [...cats.entries()].sort((a, b) => b[1] - a[1]);
   const maxCat = catFilas[0]?.[1] || 1;
   const provs = new Map();
-  o.gastos.forEach((g) => provs.set(g.proveedor || 'Sin proveedor', (provs.get(g.proveedor || 'Sin proveedor') || 0) + Number(g.monto)));
+  // La raya ya aparece completa en "Nómina" (costo por categoría); aquí solo proveedores.
+  o.gastos.filter((g) => g.categoria !== 'Nómina')
+    .forEach((g) => provs.set(g.proveedor || 'Sin proveedor', (provs.get(g.proveedor || 'Sin proveedor') || 0) + Number(g.monto)));
   const provFilas = [...provs.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
   const maxProv = provFilas[0]?.[1] || 1;
   const pendientes = o.gastos.filter((g) => g.estado === 'por_pagar');
@@ -142,7 +144,7 @@ function detalle(el, o) {
           <span class="barra-pista"><span style="width:${Math.max(2, v / maxCat * 100)}%"></span></span><span class="barra-monto">${fmt(v)}</span></li>`).join('')}</ul>`
           : '<div class="vacio">Sin gastos registrados</div>'}
       </section>
-      <section class="panel"><h3>Principales proveedores</h3>
+      <section class="panel"><h3>Principales proveedores <small class="sub-meta">sin nómina</small></h3>
         ${provFilas.length ? `<ul class="barras">${provFilas.map(([k, v]) => `<li><span class="barra-nombre">${esc(k)}</span>
           <span class="barra-pista"><span style="width:${Math.max(2, v / maxProv * 100)}%"></span></span><span class="barra-monto">${fmt(v)}</span></li>`).join('')}</ul>`
           : '<div class="vacio">Sin gastos registrados</div>'}
