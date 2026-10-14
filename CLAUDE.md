@@ -66,7 +66,8 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 - Vacaciones (Personal → Vacaciones): LFT 2023 — 12 días al 1er año, +2 hasta 20 al 5º, +2 cada 5 años; plazo 6 meses
   tras el aniversario; prima 25 %. Cada registro va ligado a su año de servicio (`vacaciones.periodo`), tipo
   `disfrutadas` o `pagadas`, con `monto` y `prima`. Antigüedad = `empleados.fecha_ingreso` (la que la familia les
-  reconoce, aunque el alta del IMSS sea posterior).
+  reconoce, aunque el alta del IMSS sea posterior). Se muestran y pagan en **semanas de sueldo** (semana = `dias_semana`
+  días; 12 días = 2 semanas): pagadas = semanas × sueldo semanal + 25 % de prima; disfrutadas = solo la prima.
 - Reporte mensual de Elysium: sin CFE en egresos; suma todos los pagos del mes de cada unidad.
 - Empleados dados de baja: se conservan por su historial de nómina, ocultos por defecto.
 - Contraseña mínima: 6 caracteres. Usuario sin correo: `usuario@usuarios.medco.mx`.

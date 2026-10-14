@@ -552,11 +552,14 @@ const antiguedadTxt = (ingreso, hoy) => {
   return [n ? `${n} año${n === 1 ? '' : 's'}` : '', m ? `${m} mes${m === 1 ? '' : 'es'}` : ''].filter(Boolean).join(' ') || 'menos de 1 mes';
 };
 const salarioDiario = (e) => Number(e.salario_semanal || 0) / 7;
+// En la empresa las vacaciones se pagan por semanas: cada semana de vacaciones = los días que trabaja a la semana (normalmente 6)
+const semanasDe = (e, dias) => dias / (e.dias_semana || 6);
+const semanasTxt = (e, dias) => { const w = Math.round(semanasDe(e, dias) * 10) / 10; return `${w} semana${w === 1 ? '' : 's'}`; };
 
 async function vacaciones(el) {
   const hoy = hoyISO();
   const [emp, vac] = await Promise.all([
-    db().from('empleados').select('id, nombre, puesto, centro_id, fecha_ingreso, salario_semanal').eq('activo', true).order('nombre'),
+    db().from('empleados').select('id, nombre, puesto, centro_id, fecha_ingreso, salario_semanal, dias_semana').eq('activo', true).order('nombre'),
     db().from('vacaciones').select('*').order('fecha_inicio', { ascending: false }),
   ]);
   if (emp.error || vac.error) throw emp.error || vac.error;
@@ -578,7 +581,7 @@ async function vacaciones(el) {
     const proximo = sumarAnios(e.fecha_ingreso, n + 1);
     return { e, suyas, n, vivos, actual: periodos.find((x) => x.p === n), proximo, diasProx: diasLey(n + 1) };
   });
-  const pendientesTot = filas.reduce((s, f) => s + (f.vivos || []).reduce((a, x) => a + x.pendientes, 0), 0);
+  const pendientesTot = Math.round(filas.reduce((s, f) => s + semanasDe(f.e, (f.vivos || []).reduce((a, x) => a + x.pendientes, 0)), 0) * 10) / 10;
   const vencidos = filas.filter((f) => (f.vivos || []).some((x) => x.pendientes > 0 && x.vence < hoy));
   const sinFecha = filas.filter((f) => f.sinFecha);
   const enMes = filas.filter((f) => f.proximo && f.proximo <= sumarMeses(hoy, 1));
@@ -589,20 +592,21 @@ async function vacaciones(el) {
     const pend = f.vivos.reduce((a, x) => a + x.pendientes, 0);
     if (!pend) return '<span class="tag tag-ok">Al corriente</span>';
     const venc = f.vivos.some((x) => x.pendientes > 0 && x.vence < hoy);
-    return `<span class="tag ${venc ? 'tag-aviso' : ''}">${venc ? 'Vencidos: ' : 'Debe '}${pend} día${pend === 1 ? '' : 's'}</span>`;
+    return `<span class="tag ${venc ? 'tag-aviso' : ''}" title="${pend} días">${venc ? 'Vencidas: ' : 'Debe '}${semanasTxt(f.e, pend)}</span>`;
   };
   const grupos = {};
   filas.forEach((f) => (grupos[f.e.centro_id] = grupos[f.e.centro_id] || []).push(f));
 
   el.innerHTML = `
     <div class="kpis">
-      <div class="kpi"><span>Días pendientes</span><strong class="${pendientesTot ? 'neg' : ''}">${pendientesTot}</strong><small>de todos los empleados</small></div>
+      <div class="kpi"><span>Semanas pendientes</span><strong class="${pendientesTot ? 'neg' : ''}">${pendientesTot}</strong><small>de todos los empleados</small></div>
       <div class="kpi"><span>Fuera de plazo</span><strong class="${vencidos.length ? 'neg' : ''}">${vencidos.length}</strong><small>pasaron 6 meses del aniversario</small></div>
       <div class="kpi"><span>Cumplen año este mes</span><strong>${enMes.length}</strong><small>${enMes.map((f) => esc(f.e.nombre)).slice(0, 3).join(', ') || '&nbsp;'}</small></div>
       <div class="kpi"><span>Sin fecha de ingreso</span><strong>${sinFecha.length}</strong><small>no se pueden calcular</small></div>
     </div>
-    <p class="nota">Días según la Ley Federal del Trabajo (desde 2023): 12 días al cumplir 1 año, +2 por año hasta 20 días al 5º, y +2 cada 5 años después.
-      Se dan dentro de los 6 meses siguientes al aniversario, con prima vacacional de al menos 25 %.</p>
+    <p class="nota">Ley Federal del Trabajo (desde 2023): 12 días al cumplir 1 año, +2 por año hasta 20 días al 5º, y +2 cada 5 años después;
+      se dan dentro de los 6 meses siguientes al aniversario, con prima vacacional de al menos 25 %.
+      Aquí se cuentan en <strong>semanas de sueldo</strong>: una semana = los días que trabaja a la semana (12 días = 2 semanas si trabaja 6 días).</p>
     ${Object.entries(grupos).sort((a, b) => nombreCentro(a[0]).localeCompare(nombreCentro(b[0]), 'es')).map(([cid, lista]) => `
     <section class="panel"><h3>${esc(nombreCentro(cid))}</h3>
       <div class="tabla-wrap"><table class="tabla">
@@ -610,9 +614,9 @@ async function vacaciones(el) {
         <tbody>${lista.map((f) => `<tr>
           <td data-l="Empleado"><strong>${esc(f.e.nombre)}</strong>${f.e.fecha_ingreso ? `<small class="sub">Ingresó ${fmtFecha(f.e.fecha_ingreso)}</small>` : ''}</td>
           <td class="mut" data-l="Antigüedad">${f.sinFecha ? '—' : antiguedadTxt(f.e.fecha_ingreso, hoy)}</td>
-          <td class="num fuerte nowrap" data-l="Le tocan">${f.actual ? `${f.actual.dias} días` : '—'}${f.actual ? `<small class="sub">${f.n}º año · ${f.actual.usados} dados</small>` : ''}</td>
+          <td class="num fuerte nowrap" data-l="Le tocan">${f.actual ? semanasTxt(f.e, f.actual.dias) : '—'}${f.actual ? `<small class="sub">${f.actual.dias} días · ${f.n}º año</small>` : ''}</td>
           <td class="nowrap ${f.actual && f.actual.pendientes && f.actual.vence < hoy ? 'neg fuerte' : 'mut'}" data-l="Plazo">${f.actual ? `${fmtFecha(f.actual.desde)} → ${fmtFecha(f.actual.vence)}` : '—'}</td>
-          <td class="mut nowrap" data-l="Próximo">${f.proximo ? `${fmtFecha(f.proximo)} · ${f.diasProx} días` : '—'}</td>
+          <td class="mut nowrap" data-l="Próximo">${f.proximo ? `${fmtFecha(f.proximo)} · ${semanasTxt(f.e, f.diasProx)}` : '—'}</td>
           <td data-l="Estado">${estadoDe(f)}</td>
           <td class="acciones">${f.sinFecha ? `<button class="btn btn-sm btn-ghost" data-fecha="${f.e.id}">Poner fecha</button>`
             : `${f.suyas.length ? `<button class="btn btn-sm btn-ghost" data-hist="${f.e.id}" title="Historial">${f.suyas.length} reg.</button>` : ''}
@@ -640,13 +644,14 @@ function registrarVacaciones(f) {
   const modal = abrirModal({ titulo: `Vacaciones · ${e.nombre}`,
     cuerpo: `<form class="form" id="vf">
       <label>¿De qué año de servicio?<select name="periodo">${opciones.map((o) =>
-        `<option value="${o.p}">${o.p}º año (desde ${fmtFecha(o.desde)}) · le tocan ${o.dias}, faltan ${o.pend}</option>`).join('')}</select></label>
+        `<option value="${o.p}">${o.p}º año (desde ${fmtFecha(o.desde)}) · le tocan ${semanasTxt(e, o.dias)}, faltan ${semanasTxt(e, o.pend)}</option>`).join('')}</select></label>
       <fieldset class="opciones"><legend>¿Qué pasó?</legend>
         <label class="opcion opcion-linea"><input type="radio" name="tipo" value="disfrutadas" checked> Las tomó (descansó esos días)</label>
         <label class="opcion opcion-linea"><input type="radio" name="tipo" value="pagadas"> Se le pagaron sin descansar</label></fieldset>
       <div class="form-2" id="vf-fechas"><label>Desde<input type="date" name="ini" value="${hoy}"></label><label>Hasta<input type="date" name="fin" value="${hoy}"></label></div>
-      <div class="form-2"><label>Días<input type="number" name="dias" min="1" max="60" value="${opciones[0]?.pend || 1}"></label>
-        <label id="vf-lfecha" style="display:none">Fecha de pago<input type="date" name="fpago" value="${hoy}"></label></div>
+      <div class="form-2"><label>Semanas<input type="number" name="semanas" min="0.5" max="10" step="0.5" value="${Math.round(semanasDe(e, opciones[0]?.pend || 0) * 10) / 10 || 1}"></label>
+        <label>Equivale a días<input type="number" name="dias" min="1" max="60" value="${opciones[0]?.pend || (e.dias_semana || 6)}"></label></div>
+      <label id="vf-lfecha" style="display:none">Fecha de pago<input type="date" name="fpago" value="${hoy}"></label>
       <div class="form-2"><label>Pago por los días<input type="number" name="monto" min="0" step="0.01"></label>
         <label>Prima vacacional (25 %)<input type="number" name="prima" min="0" step="0.01"></label></div>
       <p class="nota" id="vf-nota"></p>
@@ -655,22 +660,27 @@ function registrarVacaciones(f) {
   const fm = modal.querySelector('#vf');
   const tipo = () => fm.querySelector('[name=tipo]:checked').value;
   const sugerir = () => {
-    const d = Number(fm.dias.value) || 0;
+    const w = Number(fm.semanas.value) || 0, sem = Number(e.salario_semanal || 0);
     const pag = tipo() === 'pagadas';
-    fm.monto.value = pag ? (d * sd).toFixed(2) : '0.00'; fm.prima.value = (d * sd * 0.25).toFixed(2);
-    modal.querySelector('#vf-nota').textContent = !sd ? 'Sin sueldo registrado: escribe los montos.'
-      : `Sueldo ${fmt(e.salario_semanal)}/semana = ${fmt(sd)} diarios. ` + (pag ? 'Se pagan los días más la prima.'
-        : 'Su sueldo de esos días va en la nómina normal; aquí solo va la prima.') + ' Puedes cambiar los montos.';
+    fm.monto.value = pag ? (w * sem).toFixed(2) : '0.00'; fm.prima.value = (w * sem * 0.25).toFixed(2);
+    modal.querySelector('#vf-nota').textContent = !sem ? 'Sin sueldo registrado: escribe los montos.'
+      : `${w} semana${w === 1 ? '' : 's'} × ${fmt(sem)} de sueldo semanal` + (pag ? ' + 25 % de prima.'
+        : '. Su sueldo de esas semanas va en la nómina normal; aquí solo va la prima del 25 %.') + ' Puedes cambiar los montos.';
   };
   const ajustar = () => {
     const pag = tipo() === 'pagadas';
     modal.querySelector('#vf-fechas').style.display = pag ? 'none' : '';
     modal.querySelector('#vf-lfecha').style.display = pag ? '' : 'none';
   };
-  const calc = () => { const d = Math.round((new Date(fm.fin.value) - new Date(fm.ini.value)) / 864e5) + 1; if (d > 0) { fm.dias.value = d; sugerir(); } };
+  const ds = e.dias_semana || 6;
+  // Del calendario sale cuántas semanas descansó (7 días naturales = 1 semana)
+  const calc = () => { const d = Math.round((new Date(fm.fin.value) - new Date(fm.ini.value)) / 864e5) + 1;
+    if (d > 0) { fm.semanas.value = Math.round(d / 7 * 2) / 2 || 0.5; fm.dias.value = Math.round(fm.semanas.value * ds); sugerir(); } };
   fm.ini.addEventListener('change', calc); fm.fin.addEventListener('change', calc);
-  fm.dias.addEventListener('input', sugerir);
-  fm.periodo.addEventListener('change', () => { const o = opciones.find((x) => x.p === +fm.periodo.value); if (o) { fm.dias.value = o.pend || 1; sugerir(); } });
+  fm.semanas.addEventListener('input', () => { fm.dias.value = Math.round((Number(fm.semanas.value) || 0) * ds); sugerir(); });
+  fm.dias.addEventListener('input', () => { fm.semanas.value = Math.round((Number(fm.dias.value) || 0) / ds * 10) / 10; sugerir(); });
+  fm.periodo.addEventListener('change', () => { const o = opciones.find((x) => x.p === +fm.periodo.value);
+    if (o) { fm.dias.value = o.pend || ds; fm.semanas.value = Math.round(fm.dias.value / ds * 10) / 10; sugerir(); } });
   fm.querySelectorAll('[name=tipo]').forEach((r) => r.addEventListener('change', () => { ajustar(); sugerir(); }));
   sugerir(); ajustar();
   modal.querySelector('#vf-no').addEventListener('click', cerrarModal);
@@ -692,7 +702,7 @@ function registrarVacaciones(f) {
 function historialVacaciones(f) {
   const modal = abrirModal({ titulo: `Historial de vacaciones · ${f.e.nombre}`,
     cuerpo: f.suyas.length ? `<ul class="lista-pagos">${f.suyas.map((v) => `<li><div>
-        <strong>${v.dias} día${v.dias === 1 ? '' : 's'} ${v.tipo === 'pagadas' ? 'pagados' : 'tomados'}</strong>
+        <strong>${semanasTxt(f.e, v.dias)} ${v.tipo === 'pagadas' ? 'pagadas' : 'tomadas'}</strong> <span class="mut">(${v.dias} días)</span>
         <span class="mut">${v.periodo ? `· ${v.periodo}º año` : ''} · ${v.tipo === 'pagadas' ? 'pagado el ' + fmtFecha(v.fecha_inicio) : fmtFecha(v.fecha_inicio) + ' → ' + fmtFecha(v.fecha_fin)}</span>
         ${v.monto != null || v.prima != null ? `<small>Pago ${fmt(v.monto || 0)} + prima ${fmt(v.prima || 0)} = <strong>${fmt(Number(v.monto || 0) + Number(v.prima || 0))}</strong></small>` : ''}
         ${v.notas ? `<small>${esc(v.notas)}</small>` : ''}</div>
