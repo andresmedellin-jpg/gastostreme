@@ -582,10 +582,20 @@ async function vacaciones(el) {
   }));
 }
 
+// Menú de empleados: solo activos, agrupados por centro (los dados de baja se conservan por su historial, pero no se eligen)
+function opcionesEmpleados(lista) {
+  const activos = lista.filter((e) => e.activo !== false);
+  const grupos = new Map();
+  activos.forEach((e) => { const c = nombreCentro(e.centro_id) || 'Sin centro'; if (!grupos.has(c)) grupos.set(c, []); grupos.get(c).push(e); });
+  return [...grupos.entries()].sort((a, b) => a[0].localeCompare(b[0], 'es'))
+    .map(([c, es]) => `<optgroup label="${esc(c)}">${es.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+      .map((e) => `<option value="${e.id}">${esc(e.nombre)}</option>`).join('')}</optgroup>`).join('');
+}
+
 // ================= PRÉSTAMOS =================
 async function prestamos(el) {
   const [emp, pre, abo] = await Promise.all([
-    db().from('empleados').select('id, nombre').order('nombre'),
+    db().from('empleados').select('id, nombre, activo, centro_id').order('nombre'),
     db().from('prestamos').select('*').order('fecha', { ascending: false }),
     db().from('prestamo_abonos').select('*').order('fecha'),
   ]);
@@ -595,7 +605,7 @@ async function prestamos(el) {
   document.getElementById('page-actions').innerHTML = `<button class="btn btn-primary" id="pr-nuevo">＋ Préstamo</button>`;
   document.getElementById('pr-nuevo').addEventListener('click', () => {
     const modal = abrirModal({ titulo: 'Nuevo préstamo',
-      cuerpo: `<form class="form" id="pf"><label>Empleado<select name="emp">${emp.data.map((e) => `<option value="${e.id}">${esc(e.nombre)}</option>`).join('')}</select></label>
+      cuerpo: `<form class="form" id="pf"><label>Empleado<select name="emp">${opcionesEmpleados(emp.data)}</select></label>
         <div class="form-2"><label>Monto<input type="number" name="monto" min="1" step="0.01"></label><label>Abono semanal<input type="number" name="abono" min="0" step="0.01"></label></div>
         <label>Fecha<input type="date" name="fecha" value="${hoyISO()}"></label><label>Notas<input name="notas"></label></form>`,
       pie: `<button class="btn btn-ghost" id="pf-no">Cancelar</button><button class="btn btn-primary" id="pf-si">Guardar</button>` });
