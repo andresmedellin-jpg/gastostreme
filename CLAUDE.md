@@ -36,7 +36,8 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   "Obra / construcción", "Venta", otros). La luz cobrada sí cuenta como ingreso (el recibo de CFE es gasto).
 - Bodegas de MEDCO (clientes Ortegón → Bodega Santa Catarina, Isidro Pérez → Bodega Escobedo): cada cliente es una
   `cuentas_por_cobrar` tipo venta con su precio; sus pagos son `pagos` concepto venta ligados con `cxc_id`.
-  En Inicio cuentan como "Obras y construcción". No capturarlos además como ingreso a mano.
+  En Inicio cuentan como "Obras y construcción". No capturarlos además como ingreso a mano: el botón "+ Ingreso" de Inicio,
+  si el centro tiene cuenta por cobrar de venta, guarda el cobro como `pagos` (abono a esa cuenta) en vez de `ingresos`.
 - Gastos "por pagar" (`gastos.estado = 'por_pagar'`): pedidos a proveedores aún sin pagar. Cuentan como costo de la
   obra desde el pedido; en Inicio el gasto cuenta en el mes en que se paga (`fecha_pago`, o `fecha` si se pagó al
   momento) y lo pendiente se muestra aparte. Se pagan con "Marcar pagado" en Gastos (mismo registro, no se duplica).

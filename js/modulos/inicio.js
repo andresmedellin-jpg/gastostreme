@@ -247,6 +247,7 @@ function nuevoIngreso() {
         <label>Fecha<input type="date" name="fecha" value="${hoyISO()}" required></label>
         <label>Monto<input type="number" name="monto" min="0.01" step="0.01" inputmode="decimal" required></label>
       </div>
+      <div id="ing-cxc"></div>
       <label>Concepto<input name="concepto" required maxlength="200" placeholder="Ej. Anticipo obra Escobedo"></label>
       <label>Cliente<input name="cliente" maxlength="120"></label>
       <div class="form-2">
@@ -260,11 +261,36 @@ function nuevoIngreso() {
   modal.querySelector('[data-cerrar]').addEventListener('click', cerrarModal);
   const f = modal.querySelector('#f-ing');
   if (st.empresa) { f.empresa.value = st.empresa; f.centro.innerHTML = `<option value="">— General —</option>${opcCentros(st.empresa)}`; }
-  f.empresa.addEventListener('change', () => { f.centro.innerHTML = `<option value="">— General —</option>${opcCentros(f.empresa.value)}`; });
+  // Si el centro es una obra con cliente (cuenta por cobrar de venta), el cobro se abona a esa cuenta:
+  // así baja el saldo del cliente en Obras y no queda como ingreso suelto.
+  let cuentas = [];
+  const verCuentas = async () => {
+    const caja = modal.querySelector('#ing-cxc');
+    cuentas = [];
+    caja.innerHTML = '';
+    if (!f.centro.value) return;
+    const { data } = await db().from('v_saldos_cxc').select('id, cliente, saldo, monto_original').eq('centro_id', f.centro.value).eq('tipo', 'venta');
+    cuentas = data || [];
+    if (!cuentas.length) return;
+    caja.innerHTML = `<label>Abonar a la cuenta de<select name="cxc">${cuentas.map((c) =>
+        `<option value="${c.id}">${esc(c.cliente)} · le falta ${fmt(c.saldo)}</option>`).join('')}
+        <option value="">No, es otro ingreso (no abona a la obra)</option></select></label>
+      <p class="nota">Se registra como pago del cliente: baja su saldo en Obras y cuenta como ingreso de "Obras y construcción".</p>`;
+    if (!f.concepto.value) f.concepto.value = 'Pago de obra';
+    if (!f.cliente.value) f.cliente.value = cuentas[0].cliente;
+    f.cxc.addEventListener('change', () => { const c = cuentas.find((x) => x.id === f.cxc.value); if (c) f.cliente.value = c.cliente; });
+  };
+  f.empresa.addEventListener('change', () => { f.centro.innerHTML = `<option value="">— General —</option>${opcCentros(f.empresa.value)}`; verCuentas(); });
+  f.centro.addEventListener('change', verCuentas);
   modal.querySelector('#ing-ok').addEventListener('click', async (ev) => {
     if (!f.reportValidity()) return;
     const btn = ev.currentTarget; btn.disabled = true; btn.textContent = 'Guardando…';
-    const { error } = await db().from('ingresos').insert({
+    const cxc = f.cxc?.value;
+    const { error } = cxc ? await db().from('pagos').insert({
+      org_id: estado.miembro.org_id, empresa_id: f.empresa.value, centro_id: f.centro.value, cxc_id: cxc, concepto: 'venta',
+      fecha: f.fecha.value, monto: Number(f.monto.value), forma_pago: f.forma.value,
+      notas: [f.concepto.value.trim(), f.notas.value.trim()].filter(Boolean).join(' · ') || null, capturado_por: estado.miembro.nombre,
+    }) : await db().from('ingresos').insert({
       org_id: estado.miembro.org_id, empresa_id: f.empresa.value, centro_id: f.centro.value || null,
       fecha: f.fecha.value, monto: Number(f.monto.value), concepto: f.concepto.value.trim(),
       cliente: f.cliente.value.trim() || null, categoria: f.categoria.value, forma_pago: f.forma.value,
@@ -272,7 +298,7 @@ function nuevoIngreso() {
     });
     btn.disabled = false; btn.textContent = 'Guardar ingreso';
     if (error) return toast('No se pudo guardar: ' + error.message, true);
-    cerrarModal(); toast('Ingreso registrado');
+    cerrarModal(); toast(cxc ? 'Abono registrado en la cuenta del cliente ✓' : 'Ingreso registrado');
     const d = f.fecha.value; st.anio = +d.slice(0, 4); st.mes = +d.slice(5, 7) - 1;
     raiz.querySelector('#i-mes').value = st.mes; raiz.querySelector('#i-anio').value = st.anio;
     cargar();
