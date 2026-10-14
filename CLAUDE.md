@@ -47,6 +47,9 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 - Facturas pagadas en parcialidades (Vigu/Construmart manda "ReciboPag" = complemento de pago): un gasto por cada pago,
   con fecha del pago y el UUID del complemento en `cfdi_uuid`. Anticipos de Concremóvil: el anticipo es el gasto; de la
   factura que lo aplica solo se registra la diferencia. Victoria captura pagos (no facturas): revisar antes de agregar.
+- Nómina estimada (antes de junio 2026): un gasto por semana (sábado), proveedor "Nómina estimada",
+  `legacy_id = 'estimado:nomina:<sc|esc|elysium>:<fecha>'`. Santa Catarina desde 19/07/2025 a $32,500; Escobedo desde
+  17/05/2025 a $21,161.40 (promedio real); Elysium ene–may 2026 a $34,900. Si llega la raya real, reemplazar.
 - Barrido de Gmail ya hecho hasta el 14/10/2026 (facturas XML a MEDCO, RFC DPM131211I4A).
 - Obras (módulo `obras.js`): centros tipo `obra`; valor = cuenta por cobrar tipo venta; costo = pagado + por pagar.
 - Reporte mensual de Elysium: sin CFE en egresos; suma todos los pagos del mes de cada unidad.
