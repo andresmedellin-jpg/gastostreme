@@ -58,7 +58,7 @@ export const SUGERIDOS = [
 export const CATEGORIAS = {
   'General':'📌','Mantenimiento':'🔧','Electricidad':'⚡','Agua':'💧','Gas':'🔥','Auto':'🚗','Limpieza':'🧹',
   'Seguridad':'🔒','Reparaciones':'🛠','Construcción':'🏗','Administración':'📋','Nómina':'👷',
-  'Impuestos':'🧾','Retiro socios':'💸','Otro':'•'
+  'Impuestos':'🧾','Seguro social e ISN':'🏥','Retiro socios':'💸','Otro':'•'
 };
 export const FORMAS_PAGO = ['Transferencia','Efectivo','Tarjeta','Cheque','Otro'];
 export const FORMAS_COBRO = ['Transferencia','Efectivo','Depósito','Tarjeta','Otro'];

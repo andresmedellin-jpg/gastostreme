@@ -58,6 +58,11 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   Folio `REC-AAAAMM-NNNN` vía `siguiente_folio_cuota`, guardado en los pagos. Rentas conserva su folio `REC-NNNN`.
   Siempre "Grupo Inmobiliario Treme" (nunca "Treme Grupo Inmobiliario"). Tipo de unidad `loft` existe (1204, 1406).
   Isidro (Loft 1204) paga $1,000 + $1,000 por acuerdo: está al corriente.
+- IMSS / Infonavit / ISN: todos los asegurados están en el registro patronal de MEDCO (Y39-27810-10-5), también los
+  de Treme (Elysium, plazas, oficina). Empleados con `imss = true`, `nss`, `nombre_imss`, `alta_imss`. Cada pago se reparte
+  por centro según la cédula de cuotas del SUA (categoría "Seguro social e ISN"; el registro original queda como parte
+  de Santa Catarina y las demás partes con `legacy_id = 'reparto:<id original>:<centro>'`). Jun–sep 2026 ya repartidos
+  con la cédula de sept. Desde oct. 2026 hay 24 asegurados (8 altas del 02/10 en Escobedo y Elysium).
 - Reporte mensual de Elysium: sin CFE en egresos; suma todos los pagos del mes de cada unidad.
 - Empleados dados de baja: se conservan por su historial de nómina, ocultos por defecto.
 - Contraseña mínima: 6 caracteres. Usuario sin correo: `usuario@usuarios.medco.mx`.

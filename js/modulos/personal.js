@@ -472,13 +472,15 @@ async function empleados(el) {
   // Los dados de baja se guardan por su historial de nómina, pero no se muestran salvo que se pidan
   const bajas = todos.filter((e) => !e.activo).length;
   const data = verBajas ? todos : todos.filter((e) => e.activo);
+  const asegurados = todos.filter((e) => e.activo && e.imss).length;
   el.innerHTML = `<section class="panel">
-    <div class="panel-head"><h3>${todos.length - bajas} empleado${todos.length - bajas === 1 ? '' : 's'} activo${todos.length - bajas === 1 ? '' : 's'}</h3>
+    <div class="panel-head"><h3>${todos.length - bajas} empleado${todos.length - bajas === 1 ? '' : 's'} activo${todos.length - bajas === 1 ? '' : 's'}
+      <small class="sub-meta">· ${asegurados} en el IMSS</small></h3>
       ${bajas ? `<button class="btn btn-sm btn-ghost" id="e-bajas">${verBajas ? 'Ocultar dados de baja' : `Ver dados de baja (${bajas})`}</button>` : ''}</div>
     <div class="tabla-wrap"><table class="tabla">
     <thead><tr><th>Nombre</th><th>Puesto</th><th>Centro</th><th class="num">Sueldo semanal</th><th>Horario</th><th></th></tr></thead>
     <tbody>${data.map((e) => `<tr class="${e.activo ? '' : 'inactivo'}">
-      <td data-l="Nombre"><strong>${esc(e.nombre)}</strong>${e.activo ? '' : ' <span class="tag tag-suave">baja</span>'}</td>
+      <td data-l="Nombre"><strong>${esc(e.nombre)}</strong>${e.activo ? '' : ' <span class="tag tag-suave">baja</span>'}${e.imss ? ' <span class="tag" title="Asegurado en el IMSS (registro patronal de MEDCO)">IMSS</span>' : ''}</td>
       <td class="mut" data-l="Puesto">${esc(e.puesto || '—')}</td>
       <td class="mut" data-l="Centro">${esc(nombreCentro(e.centro_id))}</td>
       <td class="num fuerte" data-l="Sueldo">${fmt(e.salario_semanal)}</td>
@@ -506,6 +508,12 @@ function editarEmpleado(e) {
         <label>Fecha de ingreso<input type="date" name="ingreso" value="${e?.fecha_ingreso || ''}"></label></div>
       <fieldset class="opciones"><legend>Días que trabaja</legend><div class="dias-sel">${DIAS.map((d, i) =>
         `<label class="opcion opcion-linea"><input type="checkbox" name="dl" value="${d}" ${dl.includes(d) ? 'checked' : ''}> ${DIAS_CORTO[i]}</label>`).join('')}</div></fieldset>
+      <fieldset class="opciones"><legend>Seguro social</legend>
+        <label class="opcion opcion-linea"><input type="checkbox" name="imss" ${e?.imss ? 'checked' : ''}> Dado de alta en el IMSS (registro patronal de MEDCO)</label>
+        <div class="form-2"><label>NSS<input name="nss" maxlength="11" inputmode="numeric" value="${esc(e?.nss || '')}"></label>
+          <label>Fecha de alta<input type="date" name="alta" value="${e?.alta_imss || ''}"></label></div>
+        <label>Nombre como está en el IMSS<input name="nimss" maxlength="120" value="${esc(e?.nombre_imss || '')}"></label>
+      </fieldset>
       <label class="opcion opcion-linea"><input type="checkbox" name="activo" ${!e || e.activo ? 'checked' : ''}> Activo (sale en nómina y asistencia)</label>
     </form>`,
     pie: `<button class="btn btn-ghost" id="ef-no">Cancelar</button><button class="btn btn-primary" id="ef-si">Guardar</button>`,
@@ -521,7 +529,8 @@ function editarEmpleado(e) {
       salario_semanal: Number(f.sueldo.value) || 0, dias_semana: +f.dias.value, hora_entrada: f.entrada.value || '08:00',
       hora_salida: f.salida.value || '17:00', tolerancia_min: +f.tol.value || 0, fecha_ingreso: f.ingreso.value || null,
       dias_laborales: [...f.querySelectorAll('[name=dl]:checked')].map((c) => c.value).join(',') || 'LUN,MAR,MIE,JUE,VIE,SAB',
-      activo: f.activo.checked };
+      activo: f.activo.checked, imss: f.imss.checked, nss: f.nss.value.trim() || null,
+      alta_imss: f.alta.value || null, nombre_imss: f.nimss.value.trim() || null };
     const { error } = e ? await db().from('empleados').update(datos).eq('id', e.id)
       : await db().from('empleados').insert({ ...datos, org_id: estado.miembro.org_id });
     if (error) { btn.disabled = false; return toast(error.message, true); }
