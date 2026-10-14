@@ -1,6 +1,7 @@
 // Cobranza de Torre Elysium: mantenimiento y luz por unidad y por mes.
 // Reemplaza la página "Cobranza Elysium".
 import { MESES, FORMAS_COBRO } from '../config.js';
+import { pintarRecibo, abrirVentanaRecibo } from '../recibo.js';
 import { db, todo, estado, tieneRol, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal } from '../lib.js';
 
 const CONCEPTOS = {
@@ -52,7 +53,7 @@ async function cargar() {
   const desde = `${st.anio}-01-01`, hasta = `${st.anio + 1}-01-01`;
   const [u, c, p] = await Promise.all([
     db().from('unidades').select('id, identificador, tipo, ocupante, notas, activo').eq('centro_id', centro.id).eq('activo', true),
-    db().from('cuotas').select('id, unidad_id, concepto, monto, activo, en_padron').in('concepto', ['mantenimiento', 'luz']),
+    db().from('cuotas').select('id, unidad_id, concepto, monto, activo, en_padron, pagador').in('concepto', ['mantenimiento', 'luz']),
     todo(() => db().from('pagos').select('id, unidad_id, concepto, periodo, monto, forma_pago, fecha, notas, folio, capturado_por')
       .eq('centro_id', centro.id).in('concepto', ['mantenimiento', 'luz'])
       .gte('periodo', desde).lt('periodo', hasta)),
@@ -180,7 +181,7 @@ function pintarConcepto(el, concepto) {
   el.querySelectorAll('[data-pagar]').forEach((b) => b.addEventListener('click', () => registrarPago(fila(b.dataset.pagar), concepto, m)));
   el.querySelectorAll('[data-ver]').forEach((b) => b.addEventListener('click', () => verPagos(fila(b.dataset.ver), concepto, m)));
   el.querySelectorAll('[data-editar]').forEach((b) => b.addEventListener('click', () => editarUnidad(fila(b.dataset.editar), concepto)));
-  el.querySelectorAll('[data-recibo]').forEach((b) => b.addEventListener('click', () => pedirRecibo(fila(b.dataset.recibo).u, m)));
+  el.querySelectorAll('[data-recibo]').forEach((b) => b.addEventListener('click', () => pedirRecibo(fila(b.dataset.recibo).u, m, concepto)));
 }
 
 function filaConcepto(r, m, puedeCapturar) {
@@ -275,7 +276,7 @@ function registrarPago(r, concepto, m) {
     }
     cerrarModal(); toast('Pago guardado ✓');
     await cargar();
-    if (conRecibo) generarRecibo(w, r.u, m, {});
+    if (conRecibo) generarRecibo(w, r.u, m, { conceptos: conceptosPorDefecto(r.u, m, concepto) });
   };
   modal.querySelector('#pf-si').addEventListener('click', (ev) => guardar(ev, false));
   modal.querySelector('#pf-rec').addEventListener('click', (ev) => guardar(ev, true));
@@ -293,7 +294,7 @@ function verPagos(r, concepto, m) {
       ? `<button class="btn btn-ghost" id="vp-otro">＋ Registrar otro pago</button><button class="btn btn-primary" id="vp-ok">Listo</button>` : ''}`,
   });
   modal.querySelector('#vp-ok')?.addEventListener('click', cerrarModal);
-  modal.querySelector('#vp-rec').addEventListener('click', () => pedirRecibo(r.u, m));
+  modal.querySelector('#vp-rec').addEventListener('click', () => pedirRecibo(r.u, m, concepto));
   modal.querySelector('#vp-otro')?.addEventListener('click', () => registrarPago(r, concepto, m));
   modal.querySelectorAll('[data-borrar]').forEach((b) => b.addEventListener('click', async () => {
     const p = r.porMes[m].find((x) => x.id === b.dataset.borrar);
@@ -361,185 +362,122 @@ function editarUnidad(r, concepto) {
 }
 
 // ---------- recibo de mantenimiento y luz ----------
-// Un recibo por unidad y mes con lo pagado de mantenimiento y luz. Folio REC-AAAAMM-NNNN,
-// se guarda en los pagos para que al volver a imprimirlo salga el mismo.
-const DETALLE = {
-  mantenimiento: { linea: 'Cuota de Mantenimiento', texto: 'mantenimiento' },
-  luz:           { linea: 'Servicio de Electricidad<br><small>(Suministro eléctrico)</small>', texto: 'servicio de luz' },
-};
+// Formato Treme (js/recibo.js). Se puede sacar junto (mantenimiento + luz) o uno por concepto, porque
+// normalmente el dueño paga el mantenimiento y el inquilino la luz. Cada concepto recuerda quién lo paga
+// (cuotas.pagador). Folio REC-AAAAMM-NNNN guardado en los pagos: al reimprimir sale el mismo.
+const NOMBRE_LINEA = { mantenimiento: 'Mantenimiento mensual', luz: 'Luz' };
+const NOMBRE_CORTO = { mantenimiento: 'Mantenimiento', luz: 'Luz' };
 const nombreBonito = (s) => (s && s === s.toUpperCase())
   ? s.toLowerCase().replace(/(^|\s)\S/g, (l) => l.toUpperCase()) : (s || '');
-const fechaLarga = (iso) => { const d = new Date(iso + 'T12:00:00'); return `${d.getDate()} de ${MESES[d.getMonth()].toLowerCase()} de ${d.getFullYear()}`; };
-const pagosDelMes = (unidadId, m) => pagos.filter((p) => p.unidad_id === unidadId && mesDe(p.periodo) === m);
+const pagosDelMes = (unidadId, m, k) => pagos.filter((p) => p.unidad_id === unidadId && mesDe(p.periodo) === m && (!k || p.concepto === k));
+const cuotaDe = (unidadId, k) => cuotas.find((c) => c.unidad_id === unidadId && c.concepto === k);
+const pagadorDe = (u, k) => cuotaDe(u.id, k)?.pagador || nombreBonito(u.ocupante);
+
+// Juntos si los dos conceptos están pagados en el mes y los paga la misma persona; si no, solo el de la pestaña
+function conceptosPorDefecto(u, m, concepto) {
+  const pagados = ['mantenimiento', 'luz'].filter((k) => pagosDelMes(u.id, m, k).length);
+  if (pagados.length === 2 && pagadorDe(u, 'mantenimiento') === pagadorDe(u, 'luz')) return pagados;
+  return pagados.includes(concepto) ? [concepto] : pagados.slice(0, 1);
+}
 
 function abrirVentana() {
-  const w = window.open('', '_blank');
-  if (!w) { toast('Permite ventanas emergentes para ver el recibo', true); return null; }
-  w.document.write('<p style="font-family:sans-serif;padding:24px">Generando recibo…</p>');
+  const w = abrirVentanaRecibo();
+  if (!w) toast('Permite ventanas emergentes para ver el recibo', true);
   return w;
 }
 
-function pedirRecibo(u, m) {
-  const ps = pagosDelMes(u.id, m);
-  if (!ps.length) return toast('Esta unidad no tiene pagos en el mes', true);
+function pedirRecibo(u, m, concepto) {
+  const pagados = ['mantenimiento', 'luz'].filter((k) => pagosDelMes(u.id, m, k).length);
+  if (!pagados.length) return toast('Esta unidad no tiene pagos en el mes', true);
   const puede = tieneRol(['administracion', 'cobranza']);
-  const ultima = ps.map((p) => p.fecha).sort().pop();
-  const suma = (k) => ps.filter((p) => p.concepto === k).reduce((s, p) => s + Number(p.monto), 0);
-  const folio = ps.find((p) => p.folio)?.folio;
+  const suma = (k) => pagosDelMes(u.id, m, k).reduce((s, p) => s + Number(p.monto), 0);
+  const ultima = (ks) => pagos.filter((p) => p.unidad_id === u.id && mesDe(p.periodo) === m && ks.includes(p.concepto)).map((p) => p.fecha).sort().pop();
+  const def = conceptosPorDefecto(u, m, concepto);
+  const opciones = [
+    ...(pagados.length === 2 ? [['juntos', `Juntos: mantenimiento + luz (${fmt(suma('mantenimiento') + suma('luz'))})`]] : []),
+    ...pagados.map((k) => [k, `Solo ${NOMBRE_CORTO[k].toLowerCase()} (${fmt(suma(k))})`]),
+  ];
+  const elegido = def.length === 2 ? 'juntos' : def[0];
   const modal = abrirModal({
     titulo: `Recibo · ${etiquetaUnidad(u)} · ${MESES[m]} ${st.anio}`,
     cuerpo: `<form class="form" id="rf" novalidate>
-      <label>Recibí de<input name="nombre" maxlength="120" value="${esc(nombreBonito(u.ocupante))}" required></label>
+      <label>¿Qué recibo?<select name="cual">${opciones.map(([v, t]) => `<option value="${v}" ${v === elegido ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+      <label>Recibí de<input name="nombre" maxlength="120" required></label>
       <div class="form-2">
         <label>Tipo de unidad<select name="tipo">${Object.entries(TIPO_RECIBO).map(([k, v]) =>
           `<option value="${k}" ${u.tipo === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
-        <label>Fecha del recibo<input type="date" name="fecha" value="${ultima}" required></label>
+        <label>Fecha del recibo<input type="date" name="fecha" required></label>
       </div>
       <label>Nota <small>(opcional, sale en el recibo)</small><input name="nota" maxlength="200"></label>
-      <p class="nota">${['mantenimiento', 'luz'].filter((k) => suma(k) > 0).map((k) => `${CONCEPTOS[k].titulo}: <strong>${fmt(suma(k))}</strong>`).join(' · ')}
-        ${folio ? ` · Folio ${esc(folio)}` : ''}${puede ? '<br>El nombre y el tipo de unidad se guardan para la próxima vez.' : ''}</p>
+      ${puede ? '<p class="nota">Quién paga cada concepto y el tipo de unidad se guardan para la próxima vez.</p>' : ''}
     </form>`,
     pie: `<button class="btn btn-ghost" id="rf-no">Cancelar</button><button class="btn btn-primary" id="rf-si">Ver recibo / PDF</button>`,
   });
   const f = modal.querySelector('#rf');
+  const ks = () => f.cual.value === 'juntos' ? ['mantenimiento', 'luz'] : [f.cual.value];
+  const llenar = () => { f.nombre.value = pagadorDe(u, ks()[0]); f.fecha.value = ultima(ks()); };
+  llenar();
+  f.cual.addEventListener('change', llenar);
   modal.querySelector('#rf-no').addEventListener('click', cerrarModal);
   modal.querySelector('#rf-si').addEventListener('click', async () => {
     const nombre = f.nombre.value.trim();
     if (!nombre) return toast('Escribe a nombre de quién va el recibo', true);
     const w = abrirVentana();
     if (!w) return;
+    const conceptos = ks(), tipo = f.tipo.value, fecha = f.fecha.value, nota = f.nota.value.trim();
     cerrarModal();
-    if (puede && (nombre !== nombreBonito(u.ocupante) || f.tipo.value !== u.tipo)) {
-      const { error } = await db().from('unidades').update({ ocupante: nombre, tipo: f.tipo.value }).eq('id', u.id);
-      if (!error) { u.ocupante = nombre; u.tipo = f.tipo.value; }
+    if (puede) {
+      if (tipo !== u.tipo) {
+        const { error } = await db().from('unidades').update({ tipo }).eq('id', u.id);
+        if (!error) u.tipo = tipo;
+      }
+      for (const k of conceptos) {
+        const c = cuotaDe(u.id, k);
+        if (c && (c.pagador || nombreBonito(u.ocupante)) !== nombre) {
+          const { error } = await db().from('cuotas').update({ pagador: nombre }).eq('id', c.id);
+          if (!error) c.pagador = nombre;
+        }
+      }
     }
-    generarRecibo(w, u, m, { nombre, tipo: f.tipo.value, fecha: f.fecha.value, nota: f.nota.value.trim() });
+    generarRecibo(w, u, m, { conceptos, nombre, tipo, fecha, nota });
   });
 }
 
 async function generarRecibo(w, u, m, op) {
-  const ps = pagosDelMes(u.id, m);
+  const conceptos = op.conceptos.filter((k) => pagosDelMes(u.id, m, k).length);
+  const ps = pagos.filter((p) => p.unidad_id === u.id && mesDe(p.periodo) === m && conceptos.includes(p.concepto));
   if (!ps.length) { w.close(); return toast('No hay pagos para el recibo', true); }
-  // Folio: el que ya tenga el mes, o uno nuevo
-  let folio = ps.find((p) => p.folio)?.folio;
-  const periodo = `${st.anio}-${String(m + 1).padStart(2, '0')}-01`;
+  // Folio: si todos los pagos ya comparten uno, se reusa; si no, uno nuevo para este recibo
+  const folios = [...new Set(ps.map((p) => p.folio))];
+  let folio = folios.length === 1 ? folios[0] : null;
   if (!folio && tieneRol(['administracion', 'cobranza'])) {
+    const periodo = `${st.anio}-${String(m + 1).padStart(2, '0')}-01`;
     const { data, error } = await db().rpc('siguiente_folio_cuota', { p_org: estado.miembro.org_id, p_periodo: periodo });
     if (!error && data) {
-      folio = data;
-      const sinFolio = ps.filter((p) => !p.folio).map((p) => p.id);
-      const { error: e2 } = await db().from('pagos').update({ folio }).in('id', sinFolio);
-      if (!e2) ps.forEach((p) => { p.folio = folio; });
+      const { error: e2 } = await db().from('pagos').update({ folio: data }).in('id', ps.map((p) => p.id));
+      if (!e2) { folio = data; ps.forEach((p) => { p.folio = data; }); }
     }
   }
-  const nombre = op.nombre || nombreBonito(u.ocupante) || '—';
+  const nombre = op.nombre || pagadorDe(u, conceptos[0]) || '—';
   const tipo = TIPO_RECIBO[op.tipo || u.tipo] || 'Unidad';
-  const unidad = `${tipo} #${u.identificador}`;
-  const fecha = fechaLarga(op.fecha || ps.map((p) => p.fecha).sort().pop());
   const per = `${MESES[m]} ${st.anio}`;
-  const conceptos = ['mantenimiento', 'luz'].filter((k) => ps.some((p) => p.concepto === k));
   const lineas = conceptos.map((k) => {
-    const monto = ps.filter((p) => p.concepto === k).reduce((s, p) => s + Number(p.monto), 0);
-    const cuota = cuotas.find((c) => c.unidad_id === u.id && c.concepto === k);
-    return { k, monto, completo: !cuota || !(Number(cuota.monto) > 0) || monto >= Number(cuota.monto) };
+    const monto = pagosDelMes(u.id, m, k).reduce((s, p) => s + Number(p.monto), 0);
+    const cuota = Number(cuotaDe(u.id, k)?.monto || 0);
+    return { k, concepto: NOMBRE_LINEA[k], detalle: per, cantidad: 1, precio: monto, subtotal: monto, completo: !(cuota > 0) || monto >= cuota };
   });
-  const total = lineas.reduce((s, l) => s + l.monto, 0);
+  const textoConcepto = conceptos.map((k) => NOMBRE_CORTO[k]).join(' + ');
   const formas = [...new Set(ps.map((p) => formaLegible(p.forma_pago)).filter(Boolean))].join(' / ') || '—';
-  const textoConcepto = 'Pago de ' + conceptos.map((k) => DETALLE[k].texto).join(' y ');
-  const liquidado = lineas.every((l) => l.completo);
   const notas = [op.nota, ...new Set(ps.map((p) => p.notas).filter(Boolean))].filter(Boolean).join(' · ');
-  const img = await logoTreme();
-  const $ = (n) => '$' + Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8">
-<title>${esc(nombre)} - ${esc(unidad)} - ${esc(per)}</title>
-<style>
-  @page{size:letter;margin:0} *{box-sizing:border-box}
-  body{margin:0;background:#eef0f3;font-family:'Times New Roman',Times,Georgia,serif;color:#1a1a1a}
-  .barra{position:sticky;top:0;display:flex;gap:8px;justify-content:center;padding:12px;background:#1a1a1a;font-family:Arial,Helvetica,sans-serif}
-  .barra button{font:600 14px Arial,Helvetica,sans-serif;padding:9px 16px;border-radius:4px;border:0;cursor:pointer}
-  .hoja{width:8.5in;min-height:11in;max-width:100%;margin:24px auto;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.1);display:flex;flex-direction:column}
-  .topbar{height:10px;background:#8B1A1A}
-  .c{padding:30px 50px 36px;flex:1;display:flex;flex-direction:column}
-  .head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:16px;margin-bottom:20px;gap:16px}
-  .head img{width:230px;max-width:45%;height:auto;object-fit:contain}
-  .t{text-align:right} .t h1{font-size:22px;margin:0 0 4px;letter-spacing:1px} .t div{font-size:13px;margin:2px 0} .t b{color:#8B1A1A}
-  .st{color:#8B1A1A;font-weight:bold;font-size:13px;margin:18px 0 6px;letter-spacing:.5px}
-  table{width:100%;border-collapse:collapse}
-  .info td{border:1px solid #ccc;padding:8px 12px;font-size:13px} .info td.l{background:#f5f5f5;font-weight:bold;width:24%}
-  .det th{background:#1a1a1a;color:#fff;padding:8px 10px;font-size:12px;text-align:left}
-  .det td{border:1px solid #ccc;padding:8px 10px;font-size:13px} .det small{color:#555}
-  .r{text-align:right} .ce{text-align:center}
-  .det tr.s td{border:none;text-align:right;padding:5px 10px}
-  .det tr.tot td{background:#1a1a1a;color:#fff;font-weight:bold;text-align:right;font-size:14px}
-  .letra{font-size:12px;font-style:italic;text-align:right;margin-top:6px;color:#444}
-  .estado{border:1px solid #8B1A1A;border-left:4px solid #8B1A1A;text-align:center;padding:10px;font-weight:bold;font-size:14px;letter-spacing:1px;margin:24px 0}
-  .nota{font-size:12px;margin-bottom:16px} 
-  .aviso{font-size:11px;font-style:italic;color:#444;border-top:1px solid #ccc;padding-top:10px;text-align:center;line-height:1.5}
-  .pie{margin-top:auto;padding-top:40px;text-align:center;font-size:10px;color:#777}
-  .pie div{border-top:1px solid #ccc;padding-top:10px}
-  @media print{body{background:#fff}.barra{display:none}.hoja{margin:0;box-shadow:none;width:100%;min-height:auto;height:11in}}
-  @media (max-width:640px){.c{padding:20px 16px}.head{flex-direction:column}.head img{max-width:70%}.t{text-align:left}}
-</style></head><body>
-<div class="barra"><button onclick="print()" style="background:#8B1A1A;color:#fff">Descargar PDF / Imprimir</button><button onclick="close()">Cerrar</button></div>
-<div class="hoja"><div class="topbar"></div><div class="c">
-  <div class="head">${img ? `<img src="${img}" alt="Grupo Inmobiliario Treme">` : '<strong style="font-size:26px">Grupo Inmobiliario Treme</strong>'}
-    <div class="t"><h1>RECIBO DE PAGO</h1><div>Folio: <b>${esc(folio || '—')}</b></div><div>Fecha: ${fecha}</div></div></div>
-  <div class="st">INFORMACIÓN DE PAGO</div>
-  <table class="info">
-    <tr><td class="l">Recibí de:</td><td>${esc(nombre)}</td></tr>
-    <tr><td class="l">${esc(tipo)}:</td><td>#${esc(u.identificador)} · Torre Elysium</td></tr>
-    <tr><td class="l">Concepto:</td><td>${textoConcepto}</td></tr>
-    <tr><td class="l">Periodo:</td><td>${per}</td></tr>
-    <tr><td class="l">Recibido por:</td><td>Administración — Grupo Inmobiliario Treme</td></tr>
-    <tr><td class="l">Método de pago:</td><td>${esc(formas)}</td></tr>
-  </table>
-  <div class="st">DETALLE DE CONCEPTOS</div>
-  <table class="det">
-    <tr><th style="width:6%">#</th><th>Concepto</th><th class="ce" style="width:14%">Cantidad</th><th class="r" style="width:16%">Precio Unit.</th><th class="r" style="width:16%">Subtotal</th></tr>
-    ${lineas.map((l, i) => `<tr><td>${String(i + 1).padStart(2, '0')}</td><td>${DETALLE[l.k].linea}</td><td class="ce">1 mes</td>
-      <td class="r">${$(l.monto)}</td><td class="r">${$(l.monto)}</td></tr>`).join('')}
-    <tr class="s"><td colspan="5">Subtotal: &nbsp; ${$(total)}</td></tr>
-    <tr class="s"><td colspan="5">IVA (incluido): &nbsp; $0.00</td></tr>
-    <tr class="tot"><td colspan="5">TOTAL PAGADO: &nbsp; ${$(total)}</td></tr>
-  </table>
-  <div class="letra">(${montoLetra(total)})</div>
-  <div class="estado">${liquidado ? 'PAGO RECIBIDO — LIQUIDADO EN SU TOTALIDAD' : 'PAGO RECIBIDO'}</div>
-  ${notas ? `<div class="nota"><b>Notas:</b> ${esc(notas)}</div>` : ''}
-  <div class="aviso">Este recibo ampara el pago de ${conceptos.map((k) => k === 'luz' ? 'el servicio de electricidad' : 'la cuota de mantenimiento').join(' y ')}
-    correspondiente${conceptos.length > 1 ? 's' : ''} al periodo indicado, para ${['Oficina','Bodega','Casa','Unidad'].includes(tipo) ? 'la' : 'el'} ${esc(unidad)} de Torre Elysium, recibido a nombre de ${esc(nombre)}.
-    Para cualquier aclaración, comuníquese con el departamento de administración de Grupo Inmobiliario Treme.</div>
-  <div class="pie"><div>Grupo Inmobiliario Treme · Torre Elysium, Av. Fundadores 103, Lomas de Montecristo, Monterrey, N.L.<br>
-    Este recibo es comprobante de pago válido • Consérvelo para sus registros</div></div>
-</div></div></body></html>`;
-  w.document.open(); w.document.write(html); w.document.close();
-  if (folio) pintar();
-}
-
-// Monto con letra (pesos)
-function numLetra(n) {
-  const u = ['', 'UN', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE', 'DIEZ', 'ONCE', 'DOCE', 'TRECE', 'CATORCE',
-    'QUINCE', 'DIECISÉIS', 'DIECISIETE', 'DIECIOCHO', 'DIECINUEVE'];
-  const d = ['', '', 'VEINTE', 'TREINTA', 'CUARENTA', 'CINCUENTA', 'SESENTA', 'SETENTA', 'OCHENTA', 'NOVENTA'];
-  const h = ['', 'CIEN', 'DOSCIENTOS', 'TRESCIENTOS', 'CUATROCIENTOS', 'QUINIENTOS', 'SEISCIENTOS', 'SETECIENTOS', 'OCHOCIENTOS', 'NOVECIENTOS'];
-  const veinti = ['', 'VEINTIÚN', 'VEINTIDÓS', 'VEINTITRÉS', 'VEINTICUATRO', 'VEINTICINCO', 'VEINTISÉIS', 'VEINTISIETE', 'VEINTIOCHO', 'VEINTINUEVE'];
-  if (n === 0) return 'CERO';
-  if (n < 20) return u[n];
-  if (n < 30) return n === 20 ? 'VEINTE' : veinti[n - 20];
-  if (n < 100) { const t = Math.floor(n / 10), r = n % 10; return r ? `${d[t]} Y ${u[r]}` : d[t]; }
-  if (n < 1000) { const t = Math.floor(n / 100), r = n % 100; return (t === 1 ? (r ? 'CIENTO' : 'CIEN') : h[t]) + (r ? ' ' + numLetra(r) : ''); }
-  if (n < 1e6) { const t = Math.floor(n / 1000), r = n % 1000; return (t === 1 ? 'MIL' : numLetra(t) + ' MIL') + (r ? ' ' + numLetra(r) : ''); }
-  const t = Math.floor(n / 1e6), r = n % 1e6; return (t === 1 ? 'UN MILLÓN' : numLetra(t) + ' MILLONES') + (r ? ' ' + numLetra(r) : '');
-}
-const montoLetra = (m) => { const e = Math.floor(m), c = Math.round((m - e) * 100); return `${numLetra(e)} PESOS ${String(c).padStart(2, '0')}/100 M.N.`; };
-
-// El logo va incrustado para que también salga al guardar como PDF
-let logoUrl = null;
-async function logoTreme() {
-  if (logoUrl !== null) return logoUrl;
-  try {
-    const blob = await (await fetch(new URL('img/logo-treme.png', location.href))).blob();
-    logoUrl = await new Promise((ok) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.readAsDataURL(blob); });
-  } catch { logoUrl = ''; }
-  return logoUrl;
+  const art = ['Oficina', 'Bodega', 'Casa', 'Unidad'].includes(tipo) ? 'la' : 'el';
+  await pintarRecibo(w, {
+    titulo: `${nombre} - ${tipo} ${u.identificador} - ${textoConcepto} ${per}`,
+    folio, fecha: op.fecha || ps.map((p) => p.fecha).sort().pop(),
+    info: [['Recibí de', nombre], [tipo, `${u.identificador} · Torre Elysium`], ['Concepto', textoConcepto], ['Periodo', per],
+      ['Recibido por', 'Administración — Grupo Inmobiliario Treme'], ['Método de pago', formas]],
+    lineas, total: lineas.reduce((s, l) => s + l.subtotal, 0), moneda: 'MXN',
+    liquidado: lineas.every((l) => l.completo), notas,
+    aviso: `Este recibo ampara el pago de ${textoConcepto} correspondiente al periodo indicado, para ${art} ${tipo} ${u.identificador} de Torre Elysium, recibido a nombre de ${nombre}.`,
+  });
+  pintar();
 }

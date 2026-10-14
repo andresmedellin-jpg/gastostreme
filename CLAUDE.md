@@ -52,9 +52,12 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   17/05/2025 a $21,161.40 (promedio real); Elysium ene–may 2026 a $34,900. Si llega la raya real, reemplazar.
 - Barrido de Gmail ya hecho hasta el 14/10/2026 (facturas XML a MEDCO, RFC DPM131211I4A).
 - Obras (módulo `obras.js`): centros tipo `obra`; valor = cuenta por cobrar tipo venta; costo = pagado + por pagar.
-- Recibo de mantenimiento/luz (Cobranza Elysium, botón "Recibo"): uno por unidad y mes con ambos conceptos, formato
-  Treme de siempre (serif, rojo #8B1A1A), folio `REC-AAAAMM-NNNN` vía `siguiente_folio_cuota` guardado en los pagos.
+- Recibos (rentas y Cobranza Elysium) usan `js/recibo.js`: formato Treme que Andrés entrega (Inter incrustada desde
+  `fonts/`, rojo #8B1A1A, tamaño carta). Elysium: botón "Recibo" por unidad y mes, juntos (mantenimiento + luz) o
+  separados (el dueño paga mantenimiento, el inquilino la luz); quién paga cada concepto se guarda en `cuotas.pagador`.
+  Folio `REC-AAAAMM-NNNN` vía `siguiente_folio_cuota`, guardado en los pagos. Rentas conserva su folio `REC-NNNN`.
   Siempre "Grupo Inmobiliario Treme" (nunca "Treme Grupo Inmobiliario"). Tipo de unidad `loft` existe (1204, 1406).
+  Isidro (Loft 1204) paga $1,000 + $1,000 por acuerdo: está al corriente.
 - Reporte mensual de Elysium: sin CFE en egresos; suma todos los pagos del mes de cada unidad.
 - Empleados dados de baja: se conservan por su historial de nómina, ocultos por defecto.
 - Contraseña mínima: 6 caracteres. Usuario sin correo: `usuario@usuarios.medco.mx`.
