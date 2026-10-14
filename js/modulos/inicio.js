@@ -14,6 +14,7 @@ const FUENTES = {
   manual:        { t: 'Otros ingresos',  i: '💰' },
 };
 // Los ingresos capturados a mano se agrupan por su categoría
+const esMedco = (id) => estado.empresas.find((e) => e.id === id)?.nombre_corto === 'MEDCO';
 const fuenteDeCategoria = (c) => ({ 'Obra / construcción': 'construccion', 'Servicio de construcción': 'construccion',
   'Venta': 'venta' }[c] || 'manual');
 const CATEGORIAS_INGRESO = ['Obra / construcción', 'Venta', 'Anticipo', 'Comisión', 'Intereses', 'Reembolso', 'Otro'];
@@ -89,9 +90,12 @@ async function cargar() {
       const cuando = (r.periodo || r.fecha || '').slice(0, 10);
       const quien = r.concepto === 'renta' ? contratos.get(r.contrato_id)
         : r.concepto === 'venta' ? clientes.get(r.cxc_id) : unidades.get(r.unidad_id);
-      const titulo = { renta: 'Renta', mantenimiento: 'Mantenimiento', luz: 'Luz', venta: 'Venta' }[r.concepto] || r.concepto;
+      const titulo = r.concepto === 'venta' && esMedco(r.empresa_id) ? 'Pago de obra'
+        : ({ renta: 'Renta', mantenimiento: 'Mantenimiento', luz: 'Luz', venta: 'Venta' }[r.concepto] || r.concepto);
       return { id: r.id, mes: cuando.slice(0, 7), fecha: r.fecha || cuando, empresa_id: r.empresa_id, centro: centroDe(r.centro_id)?.nombre,
-        fuente: FUENTES[r.concepto] ? r.concepto : 'manual', monto: Number(r.monto),
+        // Las "ventas" de MEDCO son bodegas que construye para sus clientes: cuentan como obra
+        fuente: r.concepto === 'venta' && esMedco(r.empresa_id) ? 'construccion' : (FUENTES[r.concepto] ? r.concepto : 'manual'),
+        monto: Number(r.monto),
         concepto: `${titulo}${quien ? ' — ' + quien : ''}`, forma: r.forma_pago, editable: false };
     }),
     ...i.data.map((r) => ({ id: r.id, mes: r.fecha.slice(0, 7), fecha: r.fecha, empresa_id: r.empresa_id, centro: centroDe(r.centro_id)?.nombre,
