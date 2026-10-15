@@ -82,7 +82,9 @@ function opcionesCentro(conAgrupadores) {
       ${conAgrupadores ? `<option value="emp:${e.id}">Todo ${esc(e.nombre_corto)}</option>` : ''}
       ${cs.map((c) => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('')}</optgroup>`;
   }).join('');
-  return (conAgrupadores ? '<option value="todos">Todos los centros</option>' : '<option value="">Elige…</option>') + porEmpresa;
+  const hayPrivados = estado.centros.some((c) => PRIVADOS.includes(c.tipo));
+  return (conAgrupadores ? '<option value="todos">Todos los centros (sin Casa ni Socios)</option>'
+    + (hayPrivados ? '<option value="privados">Casa y Socios</option>' : '') : '<option value="">Elige…</option>') + porEmpresa;
 }
 
 async function cargar() {
@@ -105,6 +107,7 @@ async function cargar() {
 // Gastos que entran según el selector de centro
 function filtrados() {
   return datos.filter((g) => {
+    if (f.centro === 'privados') return PRIVADOS.includes(centro(g.centro_id)?.tipo);
     if (f.centro === 'todos') return !PRIVADOS.includes(centro(g.centro_id)?.tipo);
     if (f.centro.startsWith('emp:')) return g.empresa_id === f.centro.slice(4) && !PRIVADOS.includes(centro(g.centro_id)?.tipo);
     return g.centro_id === f.centro;
@@ -177,7 +180,16 @@ function pintarTabla() {
   if (f.forma) d = d.filter((g) => g.forma_pago === f.forma);
   if (f.q) d = d.filter((g) => (g.concepto || '').toLowerCase().includes(f.q) || (g.proveedor || '').toLowerCase().includes(f.q));
 
-  raiz.querySelector('#g-titulo-tabla').textContent = `${d.length} gasto${d.length === 1 ? '' : 's'}`;
+  // Casa y Socios no entran en "Todos" (regla acordada), pero se avisa que existen y se pueden ver con un clic
+  const ocultos = (f.centro === 'todos' || f.centro.startsWith('emp:'))
+    ? datos.filter((g) => PRIVADOS.includes(centro(g.centro_id)?.tipo)
+        && (f.centro === 'todos' || g.empresa_id === f.centro.slice(4))) : [];
+  const titulo = raiz.querySelector('#g-titulo-tabla');
+  titulo.innerHTML = `${d.length} gasto${d.length === 1 ? '' : 's'}${ocultos.length
+    ? ` <button class="btn btn-sm btn-ghost" id="g-ver-privados">+ ${ocultos.length} de Casa y Socios (${fmt(suma(ocultos))})</button>` : ''}`;
+  titulo.querySelector('#g-ver-privados')?.addEventListener('click', () => {
+    f.centro = 'privados'; raiz.querySelector('#g-centro').value = 'privados'; pintar();
+  });
   const tbody = raiz.querySelector('#g-tbody');
   if (!d.length) {
     tbody.innerHTML = `<tr><td colspan="8" class="vacio">Sin gastos para este filtro</td></tr>`;
@@ -215,6 +227,7 @@ function pintarTabla() {
 
 // ================= POR PAGAR =================
 function visibleEnFiltro(g) {
+  if (f.centro === 'privados') return PRIVADOS.includes(centro(g.centro_id)?.tipo);
   if (f.centro === 'todos') return !PRIVADOS.includes(centro(g.centro_id)?.tipo);
   if (f.centro.startsWith('emp:')) return g.empresa_id === f.centro.slice(4) && !PRIVADOS.includes(centro(g.centro_id)?.tipo);
   return g.centro_id === f.centro;
@@ -328,7 +341,7 @@ async function borrar(id) {
 // ================= ALTA / CORRECCIÓN DE GASTO =================
 // Sin argumento: gasto nuevo. Con un gasto: lo corrige (mismo registro; el cambio queda en la bitácora).
 function abrirFormulario(g = null) {
-  const centroInicial = g ? g.centro_id : (f.centro && !f.centro.startsWith('emp:') && f.centro !== 'todos' ? f.centro : '');
+  const centroInicial = g ? g.centro_id : (f.centro && !f.centro.startsWith('emp:') && f.centro !== 'todos' && f.centro !== 'privados' ? f.centro : '');
   const modal = abrirModal({
     titulo: g ? 'Corregir gasto' : 'Nuevo gasto',
     cuerpo: `
