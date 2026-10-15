@@ -4,7 +4,7 @@
 import { MESES, FORMAS_COBRO } from '../config.js';
 import { db, todo, estado, tieneRol, esAdmin, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal, normalizar } from '../lib.js';
 
-const PRIVADOS = ['personal'];   // Casa fuera; los Socios sí son gasto de la empresa (nómina/renta de socios)
+const PRIVADOS = [];   // Casa y Socios sí son gasto de la empresa (todo sale de la empresa); Victoria no los ve por la base
 const FUENTES = {
   renta:         { t: 'Rentas',          i: '🏢' },
   mantenimiento: { t: 'Mantenimiento',   i: '🏠' },

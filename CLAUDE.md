@@ -34,9 +34,10 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   Nómina, Seguro social e ISN, Gasolina, Vehículos, Mantenimiento, Limpieza, Seguridad, Luz, Agua, Gas, Teléfono e internet,
   Administración, Impuestos, Retiro socios, Otros. Ya no existen General/Otro/Auto/Reparaciones/Electricidad (se migraron).
   El formulario de gasto sugiere la categoría según el proveedor.
-- Gastos: los Socios SÍ cuentan en "Todos" y en Inicio (es dinero de la empresa: nómina y renta de socios); solo Casa
-  queda fuera (botón "+ N de Casa"). Victoria no ve Casa ni Socios (lo impide `puede_ver_centro` en la base).
-  Menús de centro en Gastos: solo centros con gastos en el último año; el formulario tiene "Otro centro…" para ver todos. Nómina pagada crea su gasto (categoría Nómina).
+- Gastos: Casa y Socios cuentan como cualquier centro, en "Todos" y en Inicio (todo sale de la empresa). Victoria no
+  los ve (lo impide `puede_ver_centro` en la base). Menús de centro en Gastos: solo centros con `centros.en_gastos`
+  (false: Calzada San Pedro, Barton Creek, Ellion, Platino, Por asignar, Plazas (general); siguen en Rentas).
+  Nómina pagada crea su gasto (categoría Nómina).
 - Corregir/borrar gastos: botón ✎ "Corregir gasto" (mismo registro) para administración y operación. Borrar (✕):
   administración cualquiera; operación (Victoria) solo los que ella capturó (`capturado_por` = su nombre, RLS 0020).
   Los 415 viejos con `capturado_por = 'Victoria'` del sistema anterior solo los borra administración.

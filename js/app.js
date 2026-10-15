@@ -134,7 +134,7 @@ async function entrar(user) {
 
     const [emp, cen] = await Promise.all([
       db().from('empresas').select('id, nombre, nombre_corto, color').eq('activo', true).order('nombre_corto'),
-      db().from('centros').select('id, nombre, tipo, empresa_id').eq('activo', true).order('nombre'),
+      db().from('centros').select('id, nombre, tipo, empresa_id, en_gastos').eq('activo', true).order('nombre'),
     ]);
     estado.empresas = emp.data || [];
     estado.centros = cen.data || [];
