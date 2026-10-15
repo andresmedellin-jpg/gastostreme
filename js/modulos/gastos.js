@@ -2,7 +2,9 @@ import { CATEGORIAS, CATEGORIA_AYUDA, FORMAS_PAGO, MESES, BUCKET_COMPROBANTES } 
 import { sb, db, todo, estado, esAdmin, tieneRol, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal,
          comprimirImagen, blobADataURL, abrirComprobante } from '../lib.js';
 
-const PRIVADOS = ['socio', 'personal'];   // Casa y Socios: fuera de "Todos" (como en el Centro de Control)
+// Casa (centro tipo 'personal') queda fuera de "Todos". Los Socios sí cuentan: es dinero de la empresa
+// (nómina y renta de los socios). Victoria no ve ni Casa ni Socios: lo impide la base (puede_ver_centro).
+const PRIVADOS = ['personal'];
 
 const f = {                                // filtros vigentes
   mes: new Date().getMonth(),
@@ -63,6 +65,7 @@ export async function render(view) {
   sel('g-cat').addEventListener('change', (e) => { f.categoria = e.target.value; pintarTabla(); });
   sel('g-forma').addEventListener('change', (e) => { f.forma = e.target.value; pintarTabla(); });
 
+  await cargarUsados();
   await cargar();
 }
 
@@ -74,17 +77,36 @@ function aniosDisponibles() {
 const nombreEmpresa = (id) => estado.empresas.find((e) => e.id === id)?.nombre_corto || '';
 const centro = (id) => estado.centros.find((c) => c.id === id);
 
-function opcionesCentro(conAgrupadores) {
-  const porEmpresa = estado.empresas.map((e) => {
-    const cs = estado.centros.filter((c) => c.empresa_id === e.id);
+// Centros que sí se usan en gastos (último año). Los demás (plazas sin gastos, propiedades, "Por asignar")
+// no estorban en los menús; en el formulario se pueden ver con "Otro centro…".
+let usados = null;
+async function cargarUsados() {
+  if (usados) return;
+  const d = new Date(); d.setFullYear(d.getFullYear() - 1);
+  const { data } = await todo(() => db().from('gastos').select('centro_id').gte('fecha', d.toISOString().slice(0, 10)));
+  usados = new Set((data || []).map((g) => g.centro_id));
+}
+const esUsado = (c) => !usados || usados.has(c.id) || datos.some((g) => g.centro_id === c.id) || c.id === f.centro;
+const opt = (c) => `<option value="${c.id}">${esc(c.nombre.replace(/^Socios - /, 'Socio: '))}</option>`;
+
+function opcionesCentro(conAgrupadores, todos = false) {
+  const grupos = estado.empresas.map((e) => {
+    const cs = estado.centros.filter((c) => c.empresa_id === e.id && (todos || esUsado(c)));
     if (!cs.length) return '';
     return `<optgroup label="${esc(e.nombre_corto)}">
-      ${conAgrupadores ? `<option value="emp:${e.id}">Todo ${esc(e.nombre_corto)}</option>` : ''}
-      ${cs.map((c) => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('')}</optgroup>`;
+      ${conAgrupadores ? `<option value="emp:${e.id}">Todo ${esc(e.nombre_corto)}</option>` : ''}${cs.map(opt).join('')}</optgroup>`;
   }).join('');
-  const hayPrivados = estado.centros.some((c) => PRIVADOS.includes(c.tipo));
-  return (conAgrupadores ? '<option value="todos">Todos los centros (sin Casa ni Socios)</option>'
-    + (hayPrivados ? '<option value="privados">Casa y Socios</option>' : '') : '<option value="">Elige…</option>') + porEmpresa;
+  const hayCasa = estado.centros.some((c) => PRIVADOS.includes(c.tipo));
+  if (conAgrupadores) return `<option value="todos">Todos${hayCasa ? ' (sin Casa)' : ''}</option>` + grupos;
+  const hayMas = !todos && estado.centros.some((c) => !esUsado(c));
+  return '<option value="">Elige…</option>' + grupos + (hayMas ? '<option value="__mas">Otro centro…</option>' : '');
+}
+
+function refrescarSelectorCentro() {
+  const s = raiz.querySelector('#g-centro');
+  if (!s) return;
+  s.innerHTML = opcionesCentro(true);
+  s.value = f.centro;
 }
 
 async function cargar() {
@@ -101,13 +123,13 @@ async function cargar() {
   // Pedidos por pagar de cualquier mes
   const pp = await todo(() => db().from('gastos').select(CAMPOS).eq('estado', 'por_pagar'));
   porPagar = pp.error ? [] : pp.data;
+  refrescarSelectorCentro();
   pintar();
 }
 
 // Gastos que entran según el selector de centro
 function filtrados() {
   return datos.filter((g) => {
-    if (f.centro === 'privados') return PRIVADOS.includes(centro(g.centro_id)?.tipo);
     if (f.centro === 'todos') return !PRIVADOS.includes(centro(g.centro_id)?.tipo);
     if (f.centro.startsWith('emp:')) return g.empresa_id === f.centro.slice(4) && !PRIVADOS.includes(centro(g.centro_id)?.tipo);
     return g.centro_id === f.centro;
@@ -132,7 +154,7 @@ function pintarKPIs() {
     <div class="kpi"><span>Promedio por gasto</span><strong>${d.length ? fmt(total / d.length) : '—'}</strong><small>${MESES[f.mes]} ${f.anio}</small></div>
     <div class="kpi"><span>Por empresa</span>${porEmpresa.map(({ e, t }) =>
       `<div class="kpi-linea"><i style="background:${e.color || '#888'}"></i>${esc(e.nombre_corto)}<b>${fmt(t)}</b></div>`).join('')}
-      <small>sin Casa ni Socios</small></div>
+      ${estado.centros.some((c) => PRIVADOS.includes(c.tipo)) ? '<small>sin Casa</small>' : ''}</div>
     <div class="kpi"><span>Mayor categoría</span><strong class="sm">${top ? `${CATEGORIAS[top.k] || '•'} ${esc(top.k)}` : '—'}</strong><small>${top ? fmt(top.t) : ''}</small></div>`;
 }
 
@@ -180,15 +202,15 @@ function pintarTabla() {
   if (f.forma) d = d.filter((g) => g.forma_pago === f.forma);
   if (f.q) d = d.filter((g) => (g.concepto || '').toLowerCase().includes(f.q) || (g.proveedor || '').toLowerCase().includes(f.q));
 
-  // Casa y Socios no entran en "Todos" (regla acordada), pero se avisa que existen y se pueden ver con un clic
+  // Casa no entra en "Todos", pero se avisa que existe y se ve con un clic
   const ocultos = (f.centro === 'todos' || f.centro.startsWith('emp:'))
     ? datos.filter((g) => PRIVADOS.includes(centro(g.centro_id)?.tipo)
         && (f.centro === 'todos' || g.empresa_id === f.centro.slice(4))) : [];
   const titulo = raiz.querySelector('#g-titulo-tabla');
   titulo.innerHTML = `${d.length} gasto${d.length === 1 ? '' : 's'}${ocultos.length
-    ? ` <button class="btn btn-sm btn-ghost" id="g-ver-privados">+ ${ocultos.length} de Casa y Socios (${fmt(suma(ocultos))})</button>` : ''}`;
+    ? ` <button class="btn btn-sm btn-ghost" id="g-ver-privados">+ ${ocultos.length} de Casa (${fmt(suma(ocultos))})</button>` : ''}`;
   titulo.querySelector('#g-ver-privados')?.addEventListener('click', () => {
-    f.centro = 'privados'; raiz.querySelector('#g-centro').value = 'privados'; pintar();
+    f.centro = estado.centros.find((c) => PRIVADOS.includes(c.tipo)).id; refrescarSelectorCentro(); pintar();
   });
   const tbody = raiz.querySelector('#g-tbody');
   if (!d.length) {
@@ -227,7 +249,6 @@ function pintarTabla() {
 
 // ================= POR PAGAR =================
 function visibleEnFiltro(g) {
-  if (f.centro === 'privados') return PRIVADOS.includes(centro(g.centro_id)?.tipo);
   if (f.centro === 'todos') return !PRIVADOS.includes(centro(g.centro_id)?.tipo);
   if (f.centro.startsWith('emp:')) return g.empresa_id === f.centro.slice(4) && !PRIVADOS.includes(centro(g.centro_id)?.tipo);
   return g.centro_id === f.centro;
@@ -373,7 +394,13 @@ function abrirFormulario(g = null) {
           <button class="btn btn-primary" id="gf-guardar">${g ? 'Guardar cambios' : 'Guardar gasto'}</button>`,
   });
   const form = modal.querySelector('#gf');
-  form.centro_id.value = centroInicial;
+  const centroSel = form.centro_id;
+  const verTodos = () => { centroSel.innerHTML = opcionesCentro(false, true); };
+  if (centroInicial && ![...centroSel.options].some((o) => o.value === centroInicial)) verTodos();
+  centroSel.value = centroInicial;
+  centroSel.addEventListener('change', () => {
+    if (centroSel.value === '__mas') { verTodos(); centroSel.value = ''; centroSel.focus(); centroSel.showPicker?.(); }
+  });
   if (g) {
     form.querySelector(`input[name="estado"][value="${g.estado === 'por_pagar' ? 'por_pagar' : 'pagado'}"]`).checked = true;
     form.fecha.value = g.fecha;

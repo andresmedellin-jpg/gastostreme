@@ -4,7 +4,7 @@
 import { MESES, FORMAS_COBRO } from '../config.js';
 import { db, todo, estado, tieneRol, esAdmin, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal, normalizar } from '../lib.js';
 
-const PRIVADOS = ['socio', 'personal'];
+const PRIVADOS = ['personal'];   // Casa fuera; los Socios sí son gasto de la empresa (nómina/renta de socios)
 const FUENTES = {
   renta:         { t: 'Rentas',          i: '🏢' },
   mantenimiento: { t: 'Mantenimiento',   i: '🏠' },
@@ -233,7 +233,7 @@ function barra(nombre, v, max, clase, fuente) {
 // ---------- captura ----------
 function nuevoIngreso() {
   const emps = estado.empresas;
-  const opcCentros = (empId) => estado.centros.filter((c) => c.empresa_id === empId && !PRIVADOS.includes(c.tipo))
+  const opcCentros = (empId) => estado.centros.filter((c) => c.empresa_id === empId && !['socio', 'personal'].includes(c.tipo))
     .map((c) => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
   const modal = abrirModal({
     titulo: 'Nuevo ingreso',
