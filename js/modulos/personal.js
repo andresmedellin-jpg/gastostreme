@@ -369,22 +369,29 @@ async function nomina(el) {
 
   const grupos = {};
   emp.data.forEach((e) => (grupos[e.centro_id || ''] ||= []).push(e));
-  const total = emp.data.reduce((s, e) => s + montoDe(e), 0);
-  const pagado = lineas.reduce((s, l) => s + Number(l.sueldo), 0);
-  const pendientes = emp.data.filter((e) => !pagoDe(e.id));
+  // Resumen de arriba: se recalcula al marcar faltas o pagos, sin recargar la pantalla
+  const pendientesDe = () => emp.data.filter((e) => !pagoDe(e.id));
+  const kpisHTML = () => {
+    const total = emp.data.reduce((s, e) => s + montoDe(e), 0);
+    const pagado = lineas.reduce((s, l) => s + Number(l.sueldo), 0);
+    const pend = pendientesDe();
+    return `<div class="kpi"><span>Total a pagar</span><strong id="n-total">${fmt(total)}</strong><small>${emp.data.length} personas</small></div>
+      <div class="kpi"><span>Ya pagado</span><strong class="pos">${fmt(pagado)}</strong><small>${lineas.length} personas</small></div>
+      <div class="kpi"><span>Por pagar</span><strong id="n-porpagar" class="${pend.length ? 'neg' : 'pos'}">${pend.length ? fmt(Math.max(0, total - pagado)) : '✓ Listo'}</strong><small>${pend.length} pendientes</small></div>`;
+  };
+  const botonTodos = () => {
+    const pend = pendientesDe();
+    document.getElementById('page-actions').innerHTML = pend.length
+      ? `<button class="btn btn-primary" id="n-todos">Pagar a ${pend.length} pendiente${pend.length === 1 ? '' : 's'}</button>` : '';
+    document.getElementById('n-todos')?.addEventListener('click', pagarTodos);
+  };
   const semanas = Array.from({ length: 16 }, (_, i) => sumarDias(lunesDe(hoyISO()), -7 * i));
   if (!semanas.includes(sem)) semanas.push(sem);
 
-  document.getElementById('page-actions').innerHTML = pendientes.length
-    ? `<button class="btn btn-primary" id="n-todos">Pagar a ${pendientes.length} pendiente${pendientes.length === 1 ? '' : 's'}</button>` : '';
   el.innerHTML = `<div class="n-caja">
     <div class="periodo"><select id="n-semana" aria-label="Semana">${semanas.map((s) =>
       `<option value="${s}" ${s === sem ? 'selected' : ''}>${etiquetaSemana(s)}${s === lunesDe(hoyISO()) ? ' · esta semana' : ''}</option>`).join('')}</select></div>
-    <div class="kpis kpis-3">
-      <div class="kpi"><span>Total a pagar</span><strong id="n-total">${fmt(total)}</strong><small>${emp.data.length} personas</small></div>
-      <div class="kpi"><span>Ya pagado</span><strong class="pos">${fmt(pagado)}</strong><small>${lineas.length} personas</small></div>
-      <div class="kpi"><span>Por pagar</span><strong id="n-porpagar" class="${pendientes.length ? 'neg' : 'pos'}">${pendientes.length ? fmt(Math.max(0, total - pagado)) : '✓ Listo'}</strong><small>${pendientes.length} pendientes</small></div>
-    </div>
+    <div class="kpis kpis-3" id="n-kpis">${kpisHTML()}</div>
     ${Object.entries(grupos).sort((a, b) => nombreCentro(a[0]).localeCompare(nombreCentro(b[0]))).map(([cid, lista]) => {
       const sub = lista.reduce((s, e) => s + montoDe(e), 0), pagadoC = lista.reduce((s, e) => s + Number(pagoDe(e.id)?.sueldo || 0), 0);
       return `<section class="panel" data-centro="${cid}"><div class="panel-head"><h3>${esc(nombreCentro(cid))}</h3>
@@ -414,7 +421,13 @@ async function nomina(el) {
   const porId = (id) => emp.data.find((x) => x.id === id);
   el.addEventListener('click', (ev) => {
     const b = ev.target.closest('[data-pagar]');
-    if (b) pagarModal(porId(b.dataset.pagar), montoDe(porId(b.dataset.pagar)));
+    if (!b) return;
+    const e = porId(b.dataset.pagar);
+    pagarModal(e, montoDe(e), async (lineaId) => {        // pagado: solo se actualiza su tarjeta
+      const { data } = await db().from('nomina_lineas').select('*').eq('id', lineaId).maybeSingle();
+      lineas.push(data || { id: lineaId, empleado_id: e.id, sueldo: montoDe(e), forma_pago: '', fecha: hoyISO() });
+      repintarTarjeta(e);
+    });
   });
   // Falta: se cambia al instante solo en la tarjeta de esa persona (sin recargar toda la pantalla)
   const repintarTarjeta = (e) => {
@@ -424,9 +437,8 @@ async function nomina(el) {
     const sub = lista.reduce((s, x) => s + montoDe(x), 0), pagadoC = lista.reduce((s, x) => s + Number(pagoDe(x.id)?.sueldo || 0), 0);
     const h = el.querySelector(`section[data-centro="${e.centro_id || ''}"] .n-sub`);
     if (h) { h.textContent = `${fmt(pagadoC)} / ${fmt(sub)}`; h.classList.toggle('pos', pagadoC >= sub); }
-    const tot = emp.data.reduce((s, x) => s + montoDe(x), 0);
-    el.querySelector('#n-total').textContent = fmt(tot);
-    if (pendientes.length) el.querySelector('#n-porpagar').textContent = fmt(Math.max(0, tot - pagado));
+    el.querySelector('#n-kpis').innerHTML = kpisHTML();
+    botonTodos();
   };
   el.addEventListener('click', async (ev) => {
     const b = ev.target.closest('[data-falta]');
@@ -447,15 +459,20 @@ async function nomina(el) {
     }
     repintarTarjeta(e);
   });
-  el.querySelectorAll('[data-borrarpago]').forEach((b) => b.addEventListener('click', async () => {
+  el.addEventListener('click', async (ev) => {
+    const b = ev.target.closest('[data-borrarpago]');
+    if (!b) return;
     const l = lineas.find((x) => x.id === b.dataset.borrarpago);
     if (!confirm(`¿Eliminar el pago de ${fmt(l.sueldo)} a ${porId(l.empleado_id)?.nombre}?${l.gasto_id ? '\nTambién se borra su gasto de Nómina.' : '\nOjo: su gasto de Nómina se capturó en el sistema anterior; si hace falta, bórralo en Gastos.'}`)) return;
     const { error } = await db().from('nomina_lineas').delete().eq('id', l.id);
     if (error) return toast(error.message, true);
     if (l.gasto_id) await db().from('gastos').delete().eq('id', l.gasto_id);
-    toast('Pago eliminado'); pintar();
-  }));
-  document.getElementById('n-todos')?.addEventListener('click', async (ev) => {
+    lineas.splice(lineas.indexOf(l), 1);
+    toast('Pago eliminado'); repintarTarjeta(porId(l.empleado_id));
+  });
+  botonTodos();
+  async function pagarTodos(ev) {
+    const pendientes = pendientesDe();
     const suma = pendientes.reduce((s, e) => s + montoDe(e), 0);
     if (!confirm(`¿Registrar el pago de ${pendientes.length} personas por ${fmt(suma)}, en efectivo y con fecha de hoy?`)) return;
     ev.currentTarget.disabled = true;
@@ -465,11 +482,11 @@ async function nomina(el) {
       if (error) toast(`${e.nombre}: ${error.message}`, true); else ok++;
     }
     toast(`${ok} pagos registrados ✓`); pintar();
-  });
+  }
 }
 const nombreCentro = (id) => estado.centros.find((c) => c.id === id)?.nombre || 'Sin centro asignado';
 
-function pagarModal(e, monto) {
+function pagarModal(e, monto, alPagar) {
   const modal = abrirModal({
     titulo: `Pagar a ${e.nombre}`,
     cuerpo: `<form class="form" id="np"><p class="nota">Semana ${etiquetaSemana(st.semana)}</p>
@@ -483,10 +500,11 @@ function pagarModal(e, monto) {
   modal.querySelector('#np-no').addEventListener('click', cerrarModal);
   modal.querySelector('#np-si').addEventListener('click', async (ev) => {
     const btn = ev.currentTarget; btn.disabled = true;
-    const { error } = await db().rpc('nomina_pagar', { p_empleado: e.id, p_semana: st.semana, p_monto: Number(f.monto.value) || 0,
+    const { data, error } = await db().rpc('nomina_pagar', { p_empleado: e.id, p_semana: st.semana, p_monto: Number(f.monto.value) || 0,
       p_fecha: f.fecha.value || hoyISO(), p_forma: f.forma.value, p_notas: f.nota.value.trim() });
     if (error) { btn.disabled = false; return toast(error.message, true); }
-    cerrarModal(); toast('Pago registrado ✓'); pintar();
+    cerrarModal(); toast('Pago registrado ✓');
+    if (alPagar) alPagar(data); else pintar();
   });
 }
 
