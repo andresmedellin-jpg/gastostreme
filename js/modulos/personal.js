@@ -377,22 +377,26 @@ async function nomina(el) {
 
   document.getElementById('page-actions').innerHTML = pendientes.length
     ? `<button class="btn btn-primary" id="n-todos">Pagar a ${pendientes.length} pendiente${pendientes.length === 1 ? '' : 's'}</button>` : '';
-  el.innerHTML = `
+  el.innerHTML = `<div class="n-caja">
     <div class="periodo"><select id="n-semana" aria-label="Semana">${semanas.map((s) =>
       `<option value="${s}" ${s === sem ? 'selected' : ''}>${etiquetaSemana(s)}${s === lunesDe(hoyISO()) ? ' · esta semana' : ''}</option>`).join('')}</select></div>
     <div class="kpis kpis-3">
-      <div class="kpi"><span>Total a pagar</span><strong>${fmt(total)}</strong><small>${emp.data.length} personas</small></div>
+      <div class="kpi"><span>Total a pagar</span><strong id="n-total">${fmt(total)}</strong><small>${emp.data.length} personas</small></div>
       <div class="kpi"><span>Ya pagado</span><strong class="pos">${fmt(pagado)}</strong><small>${lineas.length} personas</small></div>
-      <div class="kpi"><span>Por pagar</span><strong class="${pendientes.length ? 'neg' : 'pos'}">${pendientes.length ? fmt(Math.max(0, total - pagado)) : '✓ Listo'}</strong><small>${pendientes.length} pendientes</small></div>
+      <div class="kpi"><span>Por pagar</span><strong id="n-porpagar" class="${pendientes.length ? 'neg' : 'pos'}">${pendientes.length ? fmt(Math.max(0, total - pagado)) : '✓ Listo'}</strong><small>${pendientes.length} pendientes</small></div>
     </div>
     ${Object.entries(grupos).sort((a, b) => nombreCentro(a[0]).localeCompare(nombreCentro(b[0]))).map(([cid, lista]) => {
       const sub = lista.reduce((s, e) => s + montoDe(e), 0), pagadoC = lista.reduce((s, e) => s + Number(pagoDe(e.id)?.sueldo || 0), 0);
-      return `<section class="panel"><div class="panel-head"><h3>${esc(nombreCentro(cid))}</h3>
-        <span class="mut">${lista.length} · <strong class="${pagadoC >= sub ? 'pos' : ''}">${fmt(pagadoC)} / ${fmt(sub)}</strong></span></div>
-        <ul class="nomina">${lista.map((e) => {
+      return `<section class="panel" data-centro="${cid}"><div class="panel-head"><h3>${esc(nombreCentro(cid))}</h3>
+        <span class="mut">${lista.length} · <strong class="n-sub ${pagadoC >= sub ? 'pos' : ''}">${fmt(pagadoC)} / ${fmt(sub)}</strong></span></div>
+        <ul class="nomina">${lista.map(tarjeta).join('')}</ul></section>`;
+    }).join('') || '<div class="vacio">Sin empleados activos.</div>'}
+    <p class="nota">Cada pago se registra también como gasto de "Nómina" en el centro de la persona. Los retardos se muestran como referencia y no se descuentan solos (igual que antes).</p></div>`;
+  el = el.querySelector('.n-caja');   // los clics se escuchan aquí: cada vez que se pinta, la caja es nueva
+  function tarjeta(e) {
           const p = pagoDe(e.id), faltas = faltasDe(e.id), monto = montoDe(e), ret = retardosDe(e.id);
           const dias = Array.from({ length: e.dias_semana || 6 }, (_, i) => sumarDias(sem, i));
-          return `<li class="${p ? 'pagado' : ''}">
+          return `<li class="${p ? 'pagado' : ''}" data-emp="${e.id}">
             <div class="tarjeta-top"><span class="avatar">${iniciales(e.nombre)}</span>
               <div><strong>${esc(e.nombre)}</strong><small class="mut">${esc(e.puesto || '—')} · ${fmt(e.salario_semanal)}/sem${faltas.length ? ` · <span class="neg">${faltas.length} falta${faltas.length === 1 ? '' : 's'}</span>` : ''}${ret ? ` · retardos ${fmt(ret)}` : ''}</small></div>
               <div class="nomina-der">${p
@@ -404,22 +408,45 @@ async function nomina(el) {
               return `<button class="dia-falta ${f ? 'falta' : ''}" data-falta="${e.id}|${d}" title="${f ? 'Quitar falta' : 'Marcar falta'}">${DIAS_CORTO[(new Date(d + 'T12:00:00').getDay() + 6) % 7]}<br>${f ? '✗' : '✓'}</button>`;
             }).join('')}</div>`}
           </li>`;
-        }).join('')}</ul></section>`;
-    }).join('') || '<div class="vacio">Sin empleados activos.</div>'}
-    <p class="nota">Cada pago se registra también como gasto de "Nómina" en el centro de la persona. Los retardos se muestran como referencia y no se descuentan solos (igual que antes).</p>`;
+  }
 
   el.querySelector('#n-semana').addEventListener('change', (e) => { st.semana = e.target.value; pintar(); });
   const porId = (id) => emp.data.find((x) => x.id === id);
-  el.querySelectorAll('[data-pagar]').forEach((b) => b.addEventListener('click', () => pagarModal(porId(b.dataset.pagar), montoDe(porId(b.dataset.pagar)))));
-  el.querySelectorAll('[data-falta]').forEach((b) => b.addEventListener('click', async () => {
+  el.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-pagar]');
+    if (b) pagarModal(porId(b.dataset.pagar), montoDe(porId(b.dataset.pagar)));
+  });
+  // Falta: se cambia al instante solo en la tarjeta de esa persona (sin recargar toda la pantalla)
+  const repintarTarjeta = (e) => {
+    const li = el.querySelector(`li[data-emp="${e.id}"]`);
+    if (li) li.outerHTML = tarjeta(e);
+    const lista = grupos[e.centro_id || ''];
+    const sub = lista.reduce((s, x) => s + montoDe(x), 0), pagadoC = lista.reduce((s, x) => s + Number(pagoDe(x.id)?.sueldo || 0), 0);
+    const h = el.querySelector(`section[data-centro="${e.centro_id || ''}"] .n-sub`);
+    if (h) { h.textContent = `${fmt(pagadoC)} / ${fmt(sub)}`; h.classList.toggle('pos', pagadoC >= sub); }
+    const tot = emp.data.reduce((s, x) => s + montoDe(x), 0);
+    el.querySelector('#n-total').textContent = fmt(tot);
+    if (pendientes.length) el.querySelector('#n-porpagar').textContent = fmt(Math.max(0, tot - pagado));
+  };
+  el.addEventListener('click', async (ev) => {
+    const b = ev.target.closest('[data-falta]');
+    if (!b || b.dataset.ocupado) return;
     const [id, fecha] = b.dataset.falta.split('|');
-    b.disabled = true;
+    const e = porId(id);
     const ya = asis.data.find((a) => a.empleado_id === id && a.fecha === fecha && a.estado === 'falta');
+    if (ya) asis.data.splice(asis.data.indexOf(ya), 1);
+    else asis.data.push({ empleado_id: id, fecha, estado: 'falta', monto_descuento: 0 });
+    repintarTarjeta(e);
+    const nuevo = el.querySelector(`[data-falta="${id}|${fecha}"]`);
+    if (nuevo) nuevo.dataset.ocupado = '1';
     const { error } = ya ? await db().from('asistencia').delete().eq('empleado_id', id).eq('fecha', fecha).eq('estado', 'falta')
       : await db().rpc('asistencia_marcar', { p_empleado: id, p_fecha: fecha, p_accion: 'falta' });
-    if (error) { b.disabled = false; return toast(error.message, true); }
-    pintar();
-  }));
+    if (error) {                                   // si falla, se regresa como estaba
+      if (ya) asis.data.push(ya); else asis.data.splice(asis.data.findIndex((a) => a.empleado_id === id && a.fecha === fecha && a.estado === 'falta'), 1);
+      toast('No se pudo guardar la falta: ' + error.message, true);
+    }
+    repintarTarjeta(e);
+  });
   el.querySelectorAll('[data-borrarpago]').forEach((b) => b.addEventListener('click', async () => {
     const l = lineas.find((x) => x.id === b.dataset.borrarpago);
     if (!confirm(`¿Eliminar el pago de ${fmt(l.sueldo)} a ${porId(l.empleado_id)?.nombre}?${l.gasto_id ? '\nTambién se borra su gasto de Nómina.' : '\nOjo: su gasto de Nómina se capturó en el sistema anterior; si hace falta, bórralo en Gastos.'}`)) return;
