@@ -252,7 +252,8 @@ tr.inactivo td { opacity: .55; }
   .tabla td[data-l="Cuota"], .tabla td[data-l="Fecha"], .tabla td[data-l="Ocupante"] { font-size: 12px; }
 }
 /* nada se sale de lo ancho en celular */
-.view > * { min-width: 0; }
+.view > *, .vista > * { min-width: 0; }
+.vista { display: contents; }
 .periodo, .pills, .sub-head > * { min-width: 0; }
 @media (max-width: 760px) {
   .tabla td[data-l="Cuota"]:not(:empty)::before { content: "Cuota "; color: var(--text-3); }

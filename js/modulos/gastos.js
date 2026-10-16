@@ -253,7 +253,7 @@ function pintarPorPagar() {
         <td class="concepto" data-l="Concepto">${esc(g.concepto)}</td>
         <td class="mut corto" data-l="Proveedor">${esc(g.proveedor || '—')}</td>
         <td class="num fuerte" data-l="Monto">${fmt(g.monto)}</td>
-        <td class="acciones">${tieneRol(['administracion', 'operacion']) ? `<button class="icon-btn" data-editar-pp="${g.id}" title="Corregir pedido" aria-label="Corregir pedido">✎</button>` : ''}<button class="btn btn-sm btn-primary" data-pagar="${g.id}">Marcar pagado</button></td>
+        <td class="acciones">${tieneRol(['administracion', 'operacion']) ? `<button class="icon-btn" data-editar-pp="${g.id}" title="Corregir pedido" aria-label="Corregir pedido">✎</button>` : ''}<button class="btn btn-sm btn-primary" data-pagar="${g.id}" title="Marcar pagado">Pagar</button></td>
       </tr>`).join('')}</tbody>
     </table></div>`;
   el.querySelectorAll('[data-pagar]').forEach((b) => b.addEventListener('click', () => marcarPagado(b.dataset.pagar)));

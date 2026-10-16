@@ -191,17 +191,25 @@ async function navegar() {
   $('sidebar').classList.remove('open');
   $('page-title').textContent = mod.titulo;
   $('page-actions').innerHTML = '';
+  // Cada vez que se abre un módulo se le da una caja nueva. Si una carga anterior sigue en camino
+  // (doble clic, cambio rápido de pantalla, sesión que se renueva), termina en su caja vieja y no estorba.
+  const mio = ++turno;
   const view = $('view');
-  view.innerHTML = '<div class="cargando">Cargando…</div>';
+  const caja = document.createElement('div');
+  caja.className = 'vista';
+  caja.innerHTML = '<div class="cargando">Cargando…</div>';
+  view.replaceChildren(caja);
   try {
     const m = await (vistas[mod.id] || pendiente)();
-    await m.render(view, mod);
+    if (mio !== turno) return;
+    await m.render(caja, mod);
   } catch (e) {
     console.error(e);
-    view.innerHTML = `<div class="vacio">No se pudo cargar el módulo.<br><small>${esc(e.message)}</small></div>`;
+    if (mio === turno) caja.innerHTML = `<div class="vacio">No se pudo cargar el módulo.<br><small>${esc(e.message)}</small></div>`;
   }
-  view.focus({ preventScroll: true });
+  if (mio === turno) view.focus({ preventScroll: true });
 }
+let turno = 0;
 
 // Arranque: si no hay sesión, mostrar acceso
 sb.auth.getSession().then(({ data }) => { if (!data.session) salir(); });
