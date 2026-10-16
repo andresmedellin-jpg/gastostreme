@@ -59,7 +59,7 @@ export const SUGERIDOS = [
 export const CATEGORIAS = {
   'Construcción':'🏗','Nómina':'👷','Seguro social e ISN':'🏥','Gasolina':'⛽','Vehículos':'🚗',
   'Mantenimiento':'🔧','Limpieza':'🧹','Seguridad':'🔒','Luz':'⚡','Agua':'💧','Gas':'🔥',
-  'Teléfono e internet':'📶','Administración':'📋','Impuestos':'🧾','Retiro socios':'💸','Otros':'📌'
+  'Teléfono e internet':'📶','Administración':'📋','Impuestos':'🧾','Intereses y comisiones':'🏦','Retiro socios':'💸','Otros':'📌'
 };
 // Qué va en cada una (se muestra al capturar, para que todos usen la misma)
 export const CATEGORIA_AYUDA = {
@@ -77,6 +77,7 @@ export const CATEGORIA_AYUDA = {
   'Teléfono e internet': 'Telcel, Telmex, Starlink',
   'Administración': 'Oficina, papelería, software, contador, trámites',
   'Impuestos': 'Predial, SAT y otros impuestos (no nómina)',
+  'Intereses y comisiones': 'Intereses de préstamos o créditos, comisiones del banco y de terminal',
   'Retiro socios': 'Dinero que sacan los socios',
   'Otros': 'Solo si no cabe en ninguna de las anteriores',
 };

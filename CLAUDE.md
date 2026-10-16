@@ -32,7 +32,7 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 ## Reglas de negocio que ya se acordaron
 - Categorías de gasto: una sola lista en `CATEGORIAS` de `js/config.js` (con `CATEGORIA_AYUDA`), usada en todo. Construcción,
   Nómina, Seguro social e ISN, Gasolina, Vehículos, Mantenimiento, Limpieza, Seguridad, Luz, Agua, Gas, Teléfono e internet,
-  Administración, Impuestos, Retiro socios, Otros. Ya no existen General/Otro/Auto/Reparaciones/Electricidad (se migraron).
+  Administración, Impuestos, Intereses y comisiones, Retiro socios, Otros. Ya no existen General/Otro/Auto/Reparaciones/Electricidad (se migraron).
   El formulario de gasto sugiere la categoría según el proveedor.
 - Gastos: Casa y Socios cuentan como cualquier centro, en "Todos" y en Inicio (todo sale de la empresa). Victoria no
   los ve (lo impide `puede_ver_centro` en la base). Menús de centro en Gastos: solo centros con `centros.en_gastos`
