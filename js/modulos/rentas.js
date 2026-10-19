@@ -1,26 +1,33 @@
 // Rentas Treme: contratos, cobro mensual por día pactado, adeudos, historial y recibos.
 // Reemplaza la página "Rentas — Treme".
-import { MESES, FORMAS_COBRO } from '../config.js';
+import { MESES, FORMAS_COBRO, MARCA } from '../config.js';
 import { pintarRecibo, abrirVentanaRecibo } from '../recibo.js';
 import { db, todo, estado, tieneRol, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal } from '../lib.js';
 
 const st = {
-  tab: 'rentas',                                   // rentas | adeudos | historial | contratos
+  tab: 'rentas',                                   // rentas | ocupacion | adeudos | historial | contratos
   anio: new Date().getFullYear(),
   mes: new Date().getMonth(),
   filtro: 'todos', centro: '', q: '',
   hMes: '', hCentro: '',
 };
-let contratos = [], pagos = [], adeudos = [], raiz;
+let contratos = [], pagos = [], adeudos = [], unidades = [], raiz;
+// Pagos incompletos (abonos): con MARCA.rentaParcial, una renta con pagos que no suman el monto queda "Abonado" y muestra lo que falta.
+// Sin la opción (Treme hoy), cualquier pago marca el mes como pagado, como la página vieja.
+const PARCIAL = !!MARCA.rentaParcial;
+// Pestaña de ocupación (mapa de unidades por torre): solo si la marca la pide
+const OCUPACION = !!MARCA.ocupacion;
+const EMISOR = MARCA.reciboEmpresa || 'Grupo Inmobiliario Treme';
 
-const ETQ = { atrasado: 'Atrasado', porv: 'Por vencer', pendiente: 'Pendiente', pagado: 'Pagado', sinm: 'Sin monto', inactivo: 'Inactivo' };
-const BADGE = { atrasado: 'rojo', porv: 'ambar', pendiente: 'gris', pagado: 'verde', sinm: 'gris', inactivo: 'gris' };
-const ORDEN = { atrasado: 0, porv: 1, pendiente: 2, pagado: 3, sinm: 4, inactivo: 5 };
+const ETQ = { atrasado: 'Atrasado', parcial: 'Abonado', porv: 'Por vencer', pendiente: 'Pendiente', pagado: 'Pagado', sinm: 'Sin monto', inactivo: 'Inactivo' };
+const BADGE = { atrasado: 'rojo', parcial: 'ambar', porv: 'ambar', pendiente: 'gris', pagado: 'verde', sinm: 'gris', inactivo: 'gris' };
+const ORDEN = { atrasado: 0, parcial: 1, porv: 2, pendiente: 3, pagado: 4, sinm: 5, inactivo: 6 };
 
 const money = (n, cur = 'MXN') => new Intl.NumberFormat('es-MX', { style: 'currency', currency: cur === 'USD' ? 'USD' : 'MXN',
   currencyDisplay: 'narrowSymbol', maximumFractionDigits: 2 }).format(Number(n || 0)) + (cur === 'USD' ? ' USD' : '');
 const periodo = (y, m) => `${y}-${String(m + 1).padStart(2, '0')}-01`;
 const nombreCentro = (id) => estado.centros.find((c) => c.id === id)?.nombre || '—';
+const unidadDe = (r) => r?.unidad_id && unidades.find((u) => u.id === r.unidad_id);
 const puedeCobrar = () => tieneRol(['administracion', 'cobranza']);
 
 export async function render(view) {
@@ -28,7 +35,7 @@ export async function render(view) {
   view.innerHTML = `
     <div class="sub-head">
       <div class="tabs" role="tablist">
-        ${[['rentas','Rentas del mes'],['adeudos','Adeudos'],['historial','Historial y recibos'],['contratos','Contratos']]
+        ${[['rentas','Rentas del mes'], ...(OCUPACION ? [['ocupacion','Ocupación']] : []),['adeudos','Adeudos'],['historial','Historial y recibos'],['contratos','Contratos']]
           .map(([id, t]) => `<button role="tab" data-tab="${id}">${t}</button>`).join('')}
       </div>
     </div>
@@ -38,16 +45,17 @@ export async function render(view) {
 }
 
 async function cargar() {
-  const [c, p, a] = await Promise.all([
-    db().from('contratos').select('id, centro_id, unidad_id, arrendatario, monto, moneda, dia_pago, fecha_fin, telefono, email, notas, activo')
+  const [c, p, a, u] = await Promise.all([
+    db().from('contratos').select('id, centro_id, unidad_id, arrendatario, monto, moneda, dia_pago, fecha_inicio, fecha_fin, telefono, email, notas, activo')
       .order('arrendatario'),
     todo(() => db().from('pagos').select('id, contrato_id, periodo, monto, moneda, forma_pago, fecha, folio, notas, capturado_por, creado_en')
       .eq('concepto', 'renta').order('fecha', { ascending: false })),
     db().from('cuentas_por_cobrar').select('id, contrato_id, meses, monto_original, notas, creado_en').eq('tipo', 'adeudo_inicial'),
+    OCUPACION ? todo(() => db().from('unidades').select('id, centro_id, identificador, tipo, superficie_m2, activo')) : { data: [] },
   ]);
   const err = c.error || p.error || a.error;
   if (err) { toast('No se pudieron cargar las rentas: ' + err.message, true); return; }
-  contratos = c.data; pagos = p.data; adeudos = a.data;
+  contratos = c.data; pagos = p.data; adeudos = a.data; unidades = u.data || [];
   pintar();
 }
 
@@ -55,7 +63,11 @@ async function cargar() {
 function estadoDe(r, y, m) {
   if (!r.activo) return 'inactivo';
   if (!Number(r.monto)) return 'sinm';
-  if (pagos.some((p) => p.contrato_id === r.id && p.periodo === periodo(y, m))) return 'pagado';
+  const ps = pagos.filter((p) => p.contrato_id === r.id && p.periodo === periodo(y, m));
+  if (ps.length) {
+    if (!PARCIAL || abonado(r, y, m) >= Number(r.monto) - 1) return 'pagado';
+    return 'parcial';
+  }
   const hoy = new Date(), dp = r.dia_pago || 1;
   if (hoy.getFullYear() === y && hoy.getMonth() === m) {
     const d = hoy.getDate();
@@ -65,6 +77,8 @@ function estadoDe(r, y, m) {
   }
   return new Date(y, m, dp) < hoy ? 'atrasado' : 'pendiente';
 }
+
+const abonado = (r, y, m) => pagos.filter((p) => p.contrato_id === r.id && p.periodo === periodo(y, m)).reduce((s, p) => s + Number(p.monto), 0);
 
 function vigencia(fecha) {
   if (!fecha) return null;
@@ -85,7 +99,7 @@ function pintar() {
   acciones.querySelector('#r-nuevo')?.addEventListener('click', () => editarContrato(null));
   acciones.querySelector('#r-cobrar')?.addEventListener('click', () => cobrar(null));
   const el = raiz.querySelector('#r-cuerpo');
-  ({ rentas: pintarRentas, adeudos: pintarAdeudos, historial: pintarHistorial, contratos: pintarContratos })[st.tab](el);
+  ({ rentas: pintarRentas, ocupacion: pintarOcupacion, adeudos: pintarAdeudos, historial: pintarHistorial, contratos: pintarContratos })[st.tab](el);
 }
 
 function navMes() {
@@ -112,10 +126,10 @@ function pintarRentas(el) {
   activas.forEach((r) => {
     if (r.moneda !== 'USD') esperado += Number(r.monto);
     const ps = pagos.filter((p) => p.contrato_id === r.id && p.periodo === per);
-    if (ps.length) {
-      pagadas++;
-      ps.forEach((p) => (r.moneda === 'USD' ? (cobradoUsd += Number(p.monto)) : (cobrado += Number(p.monto))));
-    } else if (estadoDe(r, y, m) === 'atrasado') atrasados++;
+    ps.forEach((p) => (r.moneda === 'USD' ? (cobradoUsd += Number(p.monto)) : (cobrado += Number(p.monto))));
+    const e = estadoDe(r, y, m);
+    if (e === 'pagado') pagadas++;
+    else if (e === 'atrasado' || e === 'parcial') atrasados++;
   });
 
   // Esta semana (solo en el mes actual)
@@ -150,12 +164,12 @@ function pintarRentas(el) {
       <div class="kpi"><span>Esperado (MXN)</span><strong>${money(esperado)}</strong><small>${activas.length} rentas activas</small></div>
       <div class="kpi"><span>Cobrado</span><strong class="pos">${money(cobrado)}</strong><small>${cobradoUsd ? '+ ' + money(cobradoUsd, 'USD') : '&nbsp;'}</small></div>
       <div class="kpi"><span>Pendiente (MXN)</span><strong class="neg">${money(Math.max(0, esperado - cobrado))}</strong><small>&nbsp;</small></div>
-      <div class="kpi"><span>${atrasados ? 'Atrasadas' : 'Al corriente'}</span><strong class="${atrasados ? 'neg' : 'pos'}">${atrasados || `${pagadas}/${activas.length}`}</strong><small>${atrasados ? 'rentas sin pago' : 'rentas pagadas'}</small></div>
+      <div class="kpi"><span>${atrasados ? 'Atrasadas' : 'Al corriente'}</span><strong class="${atrasados ? 'neg' : 'pos'}">${atrasados || `${pagadas}/${activas.length}`}</strong><small>${atrasados ? (PARCIAL ? 'sin pago o incompletas' : 'rentas sin pago') : 'rentas pagadas'}</small></div>
     </div>
     ${semana}
     <section class="panel">
       <div class="panel-head">
-        <div class="segmento">${[['todos','Todas'],['atrasado','Atrasadas'],['porv','Por vencer'],['pendiente','Pendientes'],['pagado','Pagadas']]
+        <div class="segmento">${[['todos','Todas'],['atrasado','Atrasadas'], ...(PARCIAL ? [['parcial','Abonadas']] : []),['porv','Por vencer'],['pendiente','Pendientes'],['pagado','Pagadas']]
           .map(([id, t]) => `<button data-filtro="${id}" class="${st.filtro === id ? 'activo' : ''}">${t}</button>`).join('')}</div>
         <div class="filtros filtros-sm">
           <select id="r-centro" aria-label="Desarrollo"><option value="">Todos los desarrollos</option>
@@ -185,10 +199,11 @@ function tarjeta(r, y, m) {
   const v = vigencia(r.fecha_fin);
   return `<div class="renta ${e}" data-detalle="${r.id}" role="button" tabindex="0">
     <div class="dia"><strong>${r.dia_pago || '—'}</strong><small>día</small></div>
-    <div class="renta-info"><strong>${esc(r.arrendatario)}</strong>${v ? `<small class="${v.cls}">${v.txt}</small>` : ''}</div>
+    <div class="renta-info"><strong>${esc(r.arrendatario)}</strong>${unidadDe(r) ? `<small>${esc(unidadDe(r).identificador)}</small>` : ''}${v ? `<small class="${v.cls}">${v.txt}</small>` : ''}</div>
     <div class="renta-der">
       <div class="num"><strong>${Number(r.monto) ? money(r.monto, r.moneda) : '—'}</strong></div>
       <span class="badge ${BADGE[e]}">${ETQ[e]}</span>
+      ${e === 'parcial' ? `<span class="mut">abonó ${money(total, r.moneda)} · <b class="neg">faltan ${money(Number(r.monto) - total, r.moneda)}</b></span>` : ''}
       ${e === 'pagado' ? `<span class="pos fuerte">✓ ${money(total, r.moneda)}</span>`
         : e !== 'sinm' && e !== 'inactivo' && puedeCobrar() ? `<button class="btn btn-sm btn-primary" data-cobrar="${r.id}">Cobrar</button>` : ''}
     </div></div>`;
@@ -268,9 +283,15 @@ function cobrar(r) {
   const alCambiar = () => {
     const c = contratos.find((x) => x.id === f.contrato.value);
     modal.querySelector('#cf-info').textContent = c ? `Renta de ${money(c.monto, c.moneda)} · día ${c.dia_pago || '—'}${c.telefono ? ' · ' + c.telefono : ''}` : '';
-    if (c && !f.monto.dataset.tocado) f.monto.value = Number(c.monto) || '';
+    if (c && !f.monto.dataset.tocado) {
+      const [yy, mm] = (f.periodo.value || mesDefault).split('-').map(Number);
+      const ya = PARCIAL ? abonado(c, yy, mm - 1) : 0;
+      f.monto.value = Math.max(0, (Number(c.monto) || 0) - ya) || Number(c.monto) || '';
+      if (ya) modal.querySelector('#cf-info').textContent += ` · ya abonó ${money(ya, c.moneda)} de este mes`;
+    }
   };
   f.contrato.addEventListener('change', alCambiar);
+  f.periodo.addEventListener('change', alCambiar);
   f.monto.addEventListener('input', () => (f.monto.dataset.tocado = '1'));
   alCambiar();
   modal.querySelector('#cf-no').addEventListener('click', cerrarModal);
@@ -283,7 +304,8 @@ function cobrar(r) {
     if (!f.fecha.value) return toast('Pon la fecha de pago', true);
     if (!(monto > 0)) return toast('Escribe el monto', true);
     const per = f.periodo.value + '-01';
-    if (pagos.some((p) => p.contrato_id === c.id && p.periodo === per) &&
+    const yaPagado = pagos.filter((p) => p.contrato_id === c.id && p.periodo === per).reduce((s, p) => s + Number(p.monto), 0);
+    if (yaPagado && !(PARCIAL && yaPagado < Number(c.monto) - 1) &&
         !confirm('Esta renta ya tiene un pago en ese periodo. ¿Registrar otro?')) return;
     btn.disabled = true; btn.textContent = 'Guardando…';
     try {
@@ -305,6 +327,51 @@ function cobrar(r) {
       toast('No se pudo guardar: ' + e.message, true);
     }
   });
+}
+
+// ---------- ocupación ----------
+const TIPOS_U = { depto: 'Departamentos', local: 'Locales', oficina: 'Oficinas', bodega: 'Bodegas', casa: 'Casas', loft: 'Lofts', terreno: 'Terrenos', otro: 'Otros' };
+function pintarOcupacion(el) {
+  const y = new Date().getFullYear(), m = new Date().getMonth();
+  const activos = contratos.filter((r) => r.activo && r.unidad_id);
+  const contratoDe = (u) => activos.find((r) => r.unidad_id === u.id);
+  const us = unidades.filter((u) => u.activo !== false);
+  const ocup = us.filter(contratoDe);
+  const pct = (a, b) => (b ? Math.round(a / b * 100) : 0);
+  const renta = activos.reduce((s, r) => s + (r.moneda === 'USD' ? 0 : Number(r.monto || 0)), 0);
+  const porTipo = Object.keys(TIPOS_U).map((t) => ({ t, tot: us.filter((u) => u.tipo === t).length, oc: ocup.filter((u) => u.tipo === t).length })).filter((x) => x.tot);
+  const centros = [...new Set(us.map((u) => u.centro_id))].sort((a, b) => nombreCentro(a).localeCompare(nombreCentro(b)));
+  const clase = (u) => {
+    const r = contratoDe(u);
+    if (!r) return 'libre';
+    const e = estadoDe(r, y, m);
+    return e === 'atrasado' ? 'rojo' : ['parcial', 'porv'].includes(e) ? 'ambar' : 'verde';
+  };
+  const corto = (id) => id.replace(/^(Depto\.?|Departamento|Local|Oficina|Of\.)\s*/i, '');
+  el.innerHTML = `
+    <div class="kpis">
+      <div class="kpi"><span>Ocupación</span><strong>${pct(ocup.length, us.length)}%</strong><small>${ocup.length} de ${us.length} unidades rentadas</small></div>
+      <div class="kpi"><span>Disponibles</span><strong class="${us.length - ocup.length ? 'neg' : 'pos'}">${us.length - ocup.length}</strong><small>unidades sin rentar</small></div>
+      <div class="kpi"><span>Renta contratada</span><strong>${money(renta)}</strong><small>al mes, contratos activos</small></div>
+      <div class="kpi"><span>Por tipo</span>${porTipo.map((x) => `<div class="kpi-linea">${TIPOS_U[x.t]}<b>${x.oc}/${x.tot} · ${pct(x.oc, x.tot)}%</b></div>`).join('')}</div>
+    </div>
+    <div class="leyenda-ocup"><span><i class="verde"></i>Al corriente</span><span><i class="ambar"></i>Abonado o por vencer</span><span><i class="rojo"></i>Atrasado</span><span><i class="libre"></i>Disponible</span></div>
+    ${centros.map((cid) => {
+      const del = us.filter((u) => u.centro_id === cid), oc = del.filter(contratoDe).length;
+      const tipos = Object.keys(TIPOS_U).filter((t) => del.some((u) => u.tipo === t));
+      return `<section class="panel"><div class="panel-head"><h3>${esc(nombreCentro(cid))}</h3><span class="sub-meta">${oc} de ${del.length} rentadas · ${pct(oc, del.length)}%</span></div>
+        ${tipos.map((t) => {
+          const l = del.filter((u) => u.tipo === t).sort((a, b) => a.identificador.localeCompare(b.identificador, 'es', { numeric: true }));
+          return `<h4 class="grupo">${TIPOS_U[t]} · ${l.filter(contratoDe).length}/${l.length}</h4>
+            <div class="ocup-grid">${l.map((u) => { const r = contratoDe(u);
+              return `<button type="button" class="ocup ${clase(u)}" data-u="${u.id}" title="${esc(u.identificador)}${r ? ' · ' + esc(r.arrendatario) + ' · ' + money(r.monto, r.moneda) : ' · disponible'}">${esc(corto(u.identificador))}</button>`; }).join('')}</div>`;
+        }).join('')}</section>`;
+    }).join('') || '<div class="vacio">No hay unidades registradas.</div>'}
+    <p class="nota">Toca una unidad rentada para ver su contrato y pagos; una disponible, para hacerle contrato.</p>`;
+  el.querySelectorAll('[data-u]').forEach((b) => b.addEventListener('click', () => {
+    const u = us.find((x) => x.id === b.dataset.u), r = contratoDe(u);
+    if (r) detalle(r); else if (puedeCobrar()) editarContrato(null, u.id);
+  }));
 }
 
 // ---------- adeudos ----------
@@ -422,15 +489,18 @@ function pintarContratos(el) {
   el.querySelectorAll('[data-editar]').forEach((b) => b.addEventListener('click', () => editarContrato(contratos.find((r) => r.id === b.dataset.editar))));
 }
 
-function editarContrato(r) {
+function editarContrato(r, preUnidad = null) {
   const treme = estado.empresas.find((e) => e.nombre_corto === 'Treme')?.id;
-  const centros = estado.centros.filter((c) => c.empresa_id === treme && !['socio', 'personal'].includes(c.tipo));
+  // Treme: sus desarrollos, como siempre. Otra instalación: los centros que tienen unidades para rentar.
+  const centros = treme ? estado.centros.filter((c) => c.empresa_id === treme && !['socio', 'personal'].includes(c.tipo))
+    : estado.centros.filter((c) => unidades.some((u) => u.centro_id === c.id) || c.id === r?.centro_id);
   const modal = abrirModal({
     titulo: r ? `Editar · ${r.arrendatario}` : 'Nuevo contrato',
     cuerpo: `<form class="form" id="kf" novalidate>
       <label>Arrendatario / negocio<input name="arrendatario" required maxlength="120" value="${esc(r?.arrendatario || '')}"></label>
       <label>Desarrollo<select name="centro" required><option value="">Elige…</option>
         ${centros.map((c) => `<option value="${c.id}" ${r?.centro_id === c.id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select></label>
+      ${OCUPACION ? '<label>Unidad<select name="unidad"></select></label>' : ''}
       <div class="form-2">
         <label>Renta mensual<input type="number" name="monto" min="0" step="0.01" value="${r ? Number(r.monto) : ''}"></label>
         <label>Moneda<select name="moneda"><option>MXN</option><option ${r?.moneda === 'USD' ? 'selected' : ''}>USD</option></select></label>
@@ -450,6 +520,18 @@ function editarContrato(r) {
   });
   const f = modal.querySelector('#kf');
   modal.querySelector('#kf-no').addEventListener('click', cerrarModal);
+  // Unidades libres del desarrollo elegido (más la del propio contrato)
+  const verUnidades = () => {
+    if (!f.unidad) return;
+    const ocupadas = new Set(contratos.filter((x) => x.activo && x.id !== r?.id).map((x) => x.unidad_id));
+    const libres = unidades.filter((u) => u.centro_id === f.centro.value && (!ocupadas.has(u.id) || u.id === r?.unidad_id))
+      .sort((a, b) => a.identificador.localeCompare(b.identificador, 'es', { numeric: true }));
+    f.unidad.innerHTML = '<option value="">— Sin unidad —</option>' + libres.map((u) =>
+      `<option value="${u.id}" ${u.id === (r?.unidad_id || preUnidad) ? 'selected' : ''}>${esc(u.identificador)}</option>`).join('');
+  };
+  if (preUnidad && !r) f.centro.value = unidades.find((u) => u.id === preUnidad)?.centro_id || '';
+  f.centro.addEventListener('change', verUnidades);
+  verUnidades();
   modal.querySelector('#kf-si').addEventListener('click', async (ev) => {
     const btn = ev.currentTarget;
     const dia = parseInt(f.dia.value);
@@ -459,7 +541,8 @@ function editarContrato(r) {
     btn.disabled = true;
     const datos = { arrendatario: f.arrendatario.value.trim(), centro_id: f.centro.value, monto: Number(f.monto.value) || 0,
       moneda: f.moneda.value, dia_pago: dia, fecha_fin: f.fin.value || null, telefono: f.telefono.value.trim() || null,
-      email: f.email.value.trim() || null, notas: f.notas.value.trim() || null, activo: f.activo.checked };
+      email: f.email.value.trim() || null, notas: f.notas.value.trim() || null, activo: f.activo.checked,
+      ...(f.unidad ? { unidad_id: f.unidad.value || null } : {}) };
     const { error } = r ? await db().from('contratos').update(datos).eq('id', r.id)
       : await db().from('contratos').insert({ ...datos, org_id: estado.miembro.org_id });
     if (error) { btn.disabled = false; return toast('No se pudo guardar: ' + error.message, true); }
@@ -517,11 +600,14 @@ async function recibo(p, r) {
   await pintarRecibo(w, {
     titulo: `${r.arrendatario} - Renta ${per}`,
     folio: p.folio, fecha: p.fecha,
-    info: [['Recibí de', r.arrendatario], ['Inmueble', `${tipoEspacio(r.arrendatario)} · ${desarrollo}`], ['Concepto', 'Renta mensual'],
-      ['Periodo', per], ['Recibido por', 'Administración — Grupo Inmobiliario Treme'], ['Método de pago', forma],
-      ...(r.dia_pago ? [['Día de pago pactado', `Día ${r.dia_pago} de cada mes`]] : [])],
+    info: [['Recibí de', r.arrendatario], ['Inmueble', unidadDe(r) ? `${unidadDe(r).identificador} · ${desarrollo}` : `${tipoEspacio(r.arrendatario)} · ${desarrollo}`], ['Concepto', 'Renta mensual'],
+      ['Periodo', per], ['Recibido por', 'Administración — ' + EMISOR], ['Método de pago', forma],
+      ...(r.dia_pago ? [['Día de pago pactado', `Día ${r.dia_pago} de cada mes`]] : []),
+      ...(() => { const falta = PARCIAL ? Number(r.monto) - abonado(r, +p.periodo.slice(0, 4), +p.periodo.slice(5, 7) - 1) : 0;
+        return falta > 1 ? [['Saldo pendiente del mes', money(falta, moneda)]] : []; })()],
     lineas: [{ concepto: 'Renta mensual', detalle: `${per} · ${desarrollo}`, cantidad: 1, precio: Number(p.monto), subtotal: Number(p.monto) }],
     total: Number(p.monto), moneda, notas: p.notas,
+    liquidado: !PARCIAL || abonado(r, +p.periodo.slice(0, 4), +p.periodo.slice(5, 7) - 1) >= Number(r.monto) - 1,
     aviso: `Este recibo ampara el pago de la renta correspondiente al periodo indicado, por el inmueble arrendado en ${desarrollo}, recibido a nombre de ${r.arrendatario}.`,
   });
 }

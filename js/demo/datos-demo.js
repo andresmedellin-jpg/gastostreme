@@ -10,12 +10,19 @@
     <text x="80" y="52" font-family="Arial,Helvetica,sans-serif" font-size="40" font-weight="700" letter-spacing="3" fill="#141414">GALCOR</text>
     <text x="82" y="70" font-family="Arial,Helvetica,sans-serif" font-size="10.5" letter-spacing="2.2" fill="${COLOR}">VÁLVULAS · SERVICIO</text></svg>`);
 
+  const logoInm = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="300" height="80" viewBox="0 0 300 80">
+    <rect x="14" y="10" width="22" height="60" fill="${COLOR}"/><rect x="42" y="26" width="22" height="44" fill="${COLOR}" opacity=".6"/>
+    <text x="76" y="46" font-family="Arial,Helvetica,sans-serif" font-size="30" font-weight="700" letter-spacing="2" fill="#141414">GALCOR</text>
+    <text x="78" y="66" font-family="Arial,Helvetica,sans-serif" font-size="11" letter-spacing="2.4" fill="${COLOR}">INMOBILIARIA</text></svg>`);
+
   window.__MARCA = {
     nombre: 'Galcor · Administración',
-    marca: ['Galcor'],
+    marca: ['Galcor', 'Inmobiliaria'],
     logos: [{ src: logo, alt: 'Galcor', clase: 'logo-demo' }],
     color: COLOR, color2: '#163a5c', colorSuave: '#eaf1f8',
-    modulos: ['inicio', 'cotizaciones', 'inventario', 'obras', 'gastos', 'personal'],
+    modulos: ['inicio', 'cotizaciones', 'inventario', 'obras', 'rentas', 'gastos', 'personal'],
+    rentaParcial: true, ocupacion: true,
+    reciboEmpresa: 'Inmobiliaria Galcor', reciboLogo: logoInm, reciboColor: '#1f4e79',
     titulos: { obras: 'Proyectos y servicios' },
     palabraObra: ['proyecto', 'proyectos'],
     ocultarPestanas: ['tareas', 'rondin', 'incidencias'],
@@ -26,6 +33,7 @@
       'Compra de mercancía': '📦', 'Material y refacciones': '🔩', 'Nómina': '👷', 'Seguro social e ISN': '🏥',
       'Viáticos': '🧳', 'Gasolina': '⛽', 'Vehículos': '🚗', 'Herramienta y equipo': '🧰', 'Fletes y paquetería': '🚚',
       'Renta': '🏢', 'Luz': '⚡', 'Teléfono e internet': '📶', 'Administración': '📋', 'Impuestos': '🧾',
+      'Mantenimiento': '🔧', 'Limpieza': '🧹', 'Seguridad': '🔒', 'Agua': '💧',
       'Intereses y comisiones': '🏦', 'Otros': '📌',
     },
     ayuda: {
@@ -40,6 +48,9 @@
       'Fletes y paquetería': 'Envíos a clientes y fletes de proveedores',
       'Renta': 'Renta de almacén y oficina', 'Luz': 'Recibos de CFE', 'Teléfono e internet': 'Celulares e internet',
       'Administración': 'Papelería, software, contador, trámites', 'Impuestos': 'Impuestos que no son de nómina',
+      'Mantenimiento': 'Reparaciones y mantenimiento de las torres: elevadores, plomería, pintura, jardín',
+      'Limpieza': 'Insumos y servicios de limpieza de las torres', 'Seguridad': 'Vigilancia, cámaras, control de acceso',
+      'Agua': 'Agua y Drenaje de las torres',
       'Intereses y comisiones': 'Intereses de créditos y comisiones bancarias', 'Otros': 'Solo si no cabe en ninguna de las anteriores',
     },
   };
@@ -64,7 +75,7 @@
 
     // ---------- empresa y centros ----------
     const E = { id: 'emp-galcor', org_id: ORG, nombre: 'Galcor S.A. de C.V.', nombre_corto: 'Galcor', rfc: null, color: COLOR, activo: true };
-    const C = (nombre, tipo, extra = {}) => ({ id: id('cen'), org_id: ORG, empresa_id: E.id, nombre, tipo, activo: true, en_gastos: true, ...extra });
+    const C = (nombre, tipo, extra = {}) => ({ id: id('cen'), org_id: ORG, empresa_id: extra.empresa_id || E.id, nombre, tipo, activo: true, en_gastos: true, ...extra });
     const almacen = C('Almacén y ventas', 'bodega'), oficina = C('Oficina', 'oficina'), taller = C('Taller de servicio', 'otro');
     const PROY = [
       { c: C('Línea de vapor · Aceros del Valle', 'obra'), cliente: 'Aceros del Valle', valor: 1240000, cobrado: 0.6, costo: 0.58, inicio: -110, dur: 140 },
@@ -73,7 +84,10 @@
       { c: C('Actuadores · Alimentos Montesur', 'obra'), cliente: 'Alimentos Montesur', valor: 214000, cobrado: 0.5, costo: 0.47, inicio: -40, dur: 35 },
       { c: C('Mantenimiento anual · Química Santa Rosa', 'obra'), cliente: 'Química Industrial Santa Rosa', valor: 960000, cobrado: 0.25, costo: 0.3, inicio: -25, dur: 365 },
     ];
-    const centros = [almacen, oficina, taller, ...PROY.map((p) => p.c)];
+    // Segunda empresa: inmobiliaria con dos torres (renta de locales, oficinas y departamentos)
+    const E2 = { id: 'emp-inmob', org_id: ORG, nombre: 'Inmobiliaria Galcor S.A. de C.V.', nombre_corto: 'Inmobiliaria', rfc: null, color: '#5b7c99', activo: true };
+    const torreA = C('Torre Cumbres', 'condominio', { empresa_id: E2.id }), torreB = C('Torre Valle', 'condominio', { empresa_id: E2.id });
+    const centros = [almacen, oficina, taller, ...PROY.map((p) => p.c), torreA, torreB];
 
     // ---------- productos (marca representada: Emerson) ----------
     const P = (clave, categoria, descripcion, linea, medida, clase, costo, margen, minimo, ubic) => ({
@@ -122,7 +136,7 @@
 
     // Resurtidos (compras a la marca) para que el inventario no se acabe; algunos quedan bajo el mínimo a propósito
     const gastos = [];
-    const G = (fecha, centro, monto, concepto, proveedor, categoria, extra = {}) => gastos.push({ id: id('gas'), org_id: ORG, empresa_id: E.id, centro_id: centro.id,
+    const G = (fecha, centro, monto, concepto, proveedor, categoria, extra = {}) => gastos.push({ id: id('gas'), org_id: ORG, empresa_id: centro.empresa_id, centro_id: centro.id,
       fecha, monto: r2(monto), moneda: 'MXN', concepto, proveedor, categoria, forma_pago: extra.estado === 'por_pagar' ? null : (extra.forma_pago || 'Transferencia'),
       estado: 'pagado', capturado_por: ADMIN, creado_en: fecha + 'T17:00:00Z', ...extra });
     const resurtir = (k, claves, estado) => {
@@ -233,8 +247,15 @@
       ['Patricia Garza Molina', 'Administración y cobranza', oficina, 7200, '2014-01-13', true],
       ['Sofía Medina Castillo', 'Auxiliar contable', oficina, 5200, '2024-09-02', false],
       ['Fernando Cavazos', 'Chofer / mensajero', oficina, 4200, '2021-11-29', false],
+      ['Rosa María Quiroga', 'Administradora de torres', torreA, 6800, '2013-05-06', true],
+      ['Juan Carlos Benavides', 'Vigilante', torreA, 3900, '2020-02-10', false],
+      ['Arturo Sepúlveda', 'Vigilante', torreA, 3900, '2023-08-21', false],
+      ['Gilberto Ramos', 'Vigilante', torreB, 3900, '2022-04-04', false],
+      ['Maribel Castañeda', 'Limpieza', torreA, 3300, '2019-10-14', false],
+      ['Leticia Guerra', 'Limpieza', torreA, 3300, '2025-01-20', false],
+      ['Héctor Barrientos', 'Mantenimiento de torres', torreA, 5200, '2017-06-12', false],
     ];
-    const empleados = EMP.map(([nombre, puesto, c, sueldo, ingreso, prima]) => ({ id: id('emp'), org_id: ORG, empresa_id: E.id, centro_id: c.id, nombre, puesto,
+    const empleados = EMP.map(([nombre, puesto, c, sueldo, ingreso, prima]) => ({ id: id('emp'), org_id: ORG, empresa_id: c.empresa_id, centro_id: c.id, nombre, puesto,
       departamento: null, salario_semanal: sueldo, dias_semana: c === oficina ? 5 : 6, hora_entrada: c === taller ? '07:30:00' : '08:30:00',
       hora_salida: c === taller ? '17:30:00' : '18:00:00', tolerancia_min: 10, dias_laborales: c === oficina ? 'LUN,MAR,MIE,JUE,VIE' : 'LUN,MAR,MIE,JUE,VIE,SAB',
       fecha_ingreso: ingreso, activo: true, imss: true, nss: null, nombre_imss: null, alta_imss: ingreso, prima_vacacional: prima }));
@@ -245,18 +266,19 @@
     const lunesHoy = lunes(hoy);
     for (let w = 26; w >= 1; w--) {
       const sem = sumar(lunesHoy, -7 * w), pago = sumar(sem, 5);
-      const per = { id: id('per'), org_id: ORG, empresa_id: E.id, fecha_inicio: sem, fecha_pago: pago, estado: 'pagada', creado_en: pago + 'T20:00:00Z' };
-      nomina_periodos.push(per);
+      const pers = {};
+      [E, E2].forEach((x) => { pers[x.id] = { id: id('per'), org_id: ORG, empresa_id: x.id, fecha_inicio: sem, fecha_pago: pago, estado: 'pagada', creado_en: pago + 'T20:00:00Z' };
+        nomina_periodos.push(pers[x.id]); });
       const activos = PROY.filter((p) => sem >= dias(p.inicio) && sem <= dias(p.inicio + p.dur));
       empleados.forEach((e) => {
         let falta = rnd() < 0.05 ? 1 : 0;
         const monto = r2(e.salario_semanal - falta * e.salario_semanal / e.dias_semana);
         const destino = e.centro_id === taller.id && activos.length && rnd() < 0.55 ? elige(activos).c : centros.find((c) => c.id === e.centro_id);
         const gid = id('gas');
-        gastos.push({ id: gid, org_id: ORG, empresa_id: E.id, centro_id: destino.id, fecha: pago, monto, moneda: 'MXN', concepto: 'Nómina — ' + e.nombre,
+        gastos.push({ id: gid, org_id: ORG, empresa_id: destino.empresa_id, centro_id: destino.id, fecha: pago, monto, moneda: 'MXN', concepto: 'Nómina — ' + e.nombre,
           proveedor: e.nombre, categoria: 'Nómina', forma_pago: 'Transferencia', estado: 'pagado', notas: 'Semana del ' + sem.split('-').reverse().join('/'),
           capturado_por: ADMIN, creado_en: pago + 'T20:00:00Z' });
-        nomina_lineas.push({ id: id('lin'), org_id: ORG, periodo_id: per.id, empleado_id: e.id, centro_id: e.centro_id, dias_trabajados: e.dias_semana - falta,
+        nomina_lineas.push({ id: id('lin'), org_id: ORG, periodo_id: pers[e.empresa_id].id, empleado_id: e.id, centro_id: e.centro_id, dias_trabajados: e.dias_semana - falta,
           sueldo: monto, extras: 0, descuentos: 0, abono_prestamo: 0, total: monto, forma_pago: 'Transferencia', notas: null, fecha: pago, gasto_id: gid });
         if (falta) asistencia.push({ id: id('asi'), org_id: ORG, empleado_id: e.id, fecha: sumar(sem, entre(0, 4)), estado: 'falta', minutos_tarde: 0,
           minutos_salida_temprano: 0, monto_descuento: Math.round(e.salario_semanal / e.dias_semana), horas_descontadas: 9, registrado_por: ADMIN });
@@ -283,6 +305,110 @@
           monto_descuento: tarde > 10 ? Math.round((tarde - 10) / 60 * tarifa) : 0, registrado_por: 'Raúl Garza Treviño' });
       });
     }
+
+    // ---------- inmobiliaria: unidades, contratos, rentas cobradas y gastos de las torres ----------
+    const unidades = [], contratos = [];
+    const U = (centro, identificador, tipo, m2) => { const u = { id: id('uni'), org_id: ORG, centro_id: centro.id, identificador, tipo, superficie_m2: m2, exento: false, activo: true };
+      unidades.push(u); return u; };
+    for (let k = 1; k <= 8; k++) U(torreA, 'Local ' + String(k).padStart(2, '0'), 'local', entre(45, 140));
+    for (let k = 1; k <= 12; k++) U(torreA, 'Oficina ' + (200 + k), 'oficina', entre(40, 95));
+    for (let piso = 3; piso <= 12; piso++) for (let k = 1; k <= 8; k++) U(torreA, 'Depto ' + (piso * 100 + k), 'depto', k <= 2 ? 120 : k <= 6 ? 85 : 62);
+    for (let piso = 1; piso <= 3; piso++) for (let k = 1; k <= 4; k++) U(torreB, 'Oficina ' + (piso * 100 + k), 'oficina', entre(55, 110));
+
+    const NOMBRES = ['Alejandra', 'Roberto', 'Mariana', 'Luis', 'Fernanda', 'Jorge', 'Paola', 'Ricardo', 'Daniela', 'Carlos', 'Sofía', 'Miguel', 'Andrea',
+      'Eduardo', 'Valeria', 'Sergio', 'Gabriela', 'Héctor', 'Lorena', 'Arturo', 'Karla', 'Raúl', 'Mónica', 'Óscar', 'Claudia', 'Javier', 'Ximena', 'Rodrigo'];
+    const APELLIDOS = ['González', 'Garza', 'Treviño', 'Martínez', 'Rodríguez', 'Villarreal', 'Cantú', 'Hernández', 'Salinas', 'Elizondo', 'Leal', 'Flores',
+      'Cavazos', 'Zambrano', 'Sada', 'Montemayor', 'Chapa', 'Rocha', 'Benavides', 'Lozano', 'Guajardo', 'Ayala', 'De la Garza', 'Medina'];
+    const NEGOCIOS = ['Farmacia del Barrio', 'Café Cumbres', 'Lavandería Express', 'Tienda de conveniencia 24h', 'Estética Bella Vista',
+      'Consultorio Dental Sonrisa', 'Papelería y Copias', 'Taquería El Fogón'];
+    const EMPRESAS_OF = ['Despacho Fiscal Garza', 'Ingeniería Montemayor', 'Seguros del Norte Agentes', 'Consultores en Logística', 'Arquitectura Sada Leal',
+      'Agencia Digital Norte', 'Notaría 140 (anexo)', 'Bufete Jurídico Zambrano', 'Clínica de Terapia Física', 'Inmobiliaria Rocha Agentes',
+      'Corredores Industriales', 'Laboratorio de Software Regio', 'Contadores Asociados Leal', 'Despacho de Diseño Ayala'];
+    const persona = () => `${elige(NOMBRES)} ${elige(APELLIDOS)} ${elige(APELLIDOS)}`;
+    const telefono = () => '81 ' + entre(1000, 9999) + ' ' + entre(1000, 9999);
+    // ocupación: departamentos casi llenos, locales 6 de 8, oficinas bajas
+    const libres = new Set();
+    const elegirLibres = (lista, n) => { const l = [...lista]; for (let k = 0; k < n; k++) { const j = Math.floor(rnd() * l.length); libres.add(l.splice(j, 1)[0].id); } };
+    elegirLibres(unidades.filter((u) => u.centro_id === torreA.id && u.tipo === 'depto'), 6);
+    elegirLibres(unidades.filter((u) => u.centro_id === torreA.id && u.tipo === 'local'), 2);
+    elegirLibres(unidades.filter((u) => u.centro_id === torreA.id && u.tipo === 'oficina'), 5);
+    elegirLibres(unidades.filter((u) => u.centro_id === torreB.id), 7);
+    let neg = 0, ofi = 0;
+    const contrato = (u, inicio, activo, extra = {}) => {
+      const tipo = u.tipo, piso = Math.floor(Number(u.identificador.replace(/\D/g, '')) / 100);
+      const monto = tipo === 'depto' ? Math.round((u.superficie_m2 * 150 + piso * 250 + entre(-500, 800)) / 100) * 100
+        : tipo === 'local' ? Math.round(u.superficie_m2 * 330 / 100) * 100 : Math.round((u.superficie_m2 * (u.centro_id === torreB.id ? 145 : 165)) / 100) * 100;
+      const nombre = tipo === 'depto' ? persona() : tipo === 'local' ? NEGOCIOS[neg++ % NEGOCIOS.length] : EMPRESAS_OF[ofi++ % EMPRESAS_OF.length];
+      const c = { id: id('con'), org_id: ORG, unidad_id: u.id, centro_id: u.centro_id, arrendatario: nombre, monto, moneda: 'MXN',
+        dia_pago: elige([1, 1, 1, 5, 5, 10, 15]), fecha_inicio: inicio, fecha_fin: (() => { let fn = sumar(inicio, 365); while (activo && fn <= hoy) fn = sumar(fn, 365); return fn; })(), ajuste_inpc: false, telefono: telefono(), email: null,
+        notas: null, activo, creado_en: inicio + 'T12:00:00Z', ...extra };
+      contratos.push(c); return c;
+    };
+    unidades.forEach((u) => {
+      if (libres.has(u.id)) {
+        // algunas disponibles tuvieron inquilino que se fue hace poco (movimiento)
+        if (u.tipo === 'depto' || rnd() < 0.3) contrato(u, dias(-entre(300, 700)), false, { notas: 'Desocupó el ' + dias(-entre(20, 120)).split('-').reverse().join('/') });
+        return;
+      }
+      const nuevo = u.tipo === 'depto' ? rnd() < 0.14 : rnd() < 0.05;     // los departamentos rotan más
+      contrato(u, nuevo ? dias(-entre(15, 150)) : dias(-entre(160, 900)), true);
+    });
+    // contratos que vencen pronto (para que se vea el aviso)
+    contratos.filter((c) => c.activo).slice(0, 5).forEach((c, k) => { c.fecha_fin = dias(entre(10, 80)); });
+
+    // Pagos de renta de los últimos 6 meses: la mayoría completos; algunos en abonos (no traían completo) y unos cuantos atrasados
+    let folio = 0;
+    const FORMAS_R = ['Efectivo', 'Efectivo', 'Transferencia', 'Transferencia', 'Depósito'];
+    const morosos = new Set(contratos.filter((c) => c.activo).filter(() => rnd() < 0.06).map((c) => c.id));
+    contratos.forEach((c) => {
+      for (let mm = 5; mm >= 0; mm--) {
+        const d0 = new Date(HOY.getFullYear(), HOY.getMonth() - mm, 1, 12), per = iso(d0);
+        const ini = c.fecha_inicio.slice(0, 7), fin = c.activo ? '9999' : (c.notas || '').replace(/^Desocupó el (\d\d)\/(\d\d)\/(\d{4})$/, '$3-$2');
+        if (per.slice(0, 7) < ini || per.slice(0, 7) > fin) continue;
+        const fpago = (k) => { const x = new Date(d0); x.setDate(Math.min(28, c.dia_pago + k)); return iso(x); };
+        const esActual = mm === 0;
+        if (esActual && fpago(0) > hoy) { if (rnd() < 0.35) pagoR(c, per, c.monto, fpago(-entre(1, 3)) <= hoy ? fpago(-entre(1, 3)) : hoy); continue; }
+        if (morosos.has(c.id) && mm <= 1) continue;                                   // no han pagado los últimos meses
+        const suerte = rnd();
+        if (suerte < 0.12) {                                                          // abonos: no traía completo
+          const primero = Math.round(c.monto * elige([0.5, 0.6, 0.7]) / 100) * 100;
+          pagoR(c, per, primero, fpago(entre(0, 3)), 'Abono · no traía completo');
+          if (!(esActual || (mm === 1 && rnd() < 0.5))) pagoR(c, per, c.monto - primero, fpago(entre(8, 14)) <= hoy ? fpago(entre(8, 14)) : hoy, 'Resto del mes');
+        } else if (suerte < 0.2 && esActual) {
+          // todavía no paga este mes (atrasado)
+        } else {
+          pagoR(c, per, c.monto, fpago(entre(-2, 4)) <= hoy ? fpago(entre(-2, 4)) : hoy);
+        }
+      }
+    });
+    function pagoR(c, per, monto, fecha, notas = null) {
+      pagos.push({ id: id('pag'), org_id: ORG, empresa_id: E2.id, centro_id: c.centro_id, unidad_id: c.unidad_id, contrato_id: c.id, concepto: 'renta',
+        periodo: per, monto, moneda: 'MXN', forma_pago: elige(FORMAS_R), fecha, folio: 'REC-' + String(++folio).padStart(4, '0'), notas,
+        capturado_por: 'Rosa María Quiroga', creado_en: fecha + 'T17:00:00Z' });
+    }
+    // adeudos anotados a mano (lo que ya se sabía que debían)
+    [...morosos].slice(0, 3).forEach((cid) => { const c = contratos.find((x) => x.id === cid);
+      cuentas_por_cobrar.push({ id: id('cxc'), org_id: ORG, empresa_id: E2.id, centro_id: c.centro_id, contrato_id: c.id, tipo: 'adeudo_inicial',
+        cliente: c.arrendatario, meses: 2, monto_original: c.monto * 2, moneda: 'MXN', notas: 'Promete ponerse al corriente', creado_en: dias(-20) + 'T12:00:00Z' }); });
+
+    // Gastos de las torres
+    for (let mmes = 5; mmes >= 0; mmes--) {
+      const d = new Date(HOY.getFullYear(), HOY.getMonth() - mmes, 1, 12);
+      const f = (dd) => { const x = new Date(d); x.setDate(dd); return iso(x) <= hoy ? iso(x) : null; };
+      [[f(6), torreA, entre(21000, 27000), 'Luz de áreas comunes y elevadores', 'CFE', 'Luz'],
+       [f(6), torreB, entre(6000, 8200), 'Luz de áreas comunes', 'CFE', 'Luz'],
+       [f(9), torreA, entre(5200, 7400), 'Agua de áreas comunes', 'Agua y Drenaje', 'Agua'],
+       [f(11), torreA, 9800, 'Mantenimiento mensual de elevadores', 'Elevadores del Norte', 'Mantenimiento'],
+       [f(11), torreB, 4900, 'Mantenimiento mensual de elevador', 'Elevadores del Norte', 'Mantenimiento'],
+       [f(14), torreA, entre(3500, 5500), 'Insumos de limpieza', 'Distribuidora de Limpieza Regia', 'Limpieza'],
+       [f(16), torreA, 3200, 'Monitoreo de cámaras y control de acceso', 'Seguridad Electrónica Cumbres', 'Seguridad'],
+       [f(19), torreA, entre(2500, 14000), elige(['Plomería en depto', 'Pintura de pasillos', 'Reparación de bomba de agua', 'Cambio de luminarias', 'Impermeabilización parcial']), 'Mantenimiento varios', 'Mantenimiento'],
+       [f(23), torreB, entre(1500, 6000), elige(['Reparación de clima en oficina', 'Cerrajería', 'Jardinería']), 'Mantenimiento varios', 'Mantenimiento'],
+       [f(25), torreA, entre(1200, 2400), 'Comisiones por depósitos en efectivo', 'Banco', 'Intereses y comisiones'],
+      ].forEach(([fe, c, m, con, prov, cat]) => { if (fe) G(fe, c, m, con, prov, cat, { capturado_por: 'Rosa María Quiroga' }); });
+    }
+    G(dias(-140), torreA, 86500, 'Predial anual Torre Cumbres', 'Tesorería Municipal', 'Impuestos');
+    G(dias(-140), torreB, 21400, 'Predial anual Torre Valle', 'Tesorería Municipal', 'Impuestos');
 
     // ---------- gastos fijos mensuales ----------
     for (let mmes = 5; mmes >= 0; mmes--) {
@@ -353,9 +479,9 @@
     return {
       organizaciones: [{ id: ORG, nombre: 'Galcor', plan: 'demo' }],
       miembros: [{ org_id: ORG, user_id: 'demo-usuario', nombre: ADMIN, usuario: 'direccion', rol: 'dueno', roles: [], empresas: null, activo: true, debe_cambiar_password: false }],
-      empresas: [E], centros, productos, inventario_movs, ingresos, gastos, cuentas_por_cobrar, pagos, empleados,
+      empresas: [E, E2], centros, productos, inventario_movs, ingresos, gastos, cuentas_por_cobrar, pagos, empleados,
       nomina_periodos, nomina_lineas, asistencia, vacaciones, prestamos, prestamo_abonos, tareas_plantilla, tareas: [],
-      cotizaciones, contratos: [], unidades: [], cuotas: [], activos: [], pasivos: [], tipo_cambio: [],
+      cotizaciones, contratos, unidades, cuotas: [], activos: [], pasivos: [], tipo_cambio: [],
     };
   };
 })();

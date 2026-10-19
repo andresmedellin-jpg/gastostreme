@@ -426,3 +426,15 @@ h4.grupo:first-of-type { margin-top: 4px; }
 .obra-barra b { text-align: right; color: var(--text); }
 .obra-pie { display: flex; align-items: baseline; gap: 8px; border-top: 1px solid var(--border); padding-top: 10px; font-size: 13px; }
 .obra-pie span { color: var(--text-3); flex: 1; } .obra-pie b { font-size: 15px; }
+
+/* ---------- ocupación (rentas) ---------- */
+.ocup-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 6px; }
+.ocup { font: 600 12px Arial, sans-serif; padding: 8px 2px; border-radius: var(--radius); border: 1px solid transparent; cursor: pointer; color: #fff; }
+.ocup.verde { background: var(--ok); } .ocup.ambar { background: var(--warn); } .ocup.rojo { background: var(--neg); }
+.ocup.libre { background: var(--surface); color: var(--text-3); border: 1px dashed #c9c9c9; }
+.ocup:hover { filter: brightness(.92); }
+.leyenda-ocup { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--text-2); }
+.leyenda-ocup i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -2px; }
+.leyenda-ocup i.verde { background: var(--ok); } .leyenda-ocup i.ambar { background: var(--warn); } .leyenda-ocup i.rojo { background: var(--neg); }
+.leyenda-ocup i.libre { border: 1px dashed #c9c9c9; }
+.renta.parcial { border-left-color: var(--warn); }

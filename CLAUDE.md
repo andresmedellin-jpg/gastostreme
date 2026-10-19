@@ -94,6 +94,10 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 - **Demo** en `app.medco.mx/?demo`: base en memoria (`js/demo/supabase-demo.js`) con datos inventados (`js/demo/datos-demo.js`),
   no toca la base real; se reinicia al recargar. Hoy es para **Galcor** (distribuidor de válvulas Emerson con servicio de
   mantenimiento e instalación; cita con el cliente en oct. 2026). Para otro prospecto: copiar datos-demo.js y cambiar marca y datos.
+- **Rentas con opciones de marca:** `rentaParcial` (abonos: si los pagos del mes no suman la renta queda "Abonado" y muestra lo que
+  falta; el recibo dice el saldo) y `ocupacion` (pestaña Ocupación: mapa de unidades por torre/tipo, ligado por `contratos.unidad_id`).
+  Treme hoy no las usa (si se activa `rentaParcial`, Apetit jul–ago saldría con $3,400 pendientes). Recibo: `reciboEmpresa/Logo/Color`.
+  El demo trae 2a empresa del cliente: inmobiliaria con Torre Cumbres (8 locales, 12 oficinas, 80 deptos) y Torre Valle (12 oficinas).
 - **Inventario** (`inventario.js`): productos + movimientos (entrada/salida/ajuste); existencia = suma de movimientos.
   **Cotizaciones** (`cotizaciones.js` + `cotizacion-pdf.js`): partidas en jsonb, IVA 16 %, estados borrador/enviada/aceptada/rechazada;
   al aceptar crea proyecto (centro tipo obra + cxc venta) y descuenta inventario. Sus tablas están en
