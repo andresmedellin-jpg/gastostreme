@@ -1,7 +1,10 @@
 // Recibo de pago con el formato de Grupo Inmobiliario Treme (el mismo para rentas, mantenimiento y luz).
 // Se abre en una ventana nueva con dos botones: "Descargar PDF" (guarda el archivo directo, con html2pdf en
 // js/vendor, cargado solo al usarlo) e "Imprimir" (impresión del navegador, tamaño carta).
-import { MESES } from './config.js';
+import { MESES, MARCA } from './config.js';
+// Quién emite el recibo: Treme por omisión; otra instalación lo cambia en MARCA (reciboEmpresa, reciboLogo, reciboColor)
+const EMISOR = MARCA.reciboEmpresa || 'Grupo Inmobiliario Treme';
+const ROJO = MARCA.reciboColor || '#8B1A1A';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const dinero = (n, moneda = 'MXN') => (moneda === 'USD' ? 'US$' : '$') +
@@ -28,7 +31,7 @@ async function incrustar(ruta) {
   } catch { cache[ruta] = ''; }
   return cache[ruta];
 }
-const logo = () => incrustar('img/logo-treme.png');
+const logo = () => incrustar(MARCA.reciboLogo || 'img/logo-treme.png');
 async function fuentes() {
   const pesos = await Promise.all([400, 600, 700].map((p) => incrustar(`fonts/inter-latin-${p}-normal.woff2`)));
   return [400, 600, 700].map((p, i) => pesos[i]
@@ -54,13 +57,13 @@ export async function pintarRecibo(w, d) {
   .barra{position:sticky;top:0;z-index:2;display:flex;gap:8px;justify-content:center;padding:12px;background:#1a1a1a}
   .barra button{font:600 14px Inter,Arial,sans-serif;padding:9px 16px;border-radius:4px;border:0;cursor:pointer}
   .hoja{width:8.5in;min-height:11in;max-width:100%;margin:24px auto;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.1)}
-  .topbar{height:8px;background:#8B1A1A}
+  .topbar{height:8px;background:${ROJO}}
   .c{padding:30px 54px 40px}
   .head{display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #1a1a1a;padding-bottom:16px;margin-bottom:22px;gap:16px}
   .head img{width:185px;max-width:45%;height:auto;object-fit:contain}
   .t{text-align:right} .t h1{font-size:19px;margin:0 0 6px;letter-spacing:.5px;font-weight:700}
-  .t div{font-size:11.5px;margin:2px 0;color:#333} .t b{color:#8B1A1A}
-  .st{color:#8B1A1A;font-weight:700;font-size:11px;margin:20px 0 8px;letter-spacing:.4px}
+  .t div{font-size:11.5px;margin:2px 0;color:#333} .t b{color:${ROJO}}
+  .st{color:${ROJO};font-weight:700;font-size:11px;margin:20px 0 8px;letter-spacing:.4px}
   table{width:100%;border-collapse:collapse}
   .info td{border:1px solid #d9d9d9;padding:8px 10px;font-size:11px} .info td.l{background:#f4f4f4;font-weight:600;width:24%}
   .det th{background:#1a1a1a;color:#fff;padding:8px 10px;font-size:10.5px;font-weight:600;text-align:left}
@@ -68,11 +71,11 @@ export async function pintarRecibo(w, d) {
   .r{text-align:right!important} .ce{text-align:center!important}
   .tot{margin-top:8px;font-size:11px} .tot div{display:flex;justify-content:flex-end;gap:8px;padding:4px 10px}
   .tot .g{background:#1a1a1a;color:#fff;font-weight:700;font-size:12px;padding:9px 10px;margin-top:4px}
-  .estado{border:1.5px solid #8B1A1A;text-align:center;padding:11px;font-weight:700;font-size:11.5px;letter-spacing:.6px;margin:24px 0 20px}
+  .estado{border:1.5px solid ${ROJO};text-align:center;padding:11px;font-weight:700;font-size:11.5px;letter-spacing:.6px;margin:24px 0 20px}
   .nota{font-size:11px;margin:-6px 0 16px}
   .aviso{font-size:9.5px;font-style:italic;color:#555;border-top:1px solid #d9d9d9;padding-top:10px;text-align:center;line-height:1.6}
   .pie{margin-top:36px;border-top:1px solid #d9d9d9;padding-top:10px;text-align:center;font-size:8.5px;color:#888;line-height:1.6}
-  .barra .ok{background:#8B1A1A;color:#fff} .barra button:disabled{opacity:.6;cursor:wait}
+  .barra .ok{background:${ROJO};color:#fff} .barra button:disabled{opacity:.6;cursor:wait}
   body.pdf{width:8.5in;margin:0;background:#fff} body.pdf .barra{display:none}
   body.pdf .hoja{margin:0;box-shadow:none;width:8.5in;max-width:none;min-height:0}
   @media print{body{background:#fff}.barra{display:none}.hoja{margin:0;box-shadow:none;width:100%;min-height:0}}
@@ -80,7 +83,7 @@ export async function pintarRecibo(w, d) {
 </style></head><body>
 <div class="barra"><button class="ok" id="pdf">Descargar PDF</button><button onclick="print()">Imprimir</button><button onclick="close()">Cerrar</button></div>
 <div class="hoja"><div class="topbar"></div><div class="c">
-  <div class="head">${img ? `<img src="${img}" alt="Grupo Inmobiliario Treme">` : '<strong style="font-size:24px">Grupo Inmobiliario Treme</strong>'}
+  <div class="head">${img ? `<img src="${img}" alt="${esc(EMISOR)}">` : `<strong style="font-size:24px">${esc(EMISOR)}</strong>`}
     <div class="t"><h1>RECIBO DE PAGO</h1><div>Folio: <b>${esc(d.folio || '—')}</b></div><div>Fecha: ${fechaLarga(d.fecha)}</div></div></div>
   <div class="st">INFORMACIÓN DE PAGO</div>
   <table class="info">${d.info.map(([k, v]) => `<tr><td class="l">${esc(k)}:</td><td>${esc(v)}</td></tr>`).join('')}</table>
@@ -97,8 +100,8 @@ export async function pintarRecibo(w, d) {
   </div>
   <div class="estado">${d.liquidado === false ? 'PAGO RECIBIDO' : 'PAGO RECIBIDO — LIQUIDADO EN SU TOTALIDAD'}</div>
   ${d.notas ? `<div class="nota"><b>Notas:</b> ${esc(d.notas)}</div>` : ''}
-  <div class="aviso">${esc(d.aviso)} Para cualquier aclaración, comuníquese con el departamento de administración de Grupo Inmobiliario Treme.</div>
-  <div class="pie">Grupo Inmobiliario Treme<br>Este recibo es comprobante de pago válido • Consérvelo para sus registros</div>
+  <div class="aviso">${esc(d.aviso)} Para cualquier aclaración, comuníquese con el departamento de administración de ${esc(EMISOR)}.</div>
+  <div class="pie">${esc(EMISOR)}<br>Este recibo es comprobante de pago válido • Consérvelo para sus registros</div>
 </div></div>
 <script>
   // Descarga directa del PDF (tamaño carta), con el nombre del folio y de quien pagó

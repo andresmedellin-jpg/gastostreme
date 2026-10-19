@@ -18,6 +18,8 @@
     modulos: ['inicio', 'cotizaciones', 'inventario', 'obras', 'gastos', 'personal'],
     titulos: { obras: 'Proyectos y servicios' },
     palabraObra: ['proyecto', 'proyectos'],
+    ocultarPestanas: ['tareas', 'rondin', 'incidencias'],
+    centroPersonal: 'Taller de servicio',
     contacto: 'Monterrey, N.L.',
     demo: true,
     categorias: {

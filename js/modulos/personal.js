@@ -1,7 +1,7 @@
 // Personal: el día a día del encargado (asistencia, tareas, rondín, incidencias) y,
 // para dueño y administración, nómina semanal, empleados, vacaciones y préstamos.
 // Reemplaza "Elysium · Mi día" y la Nómina del Centro de Control.
-import { MESES } from '../config.js';
+import { MESES, MARCA } from '../config.js';
 import { db, estado, tieneRol, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal,
          comprimirImagen, subirArchivo, verFoto, normalizar } from '../lib.js';
 
@@ -33,14 +33,16 @@ const iniciales = (n) => (n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map
 // ---------- entrada ----------
 export async function render(view) {
   raiz = view;
-  const tabsDia = [['asistencia', 'Asistencia'], ['tareas', 'Tareas'], ['rondin', 'Rondín'], ['incidencias', 'Incidencias']];
+  // La marca puede ocultar pestañas que no aplican a su giro (p. ej. rondín de un edificio)
+  const tabsDia = [['asistencia', 'Asistencia'], ['tareas', 'Tareas'], ['rondin', 'Rondín'], ['incidencias', 'Incidencias']]
+    .filter(([id]) => !(MARCA.ocultarPestanas || []).includes(id));
   const tabsAdmin = [['nomina', 'Nómina'], ['empleados', 'Empleados'], ['vacaciones', 'Vacaciones'], ['prestamos', 'Préstamos']];
   const tabs = admin() ? [...tabsAdmin, ...tabsDia] : tabsDia;
   st.tab ||= tabs[0][0];
 
   // centros con personal (para el encargado: los de su empresa)
   const visibles = estado.centros.filter((c) => !['socio', 'personal'].includes(c.tipo) || admin());
-  st.centro ||= (visibles.find((c) => c.nombre === 'Torre Elysium') || visibles[0])?.id;
+  st.centro ||= (visibles.find((c) => c.nombre === (MARCA.centroPersonal || 'Torre Elysium')) || visibles[0])?.id;
 
   view.innerHTML = `
     <div class="sub-head">

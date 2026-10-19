@@ -88,7 +88,8 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 
 ## Producto para vender a otros clientes
 - **Marca configurable** (`MARCA` en `js/config.js`, se sobreescribe con `window.__MARCA`): nombre, texto del menú, logos,
-  color, módulos visibles (`modulos`), títulos (`titulos`), palabra para obra (`palabraObra`), categorías de gasto propias.
+  color, módulos visibles (`modulos`), títulos (`titulos`), palabra para obra (`palabraObra`), categorías de gasto propias,
+  pestañas de Personal ocultas (`ocultarPestanas`; el demo oculta Tareas, Rondín e Incidencias) y centro inicial (`centroPersonal`).
   Por omisión es Treme / MEDCO y nada cambia. Módulos con `opcional: true` (Cotizaciones, Inventario) solo salen si la marca los pide.
 - **Demo** en `app.medco.mx/?demo`: base en memoria (`js/demo/supabase-demo.js`) con datos inventados (`js/demo/datos-demo.js`),
   no toca la base real; se reinicia al recargar. Hoy es para **Galcor** (distribuidor de válvulas Emerson con servicio de
