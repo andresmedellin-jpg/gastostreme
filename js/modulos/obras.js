@@ -44,22 +44,19 @@ async function cargar() {
 }
 
 const pct = (a, b) => (b ? Math.min(100, Math.round(a / b * 100)) : 0);
-const signo = (v) => `<b class="${v >= 0 ? 'pos' : 'neg'}">${fmt(v)}</b>`;
 
 function pintar() {
+  // Arriba: en el resumen solo la nota; dentro de una obra, "← Todas" y un selector para brincar a otra
   raiz.innerHTML = `
     <div class="sub-head">
-      <div class="tabs" role="tablist">
-        <button role="tab" data-obra="">Todas</button>
-        ${obras.map((o) => `<button role="tab" data-obra="${o.c.id}">${esc(o.c.nombre)}</button>`).join('')}
-      </div>
+      ${st.obra ? `<div class="filtros"><button class="btn btn-ghost" id="o-volver">← ${OBRA === 'obra' ? 'Todas las' : 'Todos los'} ${OBRAS}</button>
+        <select id="o-sel" aria-label="${may(OBRA)}">${obras.map((o) => `<option value="${o.c.id}" ${o.c.id === st.obra ? 'selected' : ''}>${esc(o.c.nombre)}</option>`).join('')}</select></div>`
+        : `<div class="sub-meta">${obras.length} ${OBRAS} · toca ${OBRA === 'obra' ? 'una' : 'uno'} para ver su detalle</div>`}
       <div class="sub-meta">Costo = lo pagado + lo pedido por pagar</div>
     </div>
     <div id="o-cuerpo"></div>`;
-  raiz.querySelectorAll('[data-obra]').forEach((b) => {
-    b.setAttribute('aria-selected', b.dataset.obra === st.obra);
-    b.addEventListener('click', () => { st.obra = b.dataset.obra; pintar(); });
-  });
+  raiz.querySelector('#o-volver')?.addEventListener('click', () => { st.obra = ''; pintar(); });
+  raiz.querySelector('#o-sel')?.addEventListener('change', (e) => { st.obra = e.target.value; pintar(); });
   const el = raiz.querySelector('#o-cuerpo');
   const o = obras.find((x) => x.c.id === st.obra);
   o ? detalle(el, o) : resumen(el);
@@ -74,28 +71,20 @@ function resumen(el) {
       <div class="kpi"><span>Costo</span><strong class="neg">${fmt(t('costo'))}</strong><small>${fmt(t('porPagar'))} por pagar a proveedores</small></div>
       <div class="kpi"><span>Utilidad al terminar</span><strong class="${t('utilidadFinal') >= 0 ? 'pos' : 'neg'}">${fmt(t('utilidadFinal'))}</strong><small>valor − costo a hoy</small></div>
     </div>
-    <section class="panel">
-      <div class="tabla-wrap"><table class="tabla">
-        <thead><tr><th>${may(OBRA)}</th><th>Cliente</th><th class="num">Valor</th><th class="num">Cobrado</th><th class="num">Por cobrar</th>
-          <th class="num">Pagado</th><th class="num">Por pagar</th><th class="num">Utilidad al terminar</th></tr></thead>
-        <tbody>${obras.map((o) => `<tr class="clic" data-ir="${o.c.id}" tabindex="0">
-          <td data-l="Obra"><b>${esc(o.c.nombre)}</b></td>
-          <td data-l="Cliente">${esc(o.cxc.map((r) => r.cliente).join(', ') || '—')}</td>
-          <td class="num" data-l="Valor">${o.precio ? fmt(o.precio) : '—'}</td>
-          <td class="num pos" data-l="Cobrado">${fmt(o.cobrado)}<small class="sub">${pct(o.cobrado, o.precio)}%</small></td>
-          <td class="num" data-l="Por cobrar">${fmt(o.porCobrar)}</td>
-          <td class="num" data-l="Pagado">${fmt(o.pagado)}</td>
-          <td class="num ${o.porPagar ? 'neg' : 'mut'}" data-l="Por pagar">${fmt(o.porPagar)}</td>
-          <td class="num" data-l="Utilidad">${signo(o.utilidadFinal)}${o.margen != null ? `<small class="sub">${o.margen}% de margen</small>` : ''}</td>
-        </tr>`).join('')}</tbody>
-      </table></div>
-    </section>
+    <div class="obras-grid">${obras.map((o) => {
+      const pc = pct(o.cobrado, o.precio), pk = pct(o.costo, o.precio);
+      const [titulo, sub] = o.c.nombre.includes(' · ') ? o.c.nombre.split(' · ') : [o.c.nombre, ''];
+      return `<button type="button" class="obra-card" data-ir="${o.c.id}">
+        <div class="obra-top"><div><b>${esc(titulo)}</b><small>${esc(o.cxc.map((r) => r.cliente).join(', ') || sub || 'Sin cliente')}</small></div>
+          ${pc >= 100 ? '<span class="tag tag-ok">Cobrado</span>' : o.porPagar ? '<span class="tag tag-aviso">Por pagar</span>' : ''}</div>
+        <div class="obra-valor">${o.precio ? fmt(o.precio) : '—'}<small>valor</small></div>
+        <div class="obra-barra"><span>Cobrado</span><i><em class="pos" style="width:${pc}%"></em></i><b>${pc}%</b></div>
+        <div class="obra-barra"><span>Costo</span><i><em class="neg" style="width:${pk}%"></em></i><b>${pk}%</b></div>
+        <div class="obra-pie"><span>Utilidad al terminar</span><b class="${o.utilidadFinal >= 0 ? 'pos' : 'neg'}">${fmt(o.utilidadFinal)}</b>${o.margen != null ? `<small>${o.margen}%</small>` : ''}</div>
+      </button>`;
+    }).join('')}</div>
     <p class="nota">"Utilidad al terminar" = lo que vale ${OBRA === 'obra' ? 'la' : 'el'} ${OBRA} menos lo que lleva costando hoy. Los gastos que todavía falten por hacer la irán bajando.</p>`;
-  el.querySelectorAll('[data-ir]').forEach((tr) => {
-    const ir = () => { st.obra = tr.dataset.ir; pintar(); };
-    tr.addEventListener('click', ir);
-    tr.addEventListener('keydown', (e) => { if (e.key === 'Enter') ir(); });
-  });
+  el.querySelectorAll('[data-ir]').forEach((b) => b.addEventListener('click', () => { st.obra = b.dataset.ir; pintar(); window.scrollTo(0, 0); }));
 }
 
 function detalle(el, o) {
