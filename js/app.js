@@ -1,4 +1,4 @@
-import { MODULOS } from './config.js';
+import { MODULOS_ACTIVOS as MODULOS, MARCA } from './config.js';
 import { sb, db, estado, esc, toast, abrirModal, cerrarModal, tieneRol } from './lib.js';
 
 const vistas = {
@@ -11,7 +11,31 @@ const vistas = {
   reportes: () => import('./modulos/reportes.js'),
   obras: () => import('./modulos/obras.js'),
   patrimonio: () => import('./modulos/patrimonio.js'),
+  inventario: () => import('./modulos/inventario.js'),
+  cotizaciones: () => import('./modulos/cotizaciones.js'),
 };
+
+// ================= MARCA =================
+(function aplicarMarca() {
+  document.title = MARCA.nombre;
+  if (MARCA.color) {
+    const r = document.documentElement.style;
+    r.setProperty('--primary', MARCA.color);
+    r.setProperty('--primary-2', MARCA.color2 || MARCA.color);
+    if (MARCA.colorSuave) r.setProperty('--primary-soft', MARCA.colorSuave);
+  }
+  document.querySelector('.sidebar .brand').innerHTML = MARCA.marca.map(esc).join(' <span class="brand-sep">/</span> ');
+  document.querySelector('.login-logos').innerHTML = MARCA.logos.map((l) =>
+    `<picture><img src="${l.src}" alt="${esc(l.alt)}" class="${l.clase || ''}"></picture>`).join('<span class="login-logos-sep" aria-hidden="true"></span>');
+  if (MARCA.demo) {
+    const b = document.createElement('div');
+    b.className = 'demo-banda';
+    b.innerHTML = `<b>Demostración</b><span class="demo-txt"> · datos de ejemplo; lo que captures se borra al recargar</span> <button type="button" id="demo-reiniciar">Reiniciar</button>`;
+    document.body.prepend(b);
+    document.body.classList.add('con-demo');
+    b.querySelector('#demo-reiniciar').addEventListener('click', () => location.reload());
+  }
+})();
 const pendiente = () => import('./modulos/pendiente.js');
 
 const $ = (id) => document.getElementById(id);

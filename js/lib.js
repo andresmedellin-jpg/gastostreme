@@ -42,11 +42,11 @@ export function toast(msg, error = false) {
 
 // ---------- modal ----------
 // bloqueado: no se puede cerrar sin terminar (p. ej. cambio obligatorio de contraseña)
-export function abrirModal({ titulo, cuerpo, pie, bloqueado = false }) {
+export function abrirModal({ titulo, cuerpo, pie, bloqueado = false, ancho = false }) {
   const root = document.getElementById('modal-root');
   root.innerHTML = `
     <div class="modal-back" ${bloqueado ? 'data-bloqueado' : 'data-cerrar'}>
-      <div class="modal" role="dialog" aria-modal="true" aria-label="${esc(titulo)}">
+      <div class="modal${ancho ? ' modal-ancho' : ''}" role="dialog" aria-modal="true" aria-label="${esc(titulo)}">
         <div class="modal-head"><h2>${esc(titulo)}</h2>${bloqueado ? '' : '<button class="icon-btn" data-cerrar aria-label="Cerrar">✕</button>'}</div>
         <div class="modal-body">${cuerpo}</div>
         ${pie ? `<div class="modal-foot">${pie}</div>` : ''}

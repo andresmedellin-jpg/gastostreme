@@ -1,0 +1,359 @@
+// Datos de ejemplo del demo (empresa distribuidora de válvulas con servicio de mantenimiento e instalación).
+// Todo es inventado, se genera igual cada vez (semilla fija) y se acomoda a la fecha de hoy:
+// cubre los últimos 6 meses. Lo usa js/demo/supabase-demo.js.
+(function () {
+  'use strict';
+  const COLOR = '#1f4e79';
+  const logo = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="300" height="80" viewBox="0 0 300 80">
+    <g fill="none" stroke="${COLOR}" stroke-width="7"><circle cx="40" cy="40" r="26"/><path d="M14 40h52M40 14v52" stroke-width="5"/></g>
+    <circle cx="40" cy="40" r="9" fill="${COLOR}"/>
+    <text x="80" y="52" font-family="Arial,Helvetica,sans-serif" font-size="40" font-weight="700" letter-spacing="3" fill="#141414">GALCOR</text>
+    <text x="82" y="70" font-family="Arial,Helvetica,sans-serif" font-size="10.5" letter-spacing="2.2" fill="${COLOR}">VÁLVULAS · SERVICIO</text></svg>`);
+
+  window.__MARCA = {
+    nombre: 'Galcor · Administración',
+    marca: ['Galcor'],
+    logos: [{ src: logo, alt: 'Galcor', clase: 'logo-demo' }],
+    color: COLOR, color2: '#163a5c', colorSuave: '#eaf1f8',
+    modulos: ['inicio', 'cotizaciones', 'inventario', 'obras', 'gastos', 'personal'],
+    titulos: { obras: 'Proyectos y servicios' },
+    palabraObra: ['proyecto', 'proyectos'],
+    contacto: 'Monterrey, N.L.',
+    demo: true,
+    categorias: {
+      'Compra de mercancía': '📦', 'Material y refacciones': '🔩', 'Nómina': '👷', 'Seguro social e ISN': '🏥',
+      'Viáticos': '🧳', 'Gasolina': '⛽', 'Vehículos': '🚗', 'Herramienta y equipo': '🧰', 'Fletes y paquetería': '🚚',
+      'Renta': '🏢', 'Luz': '⚡', 'Teléfono e internet': '📶', 'Administración': '📋', 'Impuestos': '🧾',
+      'Intereses y comisiones': '🏦', 'Otros': '📌',
+    },
+    ayuda: {
+      'Compra de mercancía': 'Válvulas y equipo que se compra para revender (inventario)',
+      'Material y refacciones': 'Empaques, kits, tornillería y consumibles para servicios',
+      'Nómina': 'Sueldos de técnicos, almacén, ventas y oficina',
+      'Seguro social e ISN': 'IMSS, Infonavit e impuesto sobre nómina',
+      'Viáticos': 'Hotel, comidas y casetas de los técnicos en servicio',
+      'Gasolina': 'Gasolina y diésel de las unidades',
+      'Vehículos': 'Servicio, llantas y refacciones de las unidades',
+      'Herramienta y equipo': 'Herramienta, equipo de prueba, EPP',
+      'Fletes y paquetería': 'Envíos a clientes y fletes de proveedores',
+      'Renta': 'Renta de almacén y oficina', 'Luz': 'Recibos de CFE', 'Teléfono e internet': 'Celulares e internet',
+      'Administración': 'Papelería, software, contador, trámites', 'Impuestos': 'Impuestos que no son de nómina',
+      'Intereses y comisiones': 'Intereses de créditos y comisiones bancarias', 'Otros': 'Solo si no cabe en ninguna de las anteriores',
+    },
+  };
+
+  window.__DEMO_DATOS = function () {
+    // ---------- utilidades ----------
+    let semilla = 20261021;
+    const rnd = () => ((semilla = (semilla * 1664525 + 1013904223) % 4294967296) / 4294967296);
+    const entre = (a, b) => Math.round(a + rnd() * (b - a));
+    const elige = (l) => l[Math.floor(rnd() * l.length)];
+    let n = 0;
+    const id = (p) => `${p}-${String(++n).padStart(5, '0')}-demo`;
+    const iso = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    const HOY = new Date(); HOY.setHours(12, 0, 0, 0);
+    const hoy = iso(HOY);
+    const dias = (k) => { const d = new Date(HOY); d.setDate(d.getDate() + k); return iso(d); };
+    const lunes = (f) => { const d = new Date(f + 'T12:00:00'); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return iso(d); };
+    const sumar = (f, k) => { const d = new Date(f + 'T12:00:00'); d.setDate(d.getDate() + k); return iso(d); };
+    const r2 = (x) => Math.round(x * 100) / 100;
+    const ORG = 'org-demo';
+    const ADMIN = 'Dirección';
+
+    // ---------- empresa y centros ----------
+    const E = { id: 'emp-galcor', org_id: ORG, nombre: 'Galcor S.A. de C.V.', nombre_corto: 'Galcor', rfc: null, color: COLOR, activo: true };
+    const C = (nombre, tipo, extra = {}) => ({ id: id('cen'), org_id: ORG, empresa_id: E.id, nombre, tipo, activo: true, en_gastos: true, ...extra });
+    const almacen = C('Almacén y ventas', 'bodega'), oficina = C('Oficina', 'oficina'), taller = C('Taller de servicio', 'otro');
+    const PROY = [
+      { c: C('Línea de vapor · Aceros del Valle', 'obra'), cliente: 'Aceros del Valle', valor: 1240000, cobrado: 0.6, costo: 0.58, inicio: -110, dur: 140 },
+      { c: C('Válvulas de control · Petroquímica Laguna Azul', 'obra'), cliente: 'Petroquímica Laguna Azul', valor: 2650000, cobrado: 0.4, costo: 0.52, inicio: -75, dur: 120 },
+      { c: C('Válvulas de alivio · Generadora Cerro Alto', 'obra'), cliente: 'Generadora Cerro Alto', valor: 385000, cobrado: 1, costo: 0.61, inicio: -150, dur: 45 },
+      { c: C('Actuadores · Alimentos Montesur', 'obra'), cliente: 'Alimentos Montesur', valor: 214000, cobrado: 0.5, costo: 0.47, inicio: -40, dur: 35 },
+      { c: C('Mantenimiento anual · Química Santa Rosa', 'obra'), cliente: 'Química Industrial Santa Rosa', valor: 960000, cobrado: 0.25, costo: 0.3, inicio: -25, dur: 365 },
+    ];
+    const centros = [almacen, oficina, taller, ...PROY.map((p) => p.c)];
+
+    // ---------- productos (marca representada: Emerson) ----------
+    const P = (clave, categoria, descripcion, linea, medida, clase, costo, margen, minimo, ubic) => ({
+      id: id('prd'), org_id: ORG, empresa_id: E.id, clave, categoria, descripcion, marca: 'Emerson · ' + linea, medida, clase,
+      unidad: 'pza', costo, precio: Math.round(costo * (margen + 0.22) / 10) * 10, minimo, ubicacion: ubic, activo: true });
+    const productos = [
+      P('VB-0200-150', 'Válvula de bola', 'Válvula de bola bridada, acero al carbón', 'KTM', '2"', 'Clase 150', 6850, 1.38, 6, 'A-1'),
+      P('VB-0300-150', 'Válvula de bola', 'Válvula de bola bridada, acero al carbón', 'KTM', '3"', 'Clase 150', 9900, 1.38, 4, 'A-1'),
+      P('VB-0400-300', 'Válvula de bola', 'Válvula de bola bridada, acero inoxidable', 'KTM', '4"', 'Clase 300', 21400, 1.35, 2, 'A-2'),
+      P('VB-0100-NPT', 'Válvula de bola', 'Válvula de bola roscada 3 piezas, inoxidable', 'KTM', '1"', 'NPT 1000 WOG', 1980, 1.45, 12, 'A-3'),
+      P('VM-0600-LUG', 'Válvula de mariposa', 'Válvula de mariposa tipo lug, disco inoxidable', 'Keystone', '6"', 'Clase 150', 5200, 1.42, 6, 'B-1'),
+      P('VM-0800-LUG', 'Válvula de mariposa', 'Válvula de mariposa tipo lug, disco inoxidable', 'Keystone', '8"', 'Clase 150', 7350, 1.42, 4, 'B-1'),
+      P('VM-1200-WAF', 'Válvula de mariposa', 'Válvula de mariposa tipo wafer', 'Keystone', '12"', 'Clase 150', 12800, 1.4, 2, 'B-2'),
+      P('VC-0200-ET', 'Válvula de globo', 'Válvula de control de globo, cuerpo acero al carbón', 'Fisher', '2"', 'Clase 300', 48500, 1.32, 2, 'C-1'),
+      P('VC-0300-ET', 'Válvula de globo', 'Válvula de control de globo, cuerpo acero al carbón', 'Fisher', '3"', 'Clase 300', 66200, 1.3, 1, 'C-1'),
+      P('VA-0100-RV', 'Válvula de alivio', 'Válvula de alivio de presión para vapor', 'Crosby', '1" x 2"', 'Set 150 psi', 14300, 1.4, 4, 'C-2'),
+      P('VA-0150-RV', 'Válvula de alivio', 'Válvula de alivio de presión para vapor', 'Crosby', '1½" x 2½"', 'Set 250 psi', 19800, 1.4, 3, 'C-2'),
+      P('VK-0300-SW', 'Válvula check', 'Válvula check columpio, acero al carbón', 'Yarway', '3"', 'Clase 150', 5600, 1.45, 4, 'D-1'),
+      P('VK-0200-WF', 'Válvula check', 'Válvula check doble disco tipo wafer', 'Yarway', '2"', 'Clase 150', 3100, 1.5, 6, 'D-1'),
+      P('VG-0400-150', 'Válvula de compuerta', 'Válvula de compuerta bridada, vástago ascendente', 'Vanessa', '4"', 'Clase 150', 11200, 1.38, 3, 'D-2'),
+      P('RG-0100-627', 'Regulador', 'Regulador de presión de gas, autooperado', 'Fisher', '1"', '627 · 0-60 psi', 7900, 1.4, 5, 'E-1'),
+      P('RG-0200-1098', 'Regulador', 'Regulador de presión piloto-operado', 'Fisher', '2"', '1098 · EGR', 38600, 1.33, 1, 'E-1'),
+      P('AC-0063-NEU', 'Actuador', 'Actuador neumático cremallera, doble efecto', 'Bettis', 'Tam. 63', 'Hasta 2"', 6400, 1.45, 4, 'E-2'),
+      P('AC-0125-NEU', 'Actuador', 'Actuador neumático cremallera, retorno por resorte', 'Bettis', 'Tam. 125', 'Hasta 6"', 15200, 1.4, 2, 'E-2'),
+      P('AC-EL-0300', 'Actuador', 'Actuador eléctrico multivuelta 120 V', 'EIM', '300 Nm', 'NEMA 4X', 32800, 1.35, 1, 'E-3'),
+      P('KR-0200-VB', 'Refacción / kit', 'Kit de reparación (asientos y sellos) válvula de bola', 'KTM', '2"', 'PTFE', 980, 1.8, 10, 'F-1'),
+      P('KR-0300-VC', 'Refacción / kit', 'Kit de empaques para válvula de control', 'Fisher', '3"', 'Grafito', 2650, 1.7, 6, 'F-1'),
+      P('PS-DVC-6200', 'Refacción / kit', 'Posicionador digital para válvula de control', 'Fisher', 'DVC6200', 'HART', 41500, 1.3, 1, 'F-2'),
+    ];
+    const pid = (clave) => productos.find((p) => p.clave === clave).id;
+    const existe = (clave) => inventario_movs.filter((m) => m.producto_id === pid(clave)).reduce((t, m) => t + (m.tipo === 'salida' ? -m.cantidad : m.cantidad), 0);
+
+    // ---------- movimientos de inventario ----------
+    const inventario_movs = [];
+    const mov = (fecha, clave, tipo, cantidad, extra = {}) => inventario_movs.push({ id: id('mov'), org_id: ORG, producto_id: pid(clave), fecha, tipo, cantidad,
+      costo_unitario: productos.find((p) => p.clave === clave).costo, capturado_por: ADMIN, creado_en: fecha + 'T15:00:00Z', ...extra });
+    const inicio = dias(-185);
+    const inicial = { 'VB-0200-150': 18, 'VB-0300-150': 10, 'VB-0400-300': 4, 'VB-0100-NPT': 40, 'VM-0600-LUG': 14, 'VM-0800-LUG': 9, 'VM-1200-WAF': 4,
+      'VC-0200-ET': 4, 'VC-0300-ET': 2, 'VA-0100-RV': 9, 'VA-0150-RV': 6, 'VK-0300-SW': 10, 'VK-0200-WF': 16, 'VG-0400-150': 6, 'RG-0100-627': 14,
+      'RG-0200-1098': 2, 'AC-0063-NEU': 12, 'AC-0125-NEU': 5, 'AC-EL-0300': 2, 'KR-0200-VB': 30, 'KR-0300-VC': 12, 'PS-DVC-6200': 3 };
+    Object.entries(inicial).forEach(([k, q]) => mov(inicio, k, 'entrada', q, { referencia: 'Inventario inicial (conteo físico)' }));
+
+    // ---------- clientes de mostrador ----------
+    const CLIENTES = ['Mantenimiento Industrial Regio', 'Procesos Térmicos del Norte', 'Ingeniería Hidráulica Saltillo', 'Plásticos Cumbres',
+      'Embotelladora Sierra Madre', 'Papelera San Nicolás', 'Vidrios Técnicos de Apodaca', 'Gas Industrial Escobedo', 'Textiles La Silla', 'Fundición Topo Chico'];
+
+    // Resurtidos (compras a la marca) para que el inventario no se acabe; algunos quedan bajo el mínimo a propósito
+    const gastos = [];
+    const G = (fecha, centro, monto, concepto, proveedor, categoria, extra = {}) => gastos.push({ id: id('gas'), org_id: ORG, empresa_id: E.id, centro_id: centro.id,
+      fecha, monto: r2(monto), moneda: 'MXN', concepto, proveedor, categoria, forma_pago: extra.estado === 'por_pagar' ? null : (extra.forma_pago || 'Transferencia'),
+      estado: 'pagado', capturado_por: ADMIN, creado_en: fecha + 'T17:00:00Z', ...extra });
+    const resurtir = (k, claves, estado) => {
+      const f = dias(k); let total = 0;
+      claves.forEach(([c, q]) => { mov(f, c, 'entrada', q, { referencia: 'Compra a Emerson · OC-' + (2400 + inventario_movs.length) }); total += q * productos.find((p) => p.clave === c).costo; });
+      G(f, almacen, total * 1.16, `Compra de mercancía (${claves.length} partidas) · OC-${2400 + inventario_movs.length}`, 'Emerson', 'Compra de mercancía',
+        estado ? { estado: 'por_pagar', fecha_vencimiento: sumar(f, 30), notas: 'Crédito a 30 días' } : {});
+    };
+
+    // ---------- proyectos: cuenta por cobrar, cobros, material de inventario y gastos ----------
+    const cuentas_por_cobrar = [], pagos = [];
+    const materialDe = [
+      [['VA-0100-RV', 6], ['VA-0150-RV', 4], ['KR-0300-VC', 4]],
+      [['VC-0200-ET', 3], ['VC-0300-ET', 1], ['PS-DVC-6200', 2], ['AC-0125-NEU', 3], ['KR-0300-VC', 3]],
+      [['VA-0100-RV', 5], ['VA-0150-RV', 2]],
+      [['AC-0063-NEU', 4], ['AC-EL-0300', 1], ['KR-0200-VB', 6]],
+      [['VB-0200-150', 6], ['VM-0800-LUG', 4], ['KR-0200-VB', 10], ['VK-0300-SW', 3]],
+    ];
+    PROY.forEach((p, i) => {
+      const f0 = dias(p.inicio);
+      const cxc = { id: id('cxc'), org_id: ORG, empresa_id: E.id, centro_id: p.c.id, tipo: 'venta', cliente: p.cliente, referencia: 'COT-' + String(3 + i * 2).padStart(4, '0'),
+        monto_original: p.valor, moneda: 'MXN', fecha_origen: f0, notas: p.c.nombre.split(' · ')[0], creado_en: f0 + 'T12:00:00Z' };
+      cuentas_por_cobrar.push(cxc);
+      // cobros: anticipo 30-50 % y estimaciones
+      let falta = p.valor * p.cobrado, k = p.inicio + 2, num = 0;
+      while (falta > 1 && k <= 0) {
+        const m = num === 0 ? Math.min(falta, p.valor * (p.cobrado >= 0.5 ? 0.4 : p.cobrado)) : Math.min(falta, p.valor * 0.2);
+        pagos.push({ id: id('pag'), org_id: ORG, empresa_id: E.id, centro_id: p.c.id, cxc_id: cxc.id, concepto: 'venta', monto: r2(m), fecha: dias(k),
+          forma_pago: 'Transferencia', notas: num === 0 ? 'Anticipo' : 'Estimación ' + num, capturado_por: ADMIN, creado_en: dias(k) + 'T16:00:00Z' });
+        falta -= m; num++; k += entre(18, 30);
+      }
+      // Las válvulas del proyecto se compran para él: entran al almacén y salen al proyecto; su compra es costo del proyecto
+      const oc = 'OC-' + (2300 + i);
+      materialDe[i].forEach(([c, q], j) => {
+        mov(dias(p.inicio + 3), c, 'entrada', q, { referencia: 'Compra a Emerson · ' + oc + ' (' + p.cliente + ')' });
+        mov(dias(p.inicio + 5 + j * 6), c, 'salida', q, { centro_id: p.c.id, referencia: cxc.referencia + ' · ' + p.cliente });
+      });
+      const meta = p.valor * p.costo;
+      const material = materialDe[i].reduce((s, [c, q]) => s + q * productos.find((x) => x.clave === c).costo, 0) * 1.16;
+      let gastado = material;
+      G(dias(p.inicio + 3), p.c, material, `Válvulas para el proyecto (${materialDe[i].length} partidas) · ${oc}`, 'Emerson', 'Compra de mercancía');
+      const CONCEPTOS = [['Hospedaje y comidas de cuadrilla', 'Hotel Ejecutivo Industrial', 'Viáticos', 6000, 22000],
+        ['Empaques, espárragos y tornillería', 'Tornillería y Sellos del Norte', 'Material y refacciones', 4000, 28000],
+        ['Renta de grúa y maniobras', 'Grúas Industriales Monterrey', 'Herramienta y equipo', 9000, 42000],
+        ['Pruebas hidrostáticas y calibración', 'Laboratorio de Metrología Regio', 'Material y refacciones', 6000, 26000],
+        ['Diésel camioneta de servicio', 'Gasolinera', 'Gasolina', 1500, 4500],
+        ['Flete de válvulas a planta', 'Fletes Rápidos del Norte', 'Fletes y paquetería', 2500, 9000]];
+      let k2 = p.inicio + 3;
+      while (gastado < meta * 0.62 && k2 <= Math.min(0, p.inicio + p.dur)) {
+        const [c, prov, cat, a, b] = elige(CONCEPTOS); const m = entre(a, b * (p.valor > 1e6 ? 1.6 : 1));
+        G(dias(k2), p.c, m, c, prov, cat, { forma_pago: elige(['Transferencia', 'Tarjeta', 'Transferencia']) });
+        gastado += m; k2 += entre(2, 6);
+      }
+      if (i === 1) G(dias(-4), p.c, 86400, 'Servicio de maquinado de bridas', 'Maquinados de Precisión Apodaca', 'Material y refacciones',
+        { estado: 'por_pagar', fecha_vencimiento: dias(11), notas: 'Factura a 15 días' });
+    });
+
+    // ---------- ventas de mostrador día por día, con resurtido quincenal a la marca ----------
+    // Lo comprado en los últimos 30 días queda "por pagar" (crédito a 30 días con la marca).
+    const ingresos = [];
+    const VENDIBLES = [['VB-0200-150', 4], ['VB-0100-NPT', 10], ['VM-0600-LUG', 4], ['VK-0200-WF', 6], ['RG-0100-627', 3], ['AC-0063-NEU', 3],
+      ['KR-0200-VB', 10], ['VB-0300-150', 3], ['VK-0300-SW', 2], ['VA-0100-RV', 2], ['VM-0800-LUG', 2], ['VC-0200-ET', 1], ['VA-0150-RV', 1],
+      ['VG-0400-150', 2], ['AC-0125-NEU', 2], ['VB-0400-300', 1], ['KR-0300-VC', 3], ['RG-0200-1098', 1]];
+    const NO_RESURTIR_YA = ['VA-0100-RV', 'VK-0300-SW', 'VM-0600-LUG'];   // quedan bajo el mínimo para que se vea la alerta
+    for (let k = -178; k <= 0; k++) {
+      const f = dias(k), d = new Date(f + 'T12:00:00'), dw = d.getDay();
+      if ([1, 15].includes(d.getDate())) {
+        const compra = [];
+        VENDIBLES.forEach(([c]) => {
+          const p = productos.find((x) => x.clave === c), meta = Math.max(3, Math.round(p.minimo * 2.2)), hay = existe(c);
+          if (hay <= p.minimo && !(k > -25 && NO_RESURTIR_YA.includes(c))) compra.push([c, meta - hay]);
+        });
+        if (compra.length) {
+          const oc = 'OC-' + (2400 + inventario_movs.length);
+          let total = 0;
+          compra.forEach(([c, q]) => { mov(f, c, 'entrada', q, { referencia: 'Compra a Emerson · ' + oc }); total += q * productos.find((p) => p.clave === c).costo; });
+          G(f, almacen, total * 1.16, `Compra de mercancía (${compra.length} partidas) · ${oc}`, 'Emerson', 'Compra de mercancía',
+            k > -30 ? { estado: 'por_pagar', fecha_vencimiento: sumar(f, 30), notas: 'Crédito a 30 días' } : {});
+        }
+      }
+      if (dw === 0 || dw === 6 || rnd() > 0.75) continue;
+      const cliente = elige(CLIENTES), lineas = entre(1, 4);
+      let total = 0; const desc = [];
+      for (let j = 0; j < lineas; j++) {
+        const [clave, maxq] = elige(VENDIBLES), p = productos.find((x) => x.clave === clave), q = entre(1, maxq);
+        if (existe(clave) - q < 1) continue;                          // no vender lo que no hay
+        total += q * p.precio; desc.push(`${q} × ${p.clave}`);
+        mov(f, clave, 'salida', q, { referencia: 'Venta · ' + cliente });
+      }
+      if (!total) continue;
+      ingresos.push({ id: id('ing'), org_id: ORG, empresa_id: E.id, centro_id: almacen.id, fecha: f, monto: r2(total * 1.16), concepto: 'Venta de mostrador: ' + desc.join(', '),
+        cliente, categoria: 'Venta', forma_pago: elige(['Transferencia', 'Transferencia', 'Transferencia', 'Depósito']), capturado_por: ADMIN, creado_en: f + 'T18:00:00Z' });
+    }
+
+    // ---------- personal ----------
+    const EMP = [
+      ['Raúl Garza Treviño', 'Supervisor de servicio', taller, 9800, '2016-03-14', true],
+      ['Jesús Alberto Rocha', 'Técnico de válvulas', taller, 6200, '2019-08-05', false],
+      ['Óscar Villarreal Díaz', 'Técnico de válvulas', taller, 6200, '2021-01-18', false],
+      ['Luis Ángel Cantú', 'Técnico de válvulas', taller, 5800, '2023-06-12', false],
+      ['Eduardo Salinas Pérez', 'Técnico en instrumentación', taller, 7400, '2020-10-01', false],
+      ['Mario Hernández Leal', 'Ayudante técnico', taller, 3900, '2024-02-19', false],
+      ['Kevin Alejandro Ruiz', 'Ayudante técnico', taller, 3800, '2025-05-05', false],
+      ['José Luis Martínez', 'Soldador', taller, 6600, '2018-04-23', false],
+      ['Ricardo Elizondo', 'Almacenista', almacen, 4600, '2017-09-11', false],
+      ['Diana Lizeth Treviño', 'Ejecutiva de ventas', almacen, 7800, '2022-03-07', true],
+      ['Alejandro Ibarra Saldaña', 'Ingeniero de ventas', almacen, 9500, '2015-07-20', true],
+      ['Patricia Garza Molina', 'Administración y cobranza', oficina, 7200, '2014-01-13', true],
+      ['Sofía Medina Castillo', 'Auxiliar contable', oficina, 5200, '2024-09-02', false],
+      ['Fernando Cavazos', 'Chofer / mensajero', oficina, 4200, '2021-11-29', false],
+    ];
+    const empleados = EMP.map(([nombre, puesto, c, sueldo, ingreso, prima]) => ({ id: id('emp'), org_id: ORG, empresa_id: E.id, centro_id: c.id, nombre, puesto,
+      departamento: null, salario_semanal: sueldo, dias_semana: c === oficina ? 5 : 6, hora_entrada: c === taller ? '07:30:00' : '08:30:00',
+      hora_salida: c === taller ? '17:30:00' : '18:00:00', tolerancia_min: 10, dias_laborales: c === oficina ? 'LUN,MAR,MIE,JUE,VIE' : 'LUN,MAR,MIE,JUE,VIE,SAB',
+      fecha_ingreso: ingreso, activo: true, imss: true, nss: null, nombre_imss: null, alta_imss: ingreso, prima_vacacional: prima }));
+
+    // Nómina pagada de las últimas 26 semanas (la actual queda pendiente) + su gasto, repartido por centro.
+    // Los técnicos se cargan al proyecto donde andaban esa semana.
+    const nomina_periodos = [], nomina_lineas = [], asistencia = [];
+    const lunesHoy = lunes(hoy);
+    for (let w = 26; w >= 1; w--) {
+      const sem = sumar(lunesHoy, -7 * w), pago = sumar(sem, 5);
+      const per = { id: id('per'), org_id: ORG, empresa_id: E.id, fecha_inicio: sem, fecha_pago: pago, estado: 'pagada', creado_en: pago + 'T20:00:00Z' };
+      nomina_periodos.push(per);
+      const activos = PROY.filter((p) => sem >= dias(p.inicio) && sem <= dias(p.inicio + p.dur));
+      empleados.forEach((e) => {
+        let falta = rnd() < 0.05 ? 1 : 0;
+        const monto = r2(e.salario_semanal - falta * e.salario_semanal / e.dias_semana);
+        const destino = e.centro_id === taller.id && activos.length && rnd() < 0.55 ? elige(activos).c : centros.find((c) => c.id === e.centro_id);
+        const gid = id('gas');
+        gastos.push({ id: gid, org_id: ORG, empresa_id: E.id, centro_id: destino.id, fecha: pago, monto, moneda: 'MXN', concepto: 'Nómina — ' + e.nombre,
+          proveedor: e.nombre, categoria: 'Nómina', forma_pago: 'Transferencia', estado: 'pagado', notas: 'Semana del ' + sem.split('-').reverse().join('/'),
+          capturado_por: ADMIN, creado_en: pago + 'T20:00:00Z' });
+        nomina_lineas.push({ id: id('lin'), org_id: ORG, periodo_id: per.id, empleado_id: e.id, centro_id: e.centro_id, dias_trabajados: e.dias_semana - falta,
+          sueldo: monto, extras: 0, descuentos: 0, abono_prestamo: 0, total: monto, forma_pago: 'Transferencia', notas: null, fecha: pago, gasto_id: gid });
+        if (falta) asistencia.push({ id: id('asi'), org_id: ORG, empleado_id: e.id, fecha: sumar(sem, entre(0, 4)), estado: 'falta', minutos_tarde: 0,
+          minutos_salida_temprano: 0, monto_descuento: Math.round(e.salario_semanal / e.dias_semana), horas_descontadas: 9, registrado_por: ADMIN });
+      });
+    }
+    // Asistencia de esta semana hasta hoy: casi todos a tiempo, un par de retardos y una falta
+    for (let d = 0; sumar(lunesHoy, d) <= hoy && d < 6; d++) {
+      const f = sumar(lunesHoy, d);
+      empleados.forEach((e, i) => {
+        if (d >= e.dias_semana) return;
+        if (f === hoy && i % 3 === 0) return;                // hoy todavía no checan todos
+        const tarde = (i + d) % 9 === 4 ? entre(15, 40) : 0;
+        if (i === 6 && d === 1) {
+          asistencia.push({ id: id('asi'), org_id: ORG, empleado_id: e.id, fecha: f, estado: 'falta', minutos_tarde: 0, minutos_salida_temprano: 0,
+            monto_descuento: Math.round(e.salario_semanal / e.dias_semana), horas_descontadas: 10, registrado_por: ADMIN });
+          return;
+        }
+        const [h, m] = e.hora_entrada.split(':').map(Number);
+        const ent = new Date(f + 'T00:00:00'); ent.setHours(h, m + tarde - entre(0, 8), 0, 0);
+        const tarifa = e.salario_semanal / e.dias_semana / 10;
+        asistencia.push({ id: id('asi'), org_id: ORG, empleado_id: e.id, fecha: f, estado: tarde > 10 ? 'retardo' : 'presente',
+          hora_entrada: ent.toISOString(), hora_salida: f < hoy ? new Date(ent.getTime() + 10 * 3600e3).toISOString() : null,
+          minutos_tarde: tarde > 10 ? tarde - 10 : 0, minutos_salida_temprano: 0, horas_descontadas: tarde > 10 ? (tarde - 10) / 60 : 0,
+          monto_descuento: tarde > 10 ? Math.round((tarde - 10) / 60 * tarifa) : 0, registrado_por: 'Raúl Garza Treviño' });
+      });
+    }
+
+    // ---------- gastos fijos mensuales ----------
+    for (let mmes = 5; mmes >= 0; mmes--) {
+      const d = new Date(HOY.getFullYear(), HOY.getMonth() - mmes, 1, 12);
+      const f = (dd) => { const x = new Date(d); x.setDate(dd); return iso(x) <= hoy ? iso(x) : null; };
+      const fijos = [
+        [f(2), almacen, 38000, 'Renta de almacén y oficina', 'Inmobiliaria Parque Apodaca', 'Renta'],
+        [f(8), oficina, entre(4200, 6100), 'Recibo de luz', 'CFE', 'Luz'],
+        [f(10), oficina, 3480, 'Celulares e internet', 'Telcel', 'Teléfono e internet'],
+        [f(17), oficina, entre(38000, 41000), 'Cuotas IMSS, Infonavit e ISN', 'IMSS', 'Seguro social e ISN'],
+        [f(5), oficina, 9500, 'Honorarios contables', 'Despacho Contable Garza & Asociados', 'Administración'],
+        [f(12), taller, entre(9000, 14000), 'Gasolina unidades de servicio', 'Gasolinera', 'Gasolina'],
+        [f(20), taller, entre(2500, 9000), 'Servicio a camioneta de servicio', 'Servicio Automotriz Universidad', 'Vehículos'],
+        [f(25), almacen, entre(3000, 7000), 'Paquetería a clientes', 'Paquetería Express', 'Fletes y paquetería'],
+        [f(26), oficina, entre(600, 1400), 'Comisiones bancarias', 'Banco', 'Intereses y comisiones'],
+      ];
+      fijos.forEach(([fe, c, m, con, prov, cat]) => { if (fe) G(fe, c, m, con, prov, cat, { forma_pago: cat === 'Gasolina' ? 'Tarjeta' : 'Transferencia' }); });
+    }
+
+    // ---------- cotizaciones ----------
+    const part = (clave, q) => { const p = productos.find((x) => x.clave === clave);
+      return { producto_id: p.id, clave, descripcion: `${p.descripcion} ${p.medida} ${p.clase} · ${p.marca}`, unidad: 'pza', cantidad: q, precio: p.precio }; };
+    const mo = (descripcion, precio, cantidad = 1) => ({ producto_id: null, descripcion, unidad: 'servicio', cantidad, precio });
+    const COND = 'Precios en pesos mexicanos más IVA. Tiempo de entrega sujeto a existencias. Anticipo del 50 % para iniciar.';
+    const cots = [
+      [-112, 'aceptada', PROY[0].cliente, 'Mantenimiento a línea de vapor (válvulas de alivio y control)', [part('VA-0100-RV', 6), part('VA-0150-RV', 4), part('KR-0300-VC', 4), mo('Mano de obra: desmontaje, calibración y montaje de válvulas', 640000), mo('Pruebas en banco y certificados', 85000)], PROY[0].c.id],
+      [-96, 'rechazada', 'Embotelladora Sierra Madre', 'Sustitución de válvulas de mariposa en línea de jarabe', [part('VM-0600-LUG', 8), part('AC-0063-NEU', 8), mo('Instalación y puesta en marcha', 58000)]],
+      [-78, 'aceptada', PROY[1].cliente, 'Suministro e instalación de válvulas de control', [part('VC-0200-ET', 3), part('VC-0300-ET', 1), part('PS-DVC-6200', 2), part('AC-0125-NEU', 3), mo('Ingeniería y dimensionamiento', 180000), mo('Instalación, calibración y lazo de control', 1450000)], PROY[1].c.id],
+      [-60, 'aceptada', PROY[3].cliente, 'Reparación de actuadores y automatización de 4 válvulas', [part('AC-0063-NEU', 4), part('AC-EL-0300', 1), part('KR-0200-VB', 6), mo('Mano de obra de reparación', 46000)], PROY[3].c.id],
+      [-44, 'rechazada', 'Papelera San Nicolás', 'Válvulas de bola para línea de pasta', [part('VB-0300-150', 6), part('VB-0200-150', 10)]],
+      [-30, 'aceptada', PROY[4].cliente, 'Contrato de mantenimiento anual a 48 válvulas', [part('VB-0200-150', 6), part('VM-0800-LUG', 4), part('KR-0200-VB', 10), part('VK-0300-SW', 3), mo('Mantenimiento preventivo mensual (12 visitas)', 52000, 12)], PROY[4].c.id],
+      [-21, 'enviada', 'Gas Industrial Escobedo', 'Reguladores de presión para estación de medición', [part('RG-0200-1098', 2), part('RG-0100-627', 6), mo('Instalación y ajuste', 38000)]],
+      [-14, 'enviada', 'Fundición Topo Chico', 'Válvulas de alivio y check para caldera 2', [part('VA-0150-RV', 3), part('VK-0300-SW', 4), part('VG-0400-150', 2), mo('Servicio de instalación con paro programado', 64000)]],
+      [-9, 'enviada', 'Procesos Térmicos del Norte', 'Válvulas de bola inoxidable', [part('VB-0400-300', 4), part('VB-0100-NPT', 20)]],
+      [-5, 'enviada', 'Vidrios Técnicos de Apodaca', 'Diagnóstico y reparación de válvulas de control', [part('KR-0300-VC', 4), part('PS-DVC-6200', 1), mo('Diagnóstico en sitio', 18500), mo('Reparación en taller por válvula', 22000, 4)]],
+      [-2, 'borrador', 'Textiles La Silla', 'Mariposas tipo wafer para agua helada', [part('VM-1200-WAF', 6), part('AC-0125-NEU', 6), mo('Instalación', 72000)]],
+      [0, 'borrador', 'Plásticos Cumbres', 'Kits de reparación y servicio', [part('KR-0200-VB', 16), mo('Servicio de reparación en planta', 26000)]],
+    ];
+    const cotizaciones = cots.map(([k, estado, cliente, titulo, partidas, centro_id], i) => {
+      const sub = partidas.reduce((s, x) => s + x.cantidad * x.precio, 0);
+      return { id: id('cot'), org_id: ORG, empresa_id: E.id, folio: 'COT-' + String(i + 1).padStart(4, '0'), fecha: dias(k), vigencia_dias: 15, estado, cliente,
+        contacto: elige(['Ing. Carlos Treviño', 'Ing. Mónica Leal', 'Lic. Roberto Garza', 'Ing. Daniela Ochoa', 'Ing. Héctor Salinas']), correo: null,
+        titulo, partidas, condiciones: COND, centro_id: centro_id || null, total: r2(sub * 1.16), capturado_por: ADMIN, creado_en: dias(k) + 'T15:00:00Z' };
+    });
+    // El valor de cada proyecto = su cotización aceptada
+    cotizaciones.filter((c) => c.centro_id).forEach((c) => { const x = cuentas_por_cobrar.find((y) => y.centro_id === c.centro_id); x.monto_original = c.total; x.referencia = c.folio; });
+
+    // ---------- vacaciones y préstamos ----------
+    const emp = (nom) => empleados.find((e) => e.nombre.startsWith(nom));
+    const vacaciones = [
+      { id: id('vac'), org_id: ORG, empleado_id: emp('Patricia').id, periodo: 12, tipo: 'disfrutadas', dias: 10, fecha_inicio: dias(-120), fecha_fin: dias(-108), monto: null, prima: null },
+      { id: id('vac'), org_id: ORG, empleado_id: emp('Raúl').id, periodo: 10, tipo: 'pagadas', dias: 12, fecha_inicio: dias(-60), fecha_fin: dias(-60), monto: 19600, prima: 4900 },
+      { id: id('vac'), org_id: ORG, empleado_id: emp('José Luis').id, periodo: 8, tipo: 'disfrutadas', dias: 6, fecha_inicio: dias(-35), fecha_fin: dias(-29), monto: null, prima: null },
+    ];
+    const prestamos = [
+      { id: id('pre'), org_id: ORG, empleado_id: emp('Mario').id, monto: 6000, abono_semanal: 500, fecha: dias(-63), notas: 'Para reparación de su carro', liquidado: false },
+      { id: id('pre'), org_id: ORG, empleado_id: emp('Óscar').id, monto: 4000, abono_semanal: 500, fecha: dias(-100), notas: null, liquidado: true },
+    ];
+    const prestamo_abonos = [];
+    for (let k = 1; k <= 8; k++) prestamo_abonos.push({ id: id('abo'), org_id: ORG, prestamo_id: prestamos[1].id, monto: 500, fecha: dias(-100 + k * 7) });
+    for (let k = 1; k <= 8; k++) prestamo_abonos.push({ id: id('abo'), org_id: ORG, prestamo_id: prestamos[0].id, monto: 500, fecha: dias(-63 + k * 7) });
+
+    const tareas_plantilla = [
+      ['Revisar y cargar herramienta de la camioneta', 'Herramienta'], ['Orden y limpieza del taller', 'Limpieza'],
+      ['Reporte fotográfico del servicio del día', 'Servicio'], ['Revisión de EPP de la cuadrilla', 'Seguridad'],
+    ].map(([tarea, categoria]) => ({ id: id('tpl'), org_id: ORG, centro_id: taller.id, empleado_id: null, puesto: null, tarea, categoria, frecuencia: 'diaria', dia_semana: null, activo: true }));
+
+    return {
+      organizaciones: [{ id: ORG, nombre: 'Galcor', plan: 'demo' }],
+      miembros: [{ org_id: ORG, user_id: 'demo-usuario', nombre: ADMIN, usuario: 'direccion', rol: 'dueno', roles: [], empresas: null, activo: true, debe_cambiar_password: false }],
+      empresas: [E], centros, productos, inventario_movs, ingresos, gastos, cuentas_por_cobrar, pagos, empleados,
+      nomina_periodos, nomina_lineas, asistencia, vacaciones, prestamos, prestamo_abonos, tareas_plantilla, tareas: [],
+      cotizaciones, contratos: [], unidades: [], cuotas: [], activos: [], pasivos: [], tipo_cambio: [],
+    };
+  };
+})();

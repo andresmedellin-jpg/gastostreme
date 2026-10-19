@@ -17,7 +17,22 @@ const ICONOS = {
   obras:      svg('<path d="M3 18h18M5 18a7 7 0 0 1 14 0M12 7v4M9 8.5v2.5M15 8.5v2.5"/><path d="M4 21h16"/>'),
   personal:   svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/>'),
   usuarios:   svg('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
+  inventario: svg('<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>'),
+  cotizaciones: svg('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 12h6M10 16h6M4 7v14h10" opacity=".9"/>'),
 };
+
+// Marca de la plataforma. Por omisión, Treme / MEDCO. Otra instalación (o el demo, con ?demo) la cambia
+// definiendo window.__MARCA antes de cargar la app: nombre, logos, color, módulos visibles y títulos.
+export const MARCA = Object.assign({
+  nombre: 'Treme / MEDCO',                         // título de la pestaña
+  marca: ['Treme', 'MEDCO'],                       // texto del menú (separado por una diagonal roja)
+  logos: [{ src: 'img/logo-treme.png', alt: 'Treme Grupo Inmobiliario', clase: 'logo-treme' },
+          { src: 'img/logo-medco.png', alt: 'MEDCO Construcciones', clase: 'logo-medco' }],
+  color: null,                                     // color principal; null = rojo Treme
+  modulos: null,                                   // lista de ids visibles; null = todos los "listo"
+  titulos: {},                                     // { obras: 'Proyectos y servicios', … }
+  demo: false,
+}, window.__MARCA || {});
 
 // Módulos de la plataforma, en el orden y grupo del menú, y qué roles los ven.
 export const MODULOS = [
@@ -27,6 +42,8 @@ export const MODULOS = [
   { id: 'cobranza',   grupo: 'Finanzas',  titulo: 'Cobranza Elysium', icono: ICONOS.cobranza,   roles: ['dueno','administracion','cobranza'], listo: true },
   { id: 'rentas',     grupo: 'Finanzas',  titulo: 'Rentas',           icono: ICONOS.rentas,     roles: ['dueno','administracion','cobranza'], listo: true },
   { id: 'obras',      grupo: 'Finanzas',  titulo: 'Obras',            icono: ICONOS.obras,      roles: ['dueno','administracion'], listo: true },
+  { id: 'cotizaciones', grupo: 'Ventas',  titulo: 'Cotizaciones',     icono: ICONOS.cotizaciones, roles: ['dueno','administracion','cobranza'], listo: true, opcional: true },
+  { id: 'inventario', grupo: 'Ventas',    titulo: 'Inventario',       icono: ICONOS.inventario, roles: ['dueno','administracion','operacion'], listo: true, opcional: true },
   { id: 'patrimonio', grupo: 'Finanzas',  titulo: 'Patrimonio',       icono: ICONOS.patrimonio, roles: ['dueno','socio'], listo: true },
   { id: 'personal',   grupo: 'Operación', titulo: 'Personal',         icono: ICONOS.personal,   roles: ['dueno','administracion','encargado'], listo: true },
   { id: 'usuarios',   grupo: 'Operación', titulo: 'Usuarios',         icono: ICONOS.usuarios,   roles: ['dueno'], listo: true },
@@ -56,13 +73,13 @@ export const SUGERIDOS = [
 ];
 
 // Una sola lista de categorías de gasto para toda la plataforma (Gastos, Obras, Inicio, reportes).
-export const CATEGORIAS = {
+export const CATEGORIAS = MARCA.categorias || {
   'Construcción':'🏗','Nómina':'👷','Seguro social e ISN':'🏥','Gasolina':'⛽','Vehículos':'🚗',
   'Mantenimiento':'🔧','Limpieza':'🧹','Seguridad':'🔒','Luz':'⚡','Agua':'💧','Gas':'🔥',
   'Teléfono e internet':'📶','Administración':'📋','Impuestos':'🧾','Intereses y comisiones':'🏦','Retiro socios':'💸','Otros':'📌'
 };
 // Qué va en cada una (se muestra al capturar, para que todos usen la misma)
-export const CATEGORIA_AYUDA = {
+export const CATEGORIA_AYUDA = MARCA.ayuda || {
   'Construcción': 'Material y servicios de obra: acero, concreto, ferretería, grúas, renta de maquinaria',
   'Nómina': 'Raya y sueldos, vacaciones, aguinaldo',
   'Seguro social e ISN': 'IMSS, Infonavit, impuesto sobre nómina, recargos',
@@ -83,4 +100,9 @@ export const CATEGORIA_AYUDA = {
 };
 export const FORMAS_PAGO = ['Transferencia','Efectivo','Tarjeta','Cheque','Otro'];
 export const FORMAS_COBRO = ['Transferencia','Efectivo','Depósito','Tarjeta','Otro'];
+// Módulos que se ven en esta instalación (los "opcional" solo si la marca los pide) y con su título de la marca
+MODULOS.forEach((m) => { if (MARCA.titulos[m.id]) m.titulo = MARCA.titulos[m.id]; });
+export const MODULOS_ACTIVOS = MODULOS.filter((m) => (MARCA.modulos ? MARCA.modulos.includes(m.id) : !m.opcional));
+if (MARCA.modulos) MODULOS_ACTIVOS.sort((a, b) => MARCA.modulos.indexOf(a.id) - MARCA.modulos.indexOf(b.id));
+
 export const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];

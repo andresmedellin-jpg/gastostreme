@@ -1,6 +1,9 @@
 // Obras de MEDCO: por cada obra, cuánto vale, cuánto ha cobrado, cuánto ha costado (pagado + pedido por pagar)
 // y cuánto deja. Una obra es un centro de tipo "obra"; su cliente es una cuenta por cobrar de tipo venta.
-import { CATEGORIAS } from '../config.js';
+import { CATEGORIAS, MARCA } from '../config.js';
+// Cómo se le dice a una obra en esta instalación (Treme/MEDCO: obra; el demo de válvulas: proyecto)
+const [OBRA, OBRAS] = MARCA.palabraObra || ['obra', 'obras'];
+const may = (t) => t[0].toUpperCase() + t.slice(1);
 import { db, todo, estado, fmt, fmtFecha, hoyISO, esc, toast } from '../lib.js';
 
 const st = { obra: '' };          // '' = resumen de todas
@@ -14,7 +17,7 @@ export async function render(view) {
 
 async function cargar() {
   const centros = estado.centros.filter((c) => c.tipo === 'obra');
-  if (!centros.length) { raiz.innerHTML = '<div class="vacio">No hay obras registradas.</div>'; return; }
+  if (!centros.length) { raiz.innerHTML = `<div class="vacio">No hay ${OBRAS} registradas.</div>`; return; }
   const ids = centros.map((c) => c.id);
   const [x, p, g] = await Promise.all([
     db().from('cuentas_por_cobrar').select('id, centro_id, cliente, monto_original, notas').eq('tipo', 'venta').in('centro_id', ids),
@@ -22,7 +25,7 @@ async function cargar() {
     todo(() => db().from('gastos').select('id, centro_id, fecha, monto, concepto, proveedor, categoria, estado, fecha_vencimiento, fecha_pago').in('centro_id', ids)),
   ]);
   const err = x.error || p.error || g.error;
-  if (err) { toast('No se pudieron cargar las obras: ' + err.message, true); return; }
+  if (err) { toast(`No se pudieron cargar las ${OBRAS}: ` + err.message, true); return; }
 
   obras = centros.map((c) => {
     const cxc = x.data.filter((r) => r.centro_id === c.id);
@@ -66,14 +69,14 @@ function resumen(el) {
   const t = (k) => obras.reduce((s, o) => s + o[k], 0);
   el.innerHTML = `
     <div class="kpis">
-      <div class="kpi"><span>Valor de las obras</span><strong>${fmt(t('precio'))}</strong><small>${obras.length} obras</small></div>
+      <div class="kpi"><span>Valor de ${OBRA === 'obra' ? 'las' : 'los'} ${OBRAS}</span><strong>${fmt(t('precio'))}</strong><small>${obras.length} ${OBRAS}</small></div>
       <div class="kpi"><span>Cobrado</span><strong class="pos">${fmt(t('cobrado'))}</strong><small>falta cobrar ${fmt(t('porCobrar'))}</small></div>
       <div class="kpi"><span>Costo</span><strong class="neg">${fmt(t('costo'))}</strong><small>${fmt(t('porPagar'))} por pagar a proveedores</small></div>
       <div class="kpi"><span>Utilidad al terminar</span><strong class="${t('utilidadFinal') >= 0 ? 'pos' : 'neg'}">${fmt(t('utilidadFinal'))}</strong><small>valor − costo a hoy</small></div>
     </div>
     <section class="panel">
       <div class="tabla-wrap"><table class="tabla">
-        <thead><tr><th>Obra</th><th>Cliente</th><th class="num">Valor</th><th class="num">Cobrado</th><th class="num">Por cobrar</th>
+        <thead><tr><th>${may(OBRA)}</th><th>Cliente</th><th class="num">Valor</th><th class="num">Cobrado</th><th class="num">Por cobrar</th>
           <th class="num">Pagado</th><th class="num">Por pagar</th><th class="num">Utilidad al terminar</th></tr></thead>
         <tbody>${obras.map((o) => `<tr class="clic" data-ir="${o.c.id}" tabindex="0">
           <td data-l="Obra"><b>${esc(o.c.nombre)}</b></td>
@@ -87,7 +90,7 @@ function resumen(el) {
         </tr>`).join('')}</tbody>
       </table></div>
     </section>
-    <p class="nota">"Utilidad al terminar" = lo que vale la obra menos lo que lleva costando hoy. Los gastos que todavía falten por hacer la irán bajando.</p>`;
+    <p class="nota">"Utilidad al terminar" = lo que vale ${OBRA === 'obra' ? 'la' : 'el'} ${OBRA} menos lo que lleva costando hoy. Los gastos que todavía falten por hacer la irán bajando.</p>`;
   el.querySelectorAll('[data-ir]').forEach((tr) => {
     const ir = () => { st.obra = tr.dataset.ir; pintar(); };
     tr.addEventListener('click', ir);
@@ -111,7 +114,7 @@ function detalle(el, o) {
 
   el.innerHTML = `
     <div class="kpis">
-      <div class="kpi"><span>Valor de la obra</span><strong>${o.precio ? fmt(o.precio) : '—'}</strong><small>${esc(o.cxc.map((r) => r.cliente).join(', ') || 'Sin cliente registrado')}</small></div>
+      <div class="kpi"><span>Valor ${OBRA === 'obra' ? 'de la' : 'del'} ${OBRA}</span><strong>${o.precio ? fmt(o.precio) : '—'}</strong><small>${esc(o.cxc.map((r) => r.cliente).join(', ') || 'Sin cliente registrado')}</small></div>
       <div class="kpi"><span>Cobrado</span><strong class="pos">${fmt(o.cobrado)}</strong><small>${pct(o.cobrado, o.precio)}% · faltan ${fmt(o.porCobrar)}</small></div>
       <div class="kpi"><span>Costo a hoy</span><strong class="neg">${fmt(o.costo)}</strong><small>${fmt(o.pagado)} pagado + ${fmt(o.porPagar)} por pagar</small></div>
       <div class="kpi"><span>Utilidad al terminar</span><strong class="${o.utilidadFinal >= 0 ? 'pos' : 'neg'}">${fmt(o.utilidadFinal)}</strong>

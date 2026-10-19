@@ -86,6 +86,19 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 - Contraseña mínima: 6 caracteres. Usuario sin correo: `usuario@usuarios.medco.mx`.
 - **Nunca** dar acceso a franciscosr971@gmail.com (fsrsalazar).
 
+## Producto para vender a otros clientes
+- **Marca configurable** (`MARCA` en `js/config.js`, se sobreescribe con `window.__MARCA`): nombre, texto del menú, logos,
+  color, módulos visibles (`modulos`), títulos (`titulos`), palabra para obra (`palabraObra`), categorías de gasto propias.
+  Por omisión es Treme / MEDCO y nada cambia. Módulos con `opcional: true` (Cotizaciones, Inventario) solo salen si la marca los pide.
+- **Demo** en `app.medco.mx/?demo`: base en memoria (`js/demo/supabase-demo.js`) con datos inventados (`js/demo/datos-demo.js`),
+  no toca la base real; se reinicia al recargar. Hoy es para **Galcor** (distribuidor de válvulas Emerson con servicio de
+  mantenimiento e instalación; cita con el cliente en oct. 2026). Para otro prospecto: copiar datos-demo.js y cambiar marca y datos.
+- **Inventario** (`inventario.js`): productos + movimientos (entrada/salida/ajuste); existencia = suma de movimientos.
+  **Cotizaciones** (`cotizaciones.js` + `cotizacion-pdf.js`): partidas en jsonb, IVA 16 %, estados borrador/enviada/aceptada/rechazada;
+  al aceptar crea proyecto (centro tipo obra + cxc venta) y descuenta inventario. Sus tablas están en
+  `supabase/plantilla/inventario_cotizaciones.sql` (no aplicadas en Treme/MEDCO).
+- Cada cliente real debe ir en su propio proyecto de Supabase (no mezclar con los datos de Treme/MEDCO).
+
 ## Personas
 - Andrés: dueño. Miguel (hermano): socio. Victoria: captura gastos y cobranza. Víctor: encargado de Torre Elysium.
 

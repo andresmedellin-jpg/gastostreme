@@ -525,7 +525,7 @@ async function empleados(el) {
     <div class="tabla-wrap"><table class="tabla">
     <thead><tr><th>Nombre</th><th>Puesto</th><th>Centro</th><th class="num">Sueldo semanal</th><th>Horario</th><th></th></tr></thead>
     <tbody>${data.map((e) => `<tr class="${e.activo ? '' : 'inactivo'}">
-      <td data-l="Nombre"><strong>${esc(e.nombre)}</strong>${e.activo ? '' : ' <span class="tag tag-suave">baja</span>'}${e.imss ? ' <span class="tag" title="Asegurado en el IMSS (registro patronal de MEDCO)">IMSS</span>' : ''}</td>
+      <td data-l="Nombre"><strong>${esc(e.nombre)}</strong>${e.activo ? '' : ' <span class="tag tag-suave">baja</span>'}${e.imss ? ' <span class="tag" title="Asegurado en el IMSS (registro patronal)">IMSS</span>' : ''}</td>
       <td class="mut" data-l="Puesto">${esc(e.puesto || '—')}</td>
       <td class="mut" data-l="Centro">${esc(nombreCentro(e.centro_id))}</td>
       <td class="num fuerte" data-l="Sueldo">${fmt(e.salario_semanal)}</td>
@@ -554,7 +554,7 @@ function editarEmpleado(e) {
       <fieldset class="opciones"><legend>Días que trabaja</legend><div class="dias-sel">${DIAS.map((d, i) =>
         `<label class="opcion opcion-linea"><input type="checkbox" name="dl" value="${d}" ${dl.includes(d) ? 'checked' : ''}> ${DIAS_CORTO[i]}</label>`).join('')}</div></fieldset>
       <fieldset class="opciones"><legend>Seguro social</legend>
-        <label class="opcion opcion-linea"><input type="checkbox" name="imss" ${e?.imss ? 'checked' : ''}> Dado de alta en el IMSS (registro patronal de MEDCO)</label>
+        <label class="opcion opcion-linea"><input type="checkbox" name="imss" ${e?.imss ? 'checked' : ''}> Dado de alta en el IMSS (registro patronal)</label>
         <div class="form-2"><label>NSS<input name="nss" maxlength="11" inputmode="numeric" value="${esc(e?.nss || '')}"></label>
           <label>Fecha de alta<input type="date" name="alta" value="${e?.alta_imss || ''}"></label></div>
         <label>Nombre como está en el IMSS<input name="nimss" maxlength="120" value="${esc(e?.nombre_imss || '')}"></label>

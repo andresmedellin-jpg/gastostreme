@@ -159,6 +159,7 @@ tr.inactivo td { opacity: .55; }
 /* ---------- modal y avisos ---------- */
 .modal-back { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: grid; place-items: center; padding: 16px; z-index: 50; }
 .modal { width: 100%; max-width: 520px; max-height: calc(100vh - 32px); overflow: auto; background: var(--surface); border-radius: 14px; border: 1px solid var(--border); }
+.modal-ancho { max-width: 900px; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
 .modal-head h2 { font-size: 16px; }
 .modal-body { padding: 18px 20px; }
@@ -376,3 +377,37 @@ h4.grupo:first-of-type { margin-top: 4px; }
 .login-card .login-sub { text-align: center; margin-top: 14px; }
 #o-cuerpo { display: grid; gap: 16px; min-width: 0; }
 #o-cuerpo > * { min-width: 0; }
+
+/* ---------- modo demo ---------- */
+.demo-banda { position: fixed; right: 12px; bottom: 12px; z-index: 50; display: flex; align-items: center; gap: 8px;
+  background: #141414; color: #fff; font-size: 12px; padding: 6px 6px 6px 12px; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,.15); }
+.demo-banda button { background: #fff; color: #141414; border: 0; border-radius: 3px; font: 600 12px Arial, sans-serif; padding: 4px 8px; cursor: pointer; }
+@media (max-width: 640px) { .demo-banda { left: 12px; right: 12px; justify-content: space-between; } .demo-txt { display: none; } }
+
+/* ---------- cotizaciones e inventario ---------- */
+.form-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.partidas-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; }
+.partidas-head select { max-width: 420px; }
+.tabla.partidas input { width: 100%; font: inherit; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.tabla.partidas .num-in { width: 96px; text-align: right; }
+.totales { margin-left: auto; width: min(320px, 100%); display: grid; gap: 2px; font-size: 13px; }
+.totales div { display: flex; justify-content: space-between; padding: 3px 8px; }
+.totales .g { background: var(--text); color: var(--surface); font-weight: 700; padding: 8px; border-radius: var(--radius); }
+.login-logos .logo-demo { width: 220px; }
+@media (max-width: 760px) {
+  .form-3 { grid-template-columns: 1fr; }
+  .partidas-head select { max-width: none; }
+  .modal-ancho .modal-body { overflow-x: hidden; }
+  .partidas-head .filtros, .partidas-head select { width: 100%; min-width: 0; }
+  .tabla.partidas tbody tr { grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+  .tabla.partidas td[data-l="Concepto"] { grid-column: 1 / -1; grid-row: 1; font-weight: 400; }
+  .tabla.partidas td[data-l="Cant."] { grid-column: 1; grid-row: 2; text-align: left; }
+  .tabla.partidas td[data-l="Precio"] { grid-column: 2; grid-row: 2; text-align: left; }
+  .tabla.partidas td[data-l="Monto"] { grid-column: 2; grid-row: 3; }
+  .tabla.partidas td.acciones { grid-column: 1; grid-row: 3; margin: 0; }
+  .tabla.partidas td[data-l="Cant."]::before { content: "Cantidad"; display: block; font-size: 11px; color: var(--text-3); }
+  .tabla.partidas td[data-l="Precio"]::before { content: "Precio unitario"; display: block; font-size: 11px; color: var(--text-3); }
+  .tabla.partidas .num-in { width: 100%; }
+  .tabla td[data-l="Asunto"] { display: none; }
+}
+@media (max-width: 760px) { .tabla td[data-l="Costo"], .tabla td[data-l="Valor"] { display: none; } }

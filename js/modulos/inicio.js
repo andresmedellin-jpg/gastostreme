@@ -1,7 +1,7 @@
 // Inicio: estado de resultados de las dos empresas (lo que hacía el Centro de Control).
 // Ingresos = rentas + mantenimiento + luz cobrados + ventas + ingresos capturados a mano.
 // Gastos = todos los gastos, menos Casa y Socios (no son gasto de la empresa).
-import { MESES, FORMAS_COBRO } from '../config.js';
+import { MESES, FORMAS_COBRO, MARCA } from '../config.js';
 import { db, todo, estado, tieneRol, esAdmin, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal, normalizar } from '../lib.js';
 
 const PRIVADOS = [];   // Casa y Socios sí son gasto de la empresa (todo sale de la empresa); Victoria no los ve por la base
@@ -9,12 +9,13 @@ const FUENTES = {
   renta:         { t: 'Rentas',          i: '🏢' },
   mantenimiento: { t: 'Mantenimiento',   i: '🏠' },
   luz:           { t: 'Luz cobrada',     i: '⚡' },
-  construccion:  { t: 'Obras y construcción', i: '🏗' },
+  construccion:  { t: MARCA.titulos.obras || 'Obras y construcción', i: '🏗' },
   venta:         { t: 'Ventas',          i: '🏷' },
   manual:        { t: 'Otros ingresos',  i: '💰' },
 };
 // Los ingresos capturados a mano se agrupan por su categoría
-const esMedco = (id) => estado.empresas.find((e) => e.id === id)?.nombre_corto === 'MEDCO';
+// Los cobros de clientes en una obra (centro tipo "obra") cuentan como obra/proyecto, no como venta suelta
+const esObra = (centroId) => estado.centros.find((c) => c.id === centroId)?.tipo === 'obra';
 const fuenteDeCategoria = (c) => ({ 'Obra / construcción': 'construccion', 'Servicio de construcción': 'construccion',
   'Venta': 'venta' }[c] || 'manual');
 const CATEGORIAS_INGRESO = ['Obra / construcción', 'Venta', 'Anticipo', 'Comisión', 'Intereses', 'Reembolso', 'Otro'];
@@ -32,10 +33,10 @@ export async function render(view) {
       <div class="filtros">
         <select id="i-mes" aria-label="Mes">${MESES.map((m, i) => `<option value="${i}">${m}</option>`).join('')}</select>
         <select id="i-anio" aria-label="Año">${anios.map((a) => `<option>${a}</option>`).join('')}</select>
-        <select id="i-emp" aria-label="Empresa"><option value="">Las dos empresas</option>
+        <select id="i-emp" aria-label="Empresa"><option value="">${estado.empresas.length === 2 ? 'Las dos empresas' : 'Todas las empresas'}</option>
           ${estado.empresas.map((e) => `<option value="${e.id}">${esc(e.nombre_corto)}</option>`).join('')}</select>
       </div>
-      <div class="sub-meta">Estado de resultados · sin Casa ni Socios</div>
+      <div class="sub-meta">Estado de resultados</div>
     </div>
     <div id="i-cuerpo"><div class="cargando">Cargando…</div></div>`;
   view.querySelector('#i-mes').value = st.mes;
@@ -92,11 +93,11 @@ async function cargar() {
       const cuando = (r.periodo || r.fecha || '').slice(0, 10);
       const quien = r.concepto === 'renta' ? contratos.get(r.contrato_id)
         : r.concepto === 'venta' ? clientes.get(r.cxc_id) : unidades.get(r.unidad_id);
-      const titulo = r.concepto === 'venta' && esMedco(r.empresa_id) ? 'Pago de obra'
+      const titulo = r.concepto === 'venta' && esObra(r.centro_id) ? (MARCA.demo ? 'Pago de proyecto' : 'Pago de obra')
         : ({ renta: 'Renta', mantenimiento: 'Mantenimiento', luz: 'Luz', venta: 'Venta' }[r.concepto] || r.concepto);
       return { id: r.id, mes: cuando.slice(0, 7), fecha: r.fecha || cuando, empresa_id: r.empresa_id, centro: centroDe(r.centro_id)?.nombre,
         // Las "ventas" de MEDCO son bodegas que construye para sus clientes: cuentan como obra
-        fuente: r.concepto === 'venta' && esMedco(r.empresa_id) ? 'construccion' : (FUENTES[r.concepto] ? r.concepto : 'manual'),
+        fuente: r.concepto === 'venta' && esObra(r.centro_id) ? 'construccion' : (FUENTES[r.concepto] ? r.concepto : 'manual'),
         monto: Number(r.monto),
         concepto: `${titulo}${quien ? ' — ' + quien : ''}`, forma: r.forma_pago, editable: false };
     }),
@@ -248,7 +249,7 @@ function nuevoIngreso() {
         <label>Monto<input type="number" name="monto" min="0.01" step="0.01" inputmode="decimal" required></label>
       </div>
       <div id="ing-cxc"></div>
-      <label>Concepto<input name="concepto" required maxlength="200" placeholder="Ej. Anticipo obra Escobedo"></label>
+      <label>Concepto<input name="concepto" required maxlength="200" placeholder="Ej. Anticipo de obra"></label>
       <label>Cliente<input name="cliente" maxlength="120"></label>
       <div class="form-2">
         <label>Categoría<select name="categoria">${CATEGORIAS_INGRESO.map((c) => `<option>${c}</option>`).join('')}</select></label>
