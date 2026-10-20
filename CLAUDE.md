@@ -112,9 +112,11 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   color, módulos visibles (`modulos`), títulos (`titulos`), palabra para obra (`palabraObra`), categorías de gasto propias,
   pestañas de Personal ocultas (`ocultarPestanas`; el demo oculta Tareas, Rondín e Incidencias) y centro inicial (`centroPersonal`).
   Por omisión es Treme / MEDCO y nada cambia. Módulos con `opcional: true` (Cotizaciones, Inventario) solo salen si la marca los pide.
-- **Demo** en `app.medco.mx/?demo`: base en memoria (`js/demo/supabase-demo.js`) con datos inventados (`js/demo/datos-demo.js`),
-  no toca la base real; se reinicia al recargar. Hoy es para **Galcor** (distribuidor de válvulas Emerson con servicio de
-  mantenimiento e instalación; cita con el cliente en oct. 2026). Para otro prospecto: copiar datos-demo.js y cambiar marca y datos.
+- **Dos demos** (base en memoria `js/demo/supabase-demo.js`, datos inventados `js/demo/datos-demo.js`; no tocan la base real,
+  se reinician al recargar): `app.medco.mx/?demo=galcor` (o `?demo`): distribuidor de válvulas Emerson con servicio — Prospectos,
+  Cotizaciones, Inventario, Proyectos, Gastos, Personal; y `?demo=inmobiliaria`: sus torres en renta — Prospectos, Rentas (abonos y
+  Ocupación), Gastos, Personal. Cada uno filtra los datos a su empresa. Prospectos con 12 semanas de inversión simulada en Google y
+  Meta (también como gasto "Publicidad"). El vocabulario de Prospectos se cambia con `MARCA.prospectos` (tipos, cuándo, terreno, saludo…).
 - **Rentas con opciones de marca:** `rentaParcial` (abonos: si los pagos del mes no suman la renta queda "Abonado" y muestra lo que
   falta; el recibo dice el saldo) y `ocupacion` (pestaña Ocupación: mapa de unidades por torre/tipo, ligado por `contratos.unidad_id`).
   Treme hoy no las usa (si se activa `rentaParcial`, Apetit jul–ago saldría con $3,400 pendientes). Recibo: `reciboEmpresa/Logo/Color`.

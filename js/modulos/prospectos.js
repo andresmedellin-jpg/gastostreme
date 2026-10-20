@@ -1,9 +1,9 @@
-// Prospectos de MEDCO: quién pidió cotización, de dónde vino (Google, Instagram, Facebook, la página…) y en qué va.
+// Prospectos (MEDCO por omisión; el vocabulario cambia con MARCA.prospectos): quién pidió cotización, de dónde vino (Google, Instagram, Facebook, la página…) y en qué va.
 // Estados de un toque: nuevo → calificado / no calificado → cotizado → ganado / perdido.
 // Pestaña Publicidad: lo invertido por semana en Google y Meta contra los contactos que trajo cada uno.
 // Tablas: prospectos, inversion_publicidad. Los tiempos (primera respuesta, calificado) los anota la base (0024).
 import { db, todo, estado, tieneRol, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal, normalizar } from '../lib.js';
-import { MESES } from '../config.js';
+import { MESES, MARCA } from '../config.js';
 
 export const ESTADOS = {
   nuevo:         { t: 'Nuevo',          c: 'tag-aviso' },
@@ -28,10 +28,21 @@ export const ORIGENES = {
 };
 const PLATAFORMA_DE = (o) => (o === 'google' ? 'google' : ['instagram', 'facebook'].includes(o) ? 'meta' : 'organico');
 const PLATAFORMAS = { google: 'Google Ads', meta: 'Meta (Instagram y Facebook)', organico: 'Sin anuncio' };
-const TIPOS = ['Nave o bodega', 'Plaza o locales', 'Estructura metálica', 'Edificio u oficinas', 'Otro'];
-const TERRENO = { si: 'Tiene terreno', buscando: 'Buscando terreno', no: 'Sin terreno' };
-const CUANDO = { ya: 'Este trimestre', '3_meses': 'En 3 meses', '6_meses': 'En 6 meses', explorando: 'Solo cotizando' };
-const MOTIVOS = ['Precio', 'Eligió a otro', 'No contestó', 'Lo pospuso', 'Fuera de zona', 'No es lo que hacemos'];
+// Palabras del giro. Por omisión, MEDCO (construcción); otra instalación (o el demo) las cambia en MARCA.prospectos.
+const V = Object.assign({
+  negocio: 'MEDCO Construcciones', empresaCorta: 'MEDCO', sitio: 'construcciones.medco.mx',
+  tipos: ['Nave o bodega', 'Plaza o locales', 'Estructura metálica', 'Edificio u oficinas', 'Otro'], campoTipo: 'Tipo de obra', columnaTipo: 'Obra',
+  terreno: { si: 'Tiene terreno', buscando: 'Buscando terreno', no: 'Sin terreno' }, campoTerreno: 'Terreno',
+  cuando: { ya: 'Este trimestre', '3_meses': 'En 3 meses', '6_meses': 'En 6 meses', explorando: 'Solo cotizando' }, campoCuando: '¿Cuándo empieza?',
+  campoM2: 'Metros cuadrados', sufijoM2: 'm²', ubicacionEj: 'Apodaca, Escobedo…',
+  calificadoAyuda: 'tienen terreno o fecha para empezar', seVuelve: 'se vuelva obra', ganados: 'Obras ganadas',
+  montoGanado: 'Monto del contrato (sin IVA)', montoEj: 'Ej. 4500000',
+  notaGanado: 'Sirve para saber cuánto vendieron los anuncios. Cuando arranque la obra, regístrala en Obras como siempre.',
+  motivos: ['Precio', 'Eligió a otro', 'No contestó', 'Lo pospuso', 'Fuera de zona', 'No es lo que hacemos'],
+  motivosNo: ['Solo cotizando', 'Sin terreno ni fecha', 'Obra muy chica', 'Fuera de zona', 'No es lo que hacemos', 'Número equivocado'],
+  saludo: (nombre, tipo) => `Hola ${nombre}, te escribe MEDCO Construcciones. Recibimos tu solicitud${tipo ? ` de ${tipo.toLowerCase()}` : ''}. ¿Tienes unos minutos para platicar sobre tu proyecto?`,
+}, MARCA.prospectos || {});
+const TIPOS = V.tipos, TERRENO = V.terreno || {}, CUANDO = V.cuando, MOTIVOS = V.motivos;
 const UNA_HORA = 3600e3;
 
 const FILTROS = {
@@ -144,11 +155,11 @@ function lista(el) {
 
   el.innerHTML = `
     ${atrasados.length ? `<div class="alerta-roja" role="alert"><b>${atrasados.length} ${atrasados.length === 1 ? 'prospecto lleva' : 'prospectos llevan'} más de una hora sin respuesta.</b>
-      Contestar rápido es lo que más pesa en que un contacto se vuelva obra.
+      Contestar rápido es lo que más pesa en que un contacto ${V.seVuelve}.
       <button class="btn btn-sm btn-primary" id="p-ver-atender">Ver</button></div>` : ''}
     <div class="kpis">
       <div class="kpi"><span>Contactos en ${MESES[Number(mes.slice(5)) - 1].toLowerCase()}</span><strong>${delMes.length}</strong><small>${delMes.filter((p) => PLATAFORMA_DE(p.origen) !== 'organico').length} de anuncios</small></div>
-      <div class="kpi"><span>Calificados</span><strong class="pos">${delMes.filter(esCalificado).length}</strong><small>tienen terreno o fecha para empezar</small></div>
+      <div class="kpi"><span>Calificados</span><strong class="pos">${delMes.filter(esCalificado).length}</strong><small>${V.calificadoAyuda}</small></div>
       <div class="kpi"><span>Por atender</span><strong class="${pros.filter(FILTROS.atender.f).length ? 'neg' : ''}">${pros.filter(FILTROS.atender.f).length}</strong><small>${atrasados.length ? `${atrasados.length} con más de 1 hora` : 'al día'}</small></div>
       <div class="kpi"><span>Ganados en el mes</span><strong class="pos">${ganadosMes.length}</strong><small>${fmt(ganadosMes.reduce((s, p) => s + Number(p.monto || 0), 0))}</small></div>
     </div>
@@ -163,7 +174,7 @@ function lista(el) {
           <input type="search" id="p-q" placeholder="Buscar nombre, empresa o teléfono" value="${esc(st.q)}" aria-label="Buscar prospecto">
         </div>
       </div>
-      <div class="pros-lista">${l.map(tarjeta).join('') || `<div class="vacio">${pros.length ? 'Nada en este filtro.' : 'Todavía no hay prospectos. Los que lleguen por construcciones.medco.mx aparecerán aquí solos; también puedes agregarlos con ＋ Prospecto.'}</div>`}</div>
+      <div class="pros-lista">${l.map(tarjeta).join('') || `<div class="vacio">${pros.length ? 'Nada en este filtro.' : 'Todavía no hay prospectos. Los que lleguen por ${V.sitio} aparecerán aquí solos; también puedes agregarlos con ＋ Prospecto.'}</div>`}</div>
     </section>`;
 
   el.querySelector('#p-ver-atender')?.addEventListener('click', () => { st.filtro = 'atender'; st.origen = ''; st.q = ''; pintar(); });
@@ -183,9 +194,9 @@ function lista(el) {
 }
 
 function tarjeta(p) {
-  const datos = [p.tipo_obra, p.m2 ? `${Number(p.m2).toLocaleString('es-MX')} m²` : '', TERRENO[p.tiene_terreno], CUANDO[p.cuando], p.ubicacion].filter(Boolean);
+  const datos = [p.tipo_obra, p.m2 ? `${Number(p.m2).toLocaleString('es-MX')} ${V.sufijoM2}` : '', TERRENO[p.tiene_terreno], CUANDO[p.cuando], p.ubicacion].filter(Boolean);
   const wa = waNumero(p.whatsapp);
-  const msg = `Hola ${p.nombre.split(' ')[0]}, te escribe MEDCO Construcciones. Recibimos tu solicitud${p.tipo_obra ? ` de ${p.tipo_obra.toLowerCase()}` : ''}. ¿Tienes unos minutos para platicar sobre tu proyecto?`;
+  const msg = V.saludo(p.nombre.split(' ')[0], p.tipo_obra);
   const respuesta = p.primera_respuesta ? duracion(new Date(p.primera_respuesta) - new Date(p.creado_en)) : '';
   return `<article class="pros-card${tarde(p) ? ' tarde' : ''}" data-abrir="${p.id}" tabindex="0">
     <div class="pros-top">
@@ -230,9 +241,9 @@ async function cambiarEstado(p, nuevo) {
 function pedirMonto(p) {
   const modal = abrirModal({
     titulo: `Ganado: ${p.nombre}`,
-    cuerpo: `<form class="form" id="pm"><label>Monto del contrato (sin IVA)
-        <input type="number" id="pm-monto" min="0" step="1000" value="${p.monto || ''}" placeholder="Ej. 4500000" inputmode="decimal"></label>
-      <p class="nota">Sirve para saber cuánto vendieron los anuncios. Cuando arranque la obra, regístrala en Obras como siempre.</p></form>`,
+    cuerpo: `<form class="form" id="pm"><label>${V.montoGanado}
+        <input type="number" id="pm-monto" min="0" step="100" value="${p.monto || ''}" placeholder="${V.montoEj}" inputmode="decimal"></label>
+      <p class="nota">${V.notaGanado}</p></form>`,
     pie: `<button class="btn btn-ghost" data-cerrar>Cancelar</button><button class="btn btn-primary" id="pm-ok">Marcar ganado</button>`,
   });
   modal.querySelector('[data-cerrar]').addEventListener('click', cerrarModal);
@@ -246,7 +257,7 @@ function pedirMotivo(p, nuevo) {
   const modal = abrirModal({
     titulo: `${ESTADOS[nuevo].t}: ${p.nombre}`,
     cuerpo: `<form class="form" id="pmo"><span class="nota">¿Por qué? (opcional, ayuda a ajustar los anuncios)</span>
-      <div class="chips-elegir">${(nuevo === 'no_calificado' ? ['Solo cotizando', 'Sin terreno ni fecha', 'Obra muy chica', 'Fuera de zona', 'No es lo que hacemos', 'Número equivocado'] : MOTIVOS)
+      <div class="chips-elegir">${(nuevo === 'no_calificado' ? V.motivosNo : MOTIVOS)
         .map((m) => `<button type="button" class="btn btn-sm btn-ghost" data-m="${esc(m)}">${esc(m)}</button>`).join('')}</div>
       <label>Otro motivo<input id="pmo-txt" maxlength="300" value="${esc(p.motivo || '')}"></label></form>`,
     pie: `<button class="btn btn-ghost" data-cerrar>Cancelar</button><button class="btn btn-primary" id="pmo-ok">Guardar</button>`,
@@ -282,13 +293,13 @@ function editar(p) {
       </div>
       <div class="form-3">
         <label>Correo<input name="correo" type="email" maxlength="160" value="${esc(d.correo || '')}" ${ro}></label>
-        <label>Tipo de obra<select name="tipo_obra" ${ro}><option value="">—</option>${[...new Set([...TIPOS, d.tipo_obra].filter(Boolean))].map((t) => `<option ${d.tipo_obra === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>
-        <label>Metros cuadrados<input name="m2" type="number" min="0" inputmode="decimal" value="${d.m2 ?? ''}" ${ro}></label>
+        <label>${V.campoTipo}<select name="tipo_obra" ${ro}><option value="">—</option>${[...new Set([...TIPOS, d.tipo_obra].filter(Boolean))].map((t) => `<option ${d.tipo_obra === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>
+        <label>${V.campoM2}<input name="m2" type="number" min="0" inputmode="decimal" value="${d.m2 ?? ''}" ${ro}></label>
       </div>
       <div class="form-3">
-        <label>Terreno<select name="tiene_terreno" ${ro}>${opt(TERRENO, d.tiene_terreno, '—')}</select></label>
-        <label>¿Cuándo empieza?<select name="cuando" ${ro}>${opt(CUANDO, d.cuando, '—')}</select></label>
-        <label>Ubicación<input name="ubicacion" maxlength="120" value="${esc(d.ubicacion || '')}" placeholder="Apodaca, Escobedo…" ${ro}></label>
+        ${V.terreno ? `<label>${V.campoTerreno}<select name="tiene_terreno" ${ro}>${opt(TERRENO, d.tiene_terreno, '—')}</select></label>` : ''}
+        <label>${V.campoCuando}<select name="cuando" ${ro}>${opt(CUANDO, d.cuando, '—')}</select></label>
+        <label>Ubicación<input name="ubicacion" maxlength="120" value="${esc(d.ubicacion || '')}" placeholder="${V.ubicacionEj}" ${ro}></label>
       </div>
       <div class="form-3">
         <label>Origen<select name="origen" ${ro}>${Object.entries(ORIGENES).map(([k, t]) => `<option value="${k}" ${d.origen === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
@@ -322,7 +333,7 @@ function editar(p) {
     if (!reg.whatsapp && !reg.correo) return toast('Pon al menos WhatsApp o correo', true);
     ev.currentTarget.disabled = true;
     if (nuevo) {
-      const emp = estado.empresas.find((e) => e.nombre_corto === 'MEDCO') || estado.empresas[0];
+      const emp = estado.empresas.find((e) => e.nombre_corto === V.empresaCorta) || estado.empresas[0];
       // Lo que se captura a mano ya llegó a alguien (WhatsApp, llamada, recomendación): no cuenta como "sin contestar".
       // Los de la página y los de Meta entran solos (formulario / importar) y esos sí miden el tiempo de respuesta.
       const yaContestado = { primera_respuesta: new Date().toISOString() };
@@ -382,7 +393,7 @@ function publicidad(el) {
       <div class="kpi"><span>Invertido en anuncios</span><strong>${fmt(tot.invertido)}</strong><small>Google ${fmt(filas[0][1].invertido)} · Meta ${fmt(filas[1][1].invertido)}</small></div>
       <div class="kpi"><span>Contactos</span><strong>${tot.contactos}</strong><small>${tot.porContacto != null ? `${fmt(tot.porContacto)} cada uno` : 'sin inversión registrada'}</small></div>
       <div class="kpi"><span>Costo por contacto calificado</span><strong>${n(tot.porCalificado)}</strong><small>${tot.calificados} calificados</small></div>
-      <div class="kpi"><span>Obras ganadas</span><strong class="pos">${tot.ganados}</strong><small>${fmt(tot.vendido)} vendido</small></div>
+      <div class="kpi"><span>${V.ganados}</span><strong class="pos">${tot.ganados}</strong><small>${fmt(tot.vendido)} vendido</small></div>
     </div>
 
     <section class="panel">
@@ -463,7 +474,7 @@ function editarInversion(r) {
     const f = modal.querySelector('#pi');
     if (!f.reportValidity()) return;
     const v = Object.fromEntries(new FormData(f));
-    const reg = { org_id: estado.miembro.org_id, empresa_id: (estado.empresas.find((e) => e.nombre_corto === 'MEDCO') || estado.empresas[0])?.id,
+    const reg = { org_id: estado.miembro.org_id, empresa_id: (estado.empresas.find((e) => e.nombre_corto === V.empresaCorta) || estado.empresas[0])?.id,
       semana: lunesDe(v.semana), plataforma: v.plataforma, monto: Number(v.monto), notas: v.notas.trim() || null };
     ev.currentTarget.disabled = true;
     const q = nuevo
@@ -609,7 +620,7 @@ function importarMeta() {
         <div class="kpi"><span>Ya estaban</span><strong>${repetidos}</strong></div>
         <div class="kpi"><span>Sin nombre o teléfono${pruebas ? ' / prueba' : ''}</span><strong>${incompletos + pruebas}</strong></div>
       </div>
-      ${nuevos.length ? `<div class="tabla-wrap"><table class="tabla"><thead><tr><th>Nombre</th><th>WhatsApp</th><th>Obra</th><th>Origen</th><th>Llegó</th></tr></thead><tbody>
+      ${nuevos.length ? `<div class="tabla-wrap"><table class="tabla"><thead><tr><th>Nombre</th><th>WhatsApp</th><th>${V.columnaTipo}</th><th>Origen</th><th>Llegó</th></tr></thead><tbody>
         ${nuevos.slice(0, 8).map((n) => `<tr><td data-l="Nombre">${esc(n.nombre)}</td><td data-l="WhatsApp">${esc(n.whatsapp || n.correo || '')}</td><td data-l="Obra">${esc(n.tipo_obra || '—')}</td><td data-l="Origen">${ORIGENES[n.origen]}</td><td data-l="Fecha">${n.creado_en ? fmtFecha(n.creado_en.slice(0, 10)) : 'hoy'}</td></tr>`).join('')}
         ${nuevos.length > 8 ? `<tr><td colspan="5" class="mut">y ${nuevos.length - 8} más…</td></tr>` : ''}</tbody></table></div>` : ''}`;
     ok.disabled = !nuevos.length;
@@ -618,7 +629,7 @@ function importarMeta() {
   modal.querySelector('#im-ok').addEventListener('click', async (ev) => {
     if (!nuevos.length) return;
     ev.currentTarget.disabled = true;
-    const emp = estado.empresas.find((e) => e.nombre_corto === 'MEDCO') || estado.empresas[0];
+    const emp = estado.empresas.find((e) => e.nombre_corto === V.empresaCorta) || estado.empresas[0];
     const filas = nuevos.map((n) => ({ ...n, estado: 'nuevo', org_id: estado.miembro.org_id, empresa_id: emp?.id }));
     const { data, error } = await db().from('prospectos').insert(filas).select();
     if (error) { ev.currentTarget.disabled = false; return toast('No se pudo importar: ' + (error.code === '23505' ? 'algunos contactos ya estaban importados; recarga la pantalla y vuelve a subir el archivo' : error.message), true); }

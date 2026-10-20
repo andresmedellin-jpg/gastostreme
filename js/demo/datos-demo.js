@@ -15,43 +15,70 @@
     <text x="76" y="46" font-family="Arial,Helvetica,sans-serif" font-size="30" font-weight="700" letter-spacing="2" fill="#141414">GALCOR</text>
     <text x="78" y="66" font-family="Arial,Helvetica,sans-serif" font-size="11" letter-spacing="2.4" fill="${COLOR}">INMOBILIARIA</text></svg>`);
 
-  window.__MARCA = {
-    nombre: 'Galcor · Administración',
+  // Dos demos: ?demo=galcor (válvulas y servicio, por omisión) y ?demo=inmobiliaria (torres en renta)
+  const VARIANTE = /[?&]demo=inmob/i.test(location.search) ? 'inmobiliaria' : 'galcor';
+  const INM = VARIANTE === 'inmobiliaria';
+  const COLOR_INM = '#2d6a5f';
+  const comunes = {
+    color: INM ? COLOR_INM : COLOR, color2: INM ? '#22544b' : '#163a5c', colorSuave: INM ? '#e7f2ef' : '#eaf1f8',
+    ocultarPestanas: ['tareas', 'rondin', 'incidencias'], contacto: 'Monterrey, N.L.', demo: true,
+  };
+  const CATS_BASE = { 'Nómina': '👷', 'Seguro social e ISN': '🏥', 'Luz': '⚡', 'Agua': '💧', 'Teléfono e internet': '📶',
+    'Administración': '📋', 'Impuestos': '🧾', 'Publicidad': '📣', 'Intereses y comisiones': '🏦', 'Otros': '📌' };
+  const AYUDA_BASE = { 'Nómina': 'Sueldos de todo el personal', 'Seguro social e ISN': 'IMSS, Infonavit e impuesto sobre nómina',
+    'Luz': 'Recibos de CFE', 'Agua': 'Agua y Drenaje', 'Teléfono e internet': 'Celulares e internet',
+    'Administración': 'Papelería, software, contador, trámites', 'Impuestos': 'Predial y otros impuestos que no son de nómina',
+    'Publicidad': 'Google Ads, Meta (Instagram y Facebook), letreros', 'Intereses y comisiones': 'Intereses de créditos y comisiones bancarias',
+    'Otros': 'Solo si no cabe en ninguna de las anteriores' };
+
+  window.__MARCA = INM ? {
+    ...comunes,
+    nombre: 'Inmobiliaria Galcor · Administración',
     marca: ['Galcor', 'Inmobiliaria'],
-    logos: [{ src: logo, alt: 'Galcor', clase: 'logo-demo' }],
-    color: COLOR, color2: '#163a5c', colorSuave: '#eaf1f8',
-    modulos: ['inicio', 'cotizaciones', 'inventario', 'obras', 'rentas', 'gastos', 'personal'],
+    logos: [{ src: logoInm.replaceAll(encodeURIComponent(COLOR), encodeURIComponent(COLOR_INM)), alt: 'Inmobiliaria Galcor', clase: 'logo-demo' }],
+    modulos: ['inicio', 'prospectos', 'rentas', 'gastos', 'personal'],
     rentaParcial: true, ocupacion: true,
-    reciboEmpresa: 'Inmobiliaria Galcor', reciboLogo: logoInm, reciboColor: '#1f4e79',
-    titulos: { obras: 'Proyectos y servicios' },
-    palabraObra: ['proyecto', 'proyectos'],
-    ocultarPestanas: ['tareas', 'rondin', 'incidencias'],
-    centroPersonal: 'Taller de servicio',
-    contacto: 'Monterrey, N.L.',
-    demo: true,
-    categorias: {
-      'Compra de mercancía': '📦', 'Material y refacciones': '🔩', 'Nómina': '👷', 'Seguro social e ISN': '🏥',
-      'Viáticos': '🧳', 'Gasolina': '⛽', 'Vehículos': '🚗', 'Herramienta y equipo': '🧰', 'Fletes y paquetería': '🚚',
-      'Renta': '🏢', 'Luz': '⚡', 'Teléfono e internet': '📶', 'Administración': '📋', 'Impuestos': '🧾',
-      'Mantenimiento': '🔧', 'Limpieza': '🧹', 'Seguridad': '🔒', 'Agua': '💧',
-      'Intereses y comisiones': '🏦', 'Otros': '📌',
+    reciboEmpresa: 'Inmobiliaria Galcor', reciboLogo: logoInm.replaceAll(encodeURIComponent(COLOR), encodeURIComponent(COLOR_INM)), reciboColor: COLOR_INM,
+    centroPersonal: 'Torre Cumbres',
+    categorias: { ...CATS_BASE, 'Mantenimiento': '🔧', 'Limpieza': '🧹', 'Seguridad': '🔒' },
+    ayuda: { ...AYUDA_BASE, 'Mantenimiento': 'Elevadores, plomería, pintura, jardín, reparaciones de unidades',
+      'Limpieza': 'Insumos y servicios de limpieza de las torres', 'Seguridad': 'Vigilancia, cámaras, control de acceso' },
+    prospectos: {
+      negocio: 'Inmobiliaria Galcor', empresaCorta: 'Inmobiliaria', sitio: 'la página y los anuncios',
+      tipos: ['Departamento', 'Oficina', 'Local comercial'], campoTipo: 'Busca', columnaTipo: 'Busca',
+      terreno: null, cuando: { ya: 'Este mes', '3_meses': 'En 1 a 2 meses', '6_meses': 'En 3 meses o más', explorando: 'Solo viendo' },
+      campoCuando: '¿Para cuándo se muda?', campoM2: 'm² que busca', sufijoM2: 'm²', ubicacionEj: 'Torre Cumbres, Torre Valle…',
+      calificadoAyuda: 'tienen presupuesto y fecha para mudarse', seVuelve: 'se vuelva contrato', ganados: 'Contratos firmados',
+      montoGanado: 'Renta mensual del contrato', montoEj: 'Ej. 14500', notaGanado: 'Sirve para saber cuánto rentaron los anuncios. Después da de alta el contrato en Rentas.',
+      motivos: ['Precio', 'Rentó en otro lado', 'No contestó', 'Lo pospuso', 'No le gustó la unidad'],
+      motivosNo: ['Presupuesto bajo', 'Busca en otra zona', 'Solo viendo', 'No tiene aval o fiador', 'Número equivocado'],
+      saludo: (n, t) => `Hola ${n}, te escribe Inmobiliaria Galcor. Vimos que te interesa ${t ? (t === 'Oficina' ? 'una oficina' : t === 'Departamento' ? 'un departamento' : 'un local') : 'rentar'} en nuestras torres. ¿Cuándo te gustaría verlo?`,
     },
-    ayuda: {
-      'Compra de mercancía': 'Válvulas y equipo que se compra para revender (inventario)',
+  } : {
+    ...comunes,
+    nombre: 'Galcor · Administración',
+    marca: ['Galcor'],
+    logos: [{ src: logo, alt: 'Galcor', clase: 'logo-demo' }],
+    modulos: ['inicio', 'prospectos', 'cotizaciones', 'inventario', 'obras', 'gastos', 'personal'],
+    titulos: { obras: 'Proyectos y servicios' }, palabraObra: ['proyecto', 'proyectos'],
+    centroPersonal: 'Taller de servicio',
+    categorias: { 'Compra de mercancía': '📦', 'Material y refacciones': '🔩', ...CATS_BASE, 'Viáticos': '🧳', 'Gasolina': '⛽',
+      'Vehículos': '🚗', 'Herramienta y equipo': '🧰', 'Fletes y paquetería': '🚚', 'Renta': '🏢' },
+    ayuda: { ...AYUDA_BASE, 'Compra de mercancía': 'Válvulas y equipo que se compra para revender (inventario)',
       'Material y refacciones': 'Empaques, kits, tornillería y consumibles para servicios',
-      'Nómina': 'Sueldos de técnicos, almacén, ventas y oficina',
-      'Seguro social e ISN': 'IMSS, Infonavit e impuesto sobre nómina',
-      'Viáticos': 'Hotel, comidas y casetas de los técnicos en servicio',
-      'Gasolina': 'Gasolina y diésel de las unidades',
-      'Vehículos': 'Servicio, llantas y refacciones de las unidades',
-      'Herramienta y equipo': 'Herramienta, equipo de prueba, EPP',
-      'Fletes y paquetería': 'Envíos a clientes y fletes de proveedores',
-      'Renta': 'Renta de almacén y oficina', 'Luz': 'Recibos de CFE', 'Teléfono e internet': 'Celulares e internet',
-      'Administración': 'Papelería, software, contador, trámites', 'Impuestos': 'Impuestos que no son de nómina',
-      'Mantenimiento': 'Reparaciones y mantenimiento de las torres: elevadores, plomería, pintura, jardín',
-      'Limpieza': 'Insumos y servicios de limpieza de las torres', 'Seguridad': 'Vigilancia, cámaras, control de acceso',
-      'Agua': 'Agua y Drenaje de las torres',
-      'Intereses y comisiones': 'Intereses de créditos y comisiones bancarias', 'Otros': 'Solo si no cabe en ninguna de las anteriores',
+      'Viáticos': 'Hotel, comidas y casetas de los técnicos en servicio', 'Gasolina': 'Gasolina y diésel de las unidades',
+      'Vehículos': 'Servicio, llantas y refacciones de las unidades', 'Herramienta y equipo': 'Herramienta, equipo de prueba, EPP',
+      'Fletes y paquetería': 'Envíos a clientes y fletes de proveedores', 'Renta': 'Renta de almacén y oficina' },
+    prospectos: {
+      negocio: 'Galcor', empresaCorta: 'Galcor', sitio: 'la página y los anuncios',
+      tipos: ['Válvulas (suministro)', 'Mantenimiento de válvulas', 'Instalación o proyecto', 'Refacciones', 'Otro'], campoTipo: 'Necesita', columnaTipo: 'Necesita',
+      terreno: null, cuando: { ya: 'Urgente (paro de planta)', '3_meses': 'Este mes', '6_meses': 'Próximos meses', explorando: 'Solo cotizando' },
+      campoCuando: '¿Para cuándo?', campoM2: 'Número de válvulas', sufijoM2: 'válvulas', ubicacionEj: 'Planta en Apodaca, Saltillo…',
+      calificadoAyuda: 'tienen necesidad real y fecha', seVuelve: 'se vuelva venta', ganados: 'Ventas ganadas',
+      montoGanado: 'Monto vendido (sin IVA)', montoEj: 'Ej. 380000', notaGanado: 'Sirve para saber cuánto vendieron los anuncios. Si es proyecto, hazle su cotización.',
+      motivos: ['Precio', 'Tiempo de entrega', 'Eligió a otro', 'No contestó', 'Lo pospuso'],
+      motivosNo: ['Solo cotizando', 'Marca que no manejamos', 'Fuera de zona', 'Pedido muy chico', 'Número equivocado'],
+      saludo: (n, t) => `Hola ${n}, te escribe Galcor. Recibimos tu solicitud${t ? ` de ${t.toLowerCase()}` : ''}. ¿Te puedo marcar para ver modelo, medida y cantidad?`,
     },
   };
 
@@ -405,7 +432,10 @@
        [f(19), torreA, entre(2500, 14000), elige(['Plomería en depto', 'Pintura de pasillos', 'Reparación de bomba de agua', 'Cambio de luminarias', 'Impermeabilización parcial']), 'Mantenimiento varios', 'Mantenimiento'],
        [f(23), torreB, entre(1500, 6000), elige(['Reparación de clima en oficina', 'Cerrajería', 'Jardinería']), 'Mantenimiento varios', 'Mantenimiento'],
        [f(25), torreA, entre(1200, 2400), 'Comisiones por depósitos en efectivo', 'Banco', 'Intereses y comisiones'],
-      ].forEach(([fe, c, m, con, prov, cat]) => { if (fe) G(fe, c, m, con, prov, cat, { capturado_por: 'Rosa María Quiroga' }); });
+       [f(3), torreA, 318000, 'Crédito de la torre: intereses del mes', 'Banco', 'Intereses y comisiones'],
+       [f(4), torreA, 17800, 'Seguro de daños de las torres', 'Aseguradora', 'Administración'],
+       [f(20), torreA, entre(0, 1) ? entre(35000, 110000) : 0, elige(['Mantenimiento mayor a bombas y cisterna', 'Pintura de fachada (avance)', 'Remodelación de depto desocupado', 'Cambio de cerraduras y portón']), 'Contratistas varios', 'Mantenimiento'],
+      ].forEach(([fe, c, m, con, prov, cat]) => { if (fe && m) G(fe, c, m, con, prov, cat, { capturado_por: 'Rosa María Quiroga' }); });
     }
     G(dias(-140), torreA, 86500, 'Predial anual Torre Cumbres', 'Tesorería Municipal', 'Impuestos');
     G(dias(-140), torreB, 21400, 'Predial anual Torre Valle', 'Tesorería Municipal', 'Impuestos');
@@ -476,12 +506,108 @@
       ['Reporte fotográfico del servicio del día', 'Servicio'], ['Revisión de EPP de la cuadrilla', 'Seguridad'],
     ].map(([tarea, categoria]) => ({ id: id('tpl'), org_id: ORG, centro_id: taller.id, empleado_id: null, puesto: null, tarea, categoria, frecuencia: 'diaria', dia_semana: null, activo: true }));
 
-    return {
+    vacaciones.push({ id: id('vac'), org_id: ORG, empleado_id: emp('Rosa María').id, periodo: 13, tipo: 'pagadas', dias: 12, fecha_inicio: dias(-75), fecha_fin: dias(-75), monto: 13600, prima: 3400 });
+    const preT = { id: id('pre'), org_id: ORG, empleado_id: emp('Arturo').id, monto: 3000, abono_semanal: 500, fecha: dias(-28), notas: 'Útiles escolares', liquidado: false };
+    prestamos.push(preT);
+    for (let k = 1; k <= 3; k++) prestamo_abonos.push({ id: id('abo'), org_id: ORG, prestamo_id: preT.id, monto: 500, fecha: dias(-28 + k * 7) });
+
+    // ---------- prospectos y publicidad (lo invertido en Google y Meta cada semana y lo que trajo) ----------
+    const prospectos = [], inversion_publicidad = [];
+    const hora = (f, h, m) => { const d = new Date(f + 'T00:00:00'); d.setHours(h, m, 0, 0); return d; };
+    const tel = () => '81' + entre(10000000, 99999999);
+    const genProspectos = (empresa, cfg) => {
+      for (let w = 12; w >= 0; w--) {
+        const lun = sumar(lunesHoy, -7 * w);
+        const parcial = w === 0 ? Math.min(1, ((new Date(hoy + 'T12:00:00') - new Date(lun + 'T12:00:00')) / 864e5 + 1) / 7) : 1;
+        ['google', 'meta'].forEach((pl) => {
+          const monto = Math.round(cfg.inv[pl] * (0.85 + rnd() * 0.3));
+          if (w > 0) inversion_publicidad.push({ id: id('inv'), org_id: ORG, empresa_id: empresa.id, semana: lun, plataforma: pl, monto, notas: null, creado_en: lun + 'T15:00:00Z' });
+        });
+        const llegan = [...Array(Math.round(entre(...cfg.leads.google) * parcial)).fill('google'), ...Array(Math.round(entre(...cfg.leads.meta) * parcial)).fill(null).map(() => elige(['instagram', 'facebook', 'instagram'])),
+          ...Array(Math.round(entre(...cfg.leads.org) * parcial)).fill(null).map(() => elige(cfg.organicos))];
+        llegan.forEach((origen) => {
+          let f = sumar(lun, entre(0, 6)); if (f > hoy) f = hoy;
+          const cuando = hora(f, entre(8, 20), entre(0, 59));
+          if (cuando > new Date()) cuando.setTime(Date.now() - entre(10, 300) * 60000);
+          const tipo = elige(cfg.tipos), nombre = `${elige(NOMBRES)} ${elige(APELLIDOS)}`;
+          const califP = origen === 'google' ? cfg.calif.google : ['instagram', 'facebook'].includes(origen) ? cfg.calif.meta : cfg.calif.org;
+          const edad = (Date.now() - cuando.getTime()) / 864e5;
+          let est = 'nuevo', motivo = null, monto = null;
+          if (edad > 0.6) {
+            if (rnd() < califP) {
+              est = 'calificado';
+              if (edad > 3 && rnd() < 0.6) { est = 'cotizado';
+                if (edad > 8) { const r = rnd(); if (r < cfg.cierre) { est = 'ganado'; monto = cfg.monto(tipo); } else if (r < cfg.cierre + 0.35) { est = 'perdido'; motivo = elige(cfg.motivos); } } }
+            } else { est = 'no_calificado'; motivo = elige(cfg.motivosNo); }
+          }
+          const contesta = est === 'nuevo' && edad < 0.6 && rnd() < 0.5 ? null : new Date(cuando.getTime() + (rnd() < 0.7 ? entre(4, 55) : entre(70, 600)) * 60000);
+          prospectos.push({ id: id('pro'), org_id: ORG, empresa_id: empresa.id, creado_en: cuando.toISOString(), actualizado_en: cuando.toISOString(),
+            nombre, empresa: cfg.empresaDe ? cfg.empresaDe(tipo) : null, whatsapp: tel(), correo: null, tipo_obra: tipo, m2: cfg.m2(tipo),
+            tiene_terreno: null, cuando: est === 'no_calificado' ? 'explorando' : elige(['ya', 'ya', '3_meses', '6_meses']), ubicacion: cfg.ubicacion(tipo),
+            mensaje: elige(cfg.mensajes(tipo)), origen, campana: origen === 'google' ? cfg.campanaG : ['instagram', 'facebook'].includes(origen) ? cfg.campanaM : null,
+            utm_source: origen === 'google' ? 'google' : ['instagram', 'facebook'].includes(origen) ? origen : null, utm_medium: null, utm_campaign: null,
+            utm_term: origen === 'google' ? elige(cfg.busquedas) : null, gclid: null, fbclid: null, pagina: null,
+            estado: est, motivo, monto, primera_respuesta: contesta && contesta.getTime() < Date.now() ? contesta.toISOString() : null, atendido_por: null,
+            notas: null, calificado_en: ['calificado', 'cotizado', 'ganado'].includes(est) || (est === 'perdido') ? new Date(cuando.getTime() + 864e5).toISOString() : null, externo_id: null });
+        });
+      }
+      // lo invertido también es gasto (categoría Publicidad), un cargo por mes y plataforma
+      const porMes = {};
+      inversion_publicidad.filter((r) => r.empresa_id === empresa.id).forEach((r) => { const k = r.semana.slice(0, 7) + '|' + r.plataforma; porMes[k] = (porMes[k] || 0) + r.monto; });
+      Object.entries(porMes).forEach(([k, m]) => { const [mes, pl] = k.split('|'); let f = mes + '-28'; if (f > hoy) f = hoy;
+        G(f, cfg.centroGasto, m, pl === 'google' ? 'Anuncios Google Ads' : 'Anuncios Instagram y Facebook', pl === 'google' ? 'Google' : 'Meta', 'Publicidad', { forma_pago: 'Tarjeta' }); });
+    };
+    genProspectos(E, {
+      inv: { google: 2600, meta: 1500 }, leads: { google: [3, 6], meta: [3, 6], org: [1, 3] }, organicos: ['web', 'whatsapp', 'recomendacion'],
+      calif: { google: 0.62, meta: 0.45, org: 0.7 }, cierre: 0.35,
+      tipos: ['Válvulas (suministro)', 'Válvulas (suministro)', 'Mantenimiento de válvulas', 'Instalación o proyecto', 'Refacciones'],
+      monto: (t) => t === 'Instalación o proyecto' ? entre(18, 120) * 10000 : t === 'Mantenimiento de válvulas' ? entre(8, 45) * 10000 : entre(3, 28) * 10000,
+      m2: (t) => entre(2, t === 'Refacciones' ? 10 : 30), ubicacion: () => elige(['Apodaca', 'Escobedo', 'Santa Catarina', 'Guadalupe', 'Saltillo', 'Ramos Arizpe', 'Pesquería']),
+      empresaDe: () => elige(['Planta de alimentos', 'Acerera', 'Química', 'Embotelladora', 'Generadora', 'Cementera', 'Papelera']) + ' ' + elige(['del Norte', 'Regia', 'Industrial', 'del Valle']),
+      mensajes: (t) => [`Necesito cotización de ${t.toLowerCase()}, ¿manejan Fisher?`, 'Tenemos paro programado en noviembre, ocupamos revisar válvulas de alivio',
+        '¿Tienen en existencia válvulas de bola de 2" clase 150?', 'Buscamos proveedor de mantenimiento para válvulas de control', 'Me urge un regulador de presión para gas'],
+      motivos: ['Precio', 'Tiempo de entrega', 'Eligió a otro', 'No contestó', 'Lo pospuso'],
+      motivosNo: ['Solo cotizando', 'Marca que no manejamos', 'Fuera de zona', 'Pedido muy chico', 'Número equivocado'],
+      campanaG: 'Válvulas Emerson Monterrey', campanaM: 'Servicio de válvulas', busquedas: ['valvulas emerson monterrey', 'mantenimiento de valvulas', 'valvula de alivio vapor', 'distribuidor fisher mexico'],
+      centroGasto: oficina,
+    });
+    genProspectos(E2, {
+      inv: { google: 1700, meta: 2300 }, leads: { google: [2, 5], meta: [6, 11], org: [1, 3] }, organicos: ['whatsapp', 'recomendacion', 'otro', 'web'],
+      calif: { google: 0.65, meta: 0.5, org: 0.7 }, cierre: 0.45,
+      tipos: ['Departamento', 'Departamento', 'Departamento', 'Oficina', 'Local comercial'],
+      monto: (t) => t === 'Departamento' ? entre(120, 190) * 100 : t === 'Oficina' ? entre(80, 160) * 100 : entre(180, 450) * 100,
+      m2: (t) => t === 'Departamento' ? elige([62, 85, 120]) : t === 'Oficina' ? entre(40, 95) : entre(45, 140),
+      ubicacion: (t) => t === 'Oficina' ? elige(['Torre Cumbres', 'Torre Valle']) : 'Torre Cumbres',
+      mensajes: (t) => [`¿Tienen ${t.toLowerCase()} disponible?`, '¿Cuánto es la renta y qué piden de requisitos?', '¿Aceptan mascotas?',
+        '¿Puedo ir a verlo este sábado?', 'Busco algo para entrar el próximo mes'],
+      motivos: ['Precio', 'Rentó en otro lado', 'No contestó', 'Lo pospuso', 'No le gustó la unidad'],
+      motivosNo: ['Presupuesto bajo', 'Busca en otra zona', 'Solo viendo', 'No tiene aval o fiador', 'Número equivocado'],
+      campanaG: 'Renta deptos Cumbres', campanaM: 'Deptos y oficinas en renta', busquedas: ['departamentos en renta cumbres', 'renta de oficinas monterrey', 'local comercial renta'],
+      centroGasto: torreA,
+    });
+
+    const todoJunto = {
       organizaciones: [{ id: ORG, nombre: 'Galcor', plan: 'demo' }],
       miembros: [{ org_id: ORG, user_id: 'demo-usuario', nombre: ADMIN, usuario: 'direccion', rol: 'dueno', roles: [], empresas: null, activo: true, debe_cambiar_password: false }],
       empresas: [E, E2], centros, productos, inventario_movs, ingresos, gastos, cuentas_por_cobrar, pagos, empleados,
       nomina_periodos, nomina_lineas, asistencia, vacaciones, prestamos, prestamo_abonos, tareas_plantilla, tareas: [],
-      cotizaciones, contratos, unidades, cuotas: [], activos: [], pasivos: [], tipo_cambio: [],
+      cotizaciones, contratos, unidades, cuotas: [], activos: [], pasivos: [], tipo_cambio: [], prospectos, inversion_publicidad,
     };
-  };
+    // Cada demo lleva solo su empresa
+    const SOLO = INM ? E2.id : E.id, D = todoJunto;
+    const porEmp = (l) => l.filter((r) => r.empresa_id === SOLO);
+    D.empresas = D.empresas.filter((e) => e.id === SOLO); D.centros = porEmp(D.centros);
+    const cen = new Set(D.centros.map((c) => c.id));
+    ['gastos', 'ingresos', 'pagos', 'cuentas_por_cobrar', 'empleados', 'nomina_periodos', 'productos', 'cotizaciones', 'prospectos', 'inversion_publicidad']
+      .forEach((t) => { D[t] = porEmp(D[t]); });
+    ['unidades', 'contratos', 'tareas_plantilla'].forEach((t) => { D[t] = D[t].filter((r) => cen.has(r.centro_id)); });
+    const emps = new Set(D.empleados.map((e) => e.id));
+    ['nomina_lineas', 'asistencia', 'vacaciones', 'prestamos'].forEach((t) => { D[t] = D[t].filter((r) => emps.has(r.empleado_id)); });
+    const pres = new Set(D.prestamos.map((p) => p.id));
+    D.prestamo_abonos = D.prestamo_abonos.filter((a) => pres.has(a.prestamo_id));
+    const prods = new Set(D.productos.map((p) => p.id));
+    D.inventario_movs = D.inventario_movs.filter((m) => prods.has(m.producto_id));
+    D.organizaciones[0].nombre = INM ? 'Inmobiliaria Galcor' : 'Galcor';
+    return D;
+    };
 })();

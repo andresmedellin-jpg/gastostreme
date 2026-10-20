@@ -200,7 +200,7 @@ function pintarNav() {
 // Contador en el menú de prospectos que llevan más de una hora sin respuesta (se revisa cada 5 minutos)
 async function avisoProspectos() {
   const a = document.querySelector('#nav a[data-mod="prospectos"]');
-  if (!a || MARCA.demo) return;
+  if (!a) return;
   try {
     const desde = new Date(Date.now() - 3600e3).toISOString();
     const { count, error } = await db().from('prospectos').select('id', { count: 'exact', head: true })
