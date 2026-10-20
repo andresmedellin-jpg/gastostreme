@@ -33,6 +33,7 @@ const TERRENO = { si: 'Tiene terreno', buscando: 'Buscando terreno', no: 'Sin te
 const CUANDO = { ya: 'Este trimestre', '3_meses': 'En 3 meses', '6_meses': 'En 6 meses', explorando: 'Solo cotizando' };
 const MOTIVOS = ['Precio', 'Eligió a otro', 'No contestó', 'Lo pospuso', 'Fuera de zona', 'No es lo que hacemos'];
 const UNA_HORA = 3600e3;
+const YA_CONTESTADO = ['whatsapp', 'recomendacion', 'otro'];
 
 const FILTROS = {
   atender:   { t: 'Por atender', f: (p) => p.estado === 'nuevo' },
@@ -323,7 +324,9 @@ function editar(p) {
     ev.currentTarget.disabled = true;
     if (nuevo) {
       const emp = estado.empresas.find((e) => e.nombre_corto === 'MEDCO') || estado.empresas[0];
-      const { data, error } = await db().from('prospectos').insert({ ...reg, org_id: estado.miembro.org_id, empresa_id: emp?.id }).select().single();
+      // Si llegó por WhatsApp, recomendación u otro medio, quien lo captura ya habló con él: no cuenta como "sin contestar"
+      const yaContestado = YA_CONTESTADO.includes(reg.origen) ? { primera_respuesta: new Date().toISOString() } : {};
+      const { data, error } = await db().from('prospectos').insert({ ...reg, ...yaContestado, org_id: estado.miembro.org_id, empresa_id: emp?.id }).select().single();
       if (error) { ev.currentTarget.disabled = false; return toast('No se pudo guardar: ' + error.message, true); }
       pros.unshift(data);
       st.filtro = FILTROS.atender.f(data) ? 'atender' : 'todos';
@@ -373,7 +376,7 @@ function publicidad(el) {
     <div class="filtros" style="margin-bottom:12px">
       <select id="pp-mes" aria-label="Periodo">${meses.map((m) => `<option value="${m}" ${st.mes === m ? 'selected' : ''}>${etiquetaMes(m)}</option>`).join('')}
         <option value="todo" ${st.mes === 'todo' ? 'selected' : ''}>Desde el inicio</option></select>
-      ${puede() ? '<button class="btn btn-ghost" id="pp-inv">＋ Registrar inversión</button>' : ''}
+      ${puede() ? '<button class="btn btn-ghost" id="pp-inv">＋ Registrar inversión</button><button class="btn btn-ghost" id="p-meta" title="Sube el archivo de contactos que descargas de Meta">Importar contactos de Meta</button>' : ''}
     </div>
     <div class="kpis">
       <div class="kpi"><span>Invertido en anuncios</span><strong>${fmt(tot.invertido)}</strong><small>Google ${fmt(filas[0][1].invertido)} · Meta ${fmt(filas[1][1].invertido)}</small></div>
@@ -430,6 +433,7 @@ function publicidad(el) {
 
   el.querySelector('#pp-mes').addEventListener('change', (e) => { st.mes = e.target.value; pintar(); });
   el.querySelector('#pp-inv')?.addEventListener('click', () => editarInversion(null));
+  el.querySelector('#p-meta')?.addEventListener('click', importarMeta);
   el.querySelectorAll('[data-inv]').forEach((b) => b.addEventListener('click', () => editarInversion(inversion.find((r) => r.id === b.dataset.inv))));
 }
 
@@ -470,5 +474,156 @@ function editarInversion(r) {
     inversion = [data, ...inversion.filter((x) => x.id !== data.id)].sort((a, b) => b.semana.localeCompare(a.semana));
     st.mes = data.semana.slice(0, 7);
     cerrarModal(); toast('Inversión guardada ✓'); pintar();
+  });
+}
+
+// ---------- importar contactos del formulario de Meta (Instagram / Facebook) ----------
+// En Meta: Administrador de anuncios → Centro de clientes potenciales (o el formulario) → Descargar (CSV).
+// El archivo viene en UTF-16 con tabuladores o en UTF-8 con comas; se aceptan los dos.
+function leerArchivo(file) {
+  return file.arrayBuffer().then((buf) => {
+    const b = new Uint8Array(buf);
+    const enc = b[0] === 0xff && b[1] === 0xfe ? 'utf-16le' : b[0] === 0xfe && b[1] === 0xff ? 'utf-16be' : 'utf-8';
+    return new TextDecoder(enc).decode(buf).replace(/^\uFEFF/, '');
+  });
+}
+export function parsearCSV(txt) {
+  const primera = txt.split(/\r?\n/, 1)[0] || '';
+  const sep = (primera.match(/\t/g) || []).length > (primera.match(/,/g) || []).length ? '\t' : ',';
+  const filas = []; let fila = [], campo = '', comillas = false;
+  for (let i = 0; i < txt.length; i++) {
+    const c = txt[i];
+    if (comillas) {
+      if (c === '"' && txt[i + 1] === '"') { campo += '"'; i++; }
+      else if (c === '"') comillas = false;
+      else campo += c;
+    } else if (c === '"') comillas = true;
+    else if (c === sep) { fila.push(campo); campo = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && txt[i + 1] === '\n') i++;
+      fila.push(campo); campo = '';
+      if (fila.some((x) => x.trim())) filas.push(fila);
+      fila = [];
+    } else campo += c;
+  }
+  fila.push(campo); if (fila.some((x) => x.trim())) filas.push(fila);
+  if (!filas.length) return [];
+  const enc = filas[0].map((h) => normalizar(h).replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''));
+  return filas.slice(1).map((f) => Object.fromEntries(enc.map((h, i) => [h, (f[i] ?? '').trim()])));
+}
+// Meta antepone "p:" a los teléfonos y a veces "<test lead: …>" a los de prueba
+const limpio = (x) => String(x || '').replace(/^p:/, '').trim();
+const campo = (r, ...claves) => {
+  for (const k of claves) {
+    const hit = Object.keys(r).find((h) => h === k || h.includes(k));
+    if (hit && limpio(r[hit])) return limpio(r[hit]);
+  }
+  return '';
+};
+function valorTipo(t) {
+  const n = normalizar(t);
+  if (!n) return null;
+  if (/nave|bodega|industrial/.test(n)) return 'Nave o bodega';
+  if (/plaza|local/.test(n)) return 'Plaza o locales';
+  if (/estructura|metal/.test(n)) return 'Estructura metálica';
+  if (/edificio|oficina/.test(n)) return 'Edificio u oficinas';
+  return 'Otro';
+}
+function valorTerreno(t) {
+  const n = normalizar(t);
+  if (!n) return null;
+  if (/proceso|buscando/.test(n)) return 'buscando';
+  if (/^s[ií]?\b|^si|yes/.test(n)) return 'si';
+  if (/^no/.test(n)) return 'no';
+  return null;
+}
+function valorCuando(t) {
+  const n = normalizar(t);
+  if (!n) return null;
+  if (/cotiz|explor/.test(n)) return 'explorando';
+  if (/trimestre|ya|inmediat|mes(?!es)/.test(n) && !/6/.test(n)) return 'ya';
+  if (/6|seis|ano/.test(n)) return '6_meses';
+  if (/3|tres/.test(n)) return '3_meses';
+  return null;
+}
+export function deMeta(r) {
+  const plataforma = normalizar(campo(r, 'platform'));
+  const nombre = campo(r, 'full_name', 'nombre_completo', 'nombre') || [campo(r, 'first_name'), campo(r, 'last_name')].filter(Boolean).join(' ');
+  const tel = campo(r, 'phone_number', 'telefono', 'whatsapp', 'phone');
+  const correo = campo(r, 'email', 'correo').toLowerCase();
+  const fecha = Date.parse(campo(r, 'created_time'));
+  const m2 = Number(campo(r, 'metros', 'm2', 'superficie').replace(/[^0-9.]/g, ''));
+  const leadId = campo(r, 'id').replace(/^l:/, '');
+  return {
+    nombre: nombre.slice(0, 120), empresa: campo(r, 'company_name', 'empresa').slice(0, 120) || null,
+    whatsapp: tel.slice(0, 30) || null, correo: /^\S+@\S+\.\S+$/.test(correo) ? correo.slice(0, 160) : null,
+    tipo_obra: valorTipo(campo(r, 'construir', 'tipo_de_obra', 'tipo_obra', 'proyecto')),
+    m2: m2 > 0 ? m2 : null,
+    tiene_terreno: valorTerreno(campo(r, 'terreno')),
+    cuando: valorCuando(campo(r, 'empezar', 'cuando', 'inicio')),
+    ubicacion: campo(r, 'city', 'ciudad', 'ubicacion').slice(0, 120) || null,
+    origen: plataforma === 'fb' || plataforma.includes('facebook') ? 'facebook' : 'instagram',
+    campana: campo(r, 'campaign_name').slice(0, 160) || null,
+    utm_source: plataforma === 'fb' || plataforma.includes('facebook') ? 'facebook' : 'instagram',
+    utm_campaign: campo(r, 'campaign_name').slice(0, 160) || null,
+    utm_term: campo(r, 'ad_name').slice(0, 160) || null,
+    ...(Number.isFinite(fecha) ? { creado_en: new Date(fecha).toISOString() } : {}),
+    externo_id: leadId ? `meta:${leadId}`.slice(0, 120) : null,
+    prueba: /test lead|dummy/i.test(Object.values(r).join(' ')),
+  };
+}
+const diez = (t) => String(t || '').replace(/\D/g, '').slice(-10);
+
+function importarMeta() {
+  const modal = abrirModal({
+    titulo: 'Importar contactos de Meta', ancho: true,
+    cuerpo: `<div class="form">
+      <p class="nota">En el Administrador de anuncios de Meta abre <b>Centro de clientes potenciales</b> (o el formulario de la campaña) y descarga los contactos en CSV. Sube aquí ese archivo: se agregan como prospectos de Instagram o Facebook, con su campaña, y los que ya estaban no se duplican.</p>
+      <label>Archivo CSV de Meta<input type="file" id="im-file" accept=".csv,.tsv,text/csv,text/tab-separated-values"></label>
+      <div id="im-res"></div></div>`,
+    pie: `<button class="btn btn-ghost" data-cerrar>Cerrar</button><button class="btn btn-primary" id="im-ok" disabled>Importar</button>`,
+  });
+  modal.querySelector('.modal-foot [data-cerrar]').addEventListener('click', cerrarModal);
+  let nuevos = [];
+  modal.querySelector('#im-file').addEventListener('change', async (e) => {
+    const res = modal.querySelector('#im-res'); const ok = modal.querySelector('#im-ok');
+    nuevos = []; ok.disabled = true;
+    const file = e.target.files[0]; if (!file) { res.innerHTML = ''; return; }
+    let filas;
+    try { filas = parsearCSV(await leerArchivo(file)).map(deMeta); }
+    catch (err) { res.innerHTML = `<div class="alerta-roja">No se pudo leer el archivo: ${esc(err.message)}</div>`; return; }
+    const tels = new Set(pros.map((p) => diez(p.whatsapp)).filter(Boolean));
+    const correos = new Set(pros.map((p) => p.correo).filter(Boolean));
+    const ids = new Set(pros.map((p) => p.externo_id).filter(Boolean));
+    const vistos = new Set(); let repetidos = 0, incompletos = 0, pruebas = 0;
+    for (const f of filas) {
+      if (f.prueba) { pruebas++; continue; }
+      if (!f.nombre || (!f.whatsapp && !f.correo)) { incompletos++; continue; }
+      const clave = diez(f.whatsapp) || f.correo;
+      if ((f.externo_id && ids.has(f.externo_id)) || (diez(f.whatsapp) && tels.has(diez(f.whatsapp))) || (f.correo && correos.has(f.correo)) || vistos.has(clave)) { repetidos++; continue; }
+      vistos.add(clave); delete f.prueba; nuevos.push(f);
+    }
+    res.innerHTML = !filas.length ? '<div class="vacio">El archivo no trae contactos.</div>' : `
+      <div class="kpis kpis-3">
+        <div class="kpi"><span>Nuevos</span><strong class="pos">${nuevos.length}</strong></div>
+        <div class="kpi"><span>Ya estaban</span><strong>${repetidos}</strong></div>
+        <div class="kpi"><span>Sin nombre o teléfono${pruebas ? ' / prueba' : ''}</span><strong>${incompletos + pruebas}</strong></div>
+      </div>
+      ${nuevos.length ? `<div class="tabla-wrap"><table class="tabla"><thead><tr><th>Nombre</th><th>WhatsApp</th><th>Obra</th><th>Origen</th><th>Llegó</th></tr></thead><tbody>
+        ${nuevos.slice(0, 8).map((n) => `<tr><td data-l="Nombre">${esc(n.nombre)}</td><td data-l="WhatsApp">${esc(n.whatsapp || n.correo || '')}</td><td data-l="Obra">${esc(n.tipo_obra || '—')}</td><td data-l="Origen">${ORIGENES[n.origen]}</td><td data-l="Fecha">${n.creado_en ? fmtFecha(n.creado_en.slice(0, 10)) : 'hoy'}</td></tr>`).join('')}
+        ${nuevos.length > 8 ? `<tr><td colspan="5" class="mut">y ${nuevos.length - 8} más…</td></tr>` : ''}</tbody></table></div>` : ''}`;
+    ok.disabled = !nuevos.length;
+    ok.textContent = nuevos.length ? `Importar ${nuevos.length}` : 'Importar';
+  });
+  modal.querySelector('#im-ok').addEventListener('click', async (ev) => {
+    if (!nuevos.length) return;
+    ev.currentTarget.disabled = true;
+    const emp = estado.empresas.find((e) => e.nombre_corto === 'MEDCO') || estado.empresas[0];
+    const filas = nuevos.map((n) => ({ ...n, estado: 'nuevo', org_id: estado.miembro.org_id, empresa_id: emp?.id }));
+    const { data, error } = await db().from('prospectos').insert(filas).select();
+    if (error) { ev.currentTarget.disabled = false; return toast('No se pudo importar: ' + (error.code === '23505' ? 'algunos contactos ya estaban importados; recarga la pantalla y vuelve a subir el archivo' : error.message), true); }
+    pros = [...(data || []), ...pros].sort((a, b) => b.creado_en.localeCompare(a.creado_en));
+    st.filtro = 'atender'; st.vista = 'lista';
+    cerrarModal(); toast(`${(data || []).length} prospectos importados ✓`); pintar(); avisoMenu();
   });
 }

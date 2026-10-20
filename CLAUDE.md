@@ -96,7 +96,12 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   plataforma google|meta, una fila por semana y plataforma, capturada a mano cada lunes) contra contactos, calificados, costo por
   calificado, cotizados, ganados y vendido; tiempo de respuesta (mediana) y motivos de descarte. Contador rojo en el menú =
   prospectos nuevos con más de 1 hora sin respuesta (app.js `avisoProspectos`, cada 5 min).
-- **Formulario de construcciones.medco.mx** (repo `andresmedellin-jpg/medco-web`): llama a la función pública
+  Alta a mano con origen whatsapp/recomendación/otro guarda `primera_respuesta` al crear (ya hablaron con él; no sale "sin contestar").
+  **Importar contactos de Meta** (botón en la pestaña Publicidad): sube el CSV del Centro de clientes potenciales (UTF-16 con
+  tabuladores o UTF-8 con comas), mapea full_name/phone_number/email/platform/campaign_name/ad_name y las preguntas del formulario
+  (construir → tipo, metros → m2, terreno, empezar → cuando), descarta prueba/incompletos/repetidos (mismo teléfono de 10 dígitos,
+  correo o `externo_id` = 'meta:<lead id>', índice único 0025) y los da de alta como nuevo.
+- **Formulario de construcciones.medco.mx** (repo `andresmedellin-jpg/medco-web`, conectado el 20/10/2026; si falla abre el correo): llama a la función pública
   `app.registrar_prospecto(jsonb)` con la llave publishable (anon solo puede ejecutar esa función, no leer la tabla). Manda
   utm_source/medium/campaign/term, gclid y fbclid guardados de la URL de llegada; la función deduce el origen y frena spam
   (40 por 10 min, 3 por teléfono/correo por hora). Plan de publicidad: $7,000/mes Google, $5,000/mes Meta, 3 meses.
