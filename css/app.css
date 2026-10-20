@@ -438,3 +438,48 @@ h4.grupo:first-of-type { margin-top: 4px; }
 .leyenda-ocup i.verde { background: var(--ok); } .leyenda-ocup i.ambar { background: var(--warn); } .leyenda-ocup i.rojo { background: var(--neg); }
 .leyenda-ocup i.libre { border: 1px dashed #c9c9c9; }
 .renta.parcial { border-left-color: var(--warn); }
+
+/* ---------- prospectos ---------- */
+.nav-badge { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--neg); color: #fff; font-size: 11px; font-weight: 700; display: inline-grid; place-items: center; }
+.alerta-roja { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 12px 14px; margin-bottom: 12px; border: 1px solid color-mix(in srgb, var(--neg) 35%, transparent); border-left: 3px solid var(--neg); border-radius: var(--radius); background: color-mix(in srgb, var(--neg) 6%, var(--surface)); font-size: 13px; }
+.alerta-roja b { color: var(--neg); }
+.alerta-roja .btn { margin-left: auto; }
+.pros-lista { display: grid; gap: 10px; }
+.pros-card { border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 8px; cursor: pointer; background: var(--surface); }
+.pros-card:hover, .pros-card:focus-visible { background: var(--surface-2); outline: none; }
+.pros-card.tarde { border-left-color: var(--neg); }
+.pros-top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 6px 12px; }
+.pros-quien b { display: block; font-size: 15px; }
+.pros-quien small { font-size: 12px; }
+.pros-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.pros-datos { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--text-2); }
+.pros-datos span + span::before { content: "·"; margin-right: 14px; color: var(--text-3); }
+.pros-msg { margin: 0; font-size: 13px; color: var(--text-2); font-style: italic; }
+.pros-pie { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.pros-cuando { font-size: 12px; color: var(--text-3); }
+.pros-acc { display: flex; flex-wrap: wrap; gap: 6px; }
+.btn-wa { background: #1f7a4d; border-color: #1f7a4d; color: #fff; text-decoration: none; }
+.btn-wa:hover { background: #18613d; color: #fff; }
+.btn-paso { background: var(--text); color: #fff; border-color: var(--text); }
+.btn-paso:hover { background: #000; }
+.tag-azul { background: #eaf1fb; color: #1d3f6e; border-color: transparent; }
+.tag-origen { background: var(--surface-2); }
+.tag-origen.o-google { color: #1a56c4; }
+.tag-origen.o-instagram, .tag-origen.o-facebook { color: #7b2fbf; }
+.pros-ficha { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 12px; border-radius: var(--radius); background: var(--surface-2); font-size: 13px; }
+.pros-ficha b { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); }
+.chips-elegir { display: flex; flex-wrap: wrap; gap: 6px; }
+@media (max-width: 760px) {
+  .pros-acc { width: 100%; }
+  .pros-acc .btn { flex: 1 1 auto; height: 36px; }
+  .alerta-roja .btn { margin-left: 0; }
+  .tabla-pub tbody tr { grid-template-columns: 1fr 1fr; }
+  .tabla-pub td[data-l="Concepto"] { grid-column: 1 / -1; grid-row: auto; }
+  .tabla-pub td[data-l="Monto"] { grid-column: auto; grid-row: auto; }
+  .tabla-pub tfoot { display: none; }
+  .pros-datos { gap: 2px 10px; }
+  .pros-datos span + span::before { display: none; }
+  .tabla-pub td.num { text-align: left; font-size: 13px; }
+  .tabla-pub td.num::before { content: attr(data-l) " "; color: var(--text-3); font-size: 12px; }
+  .tabla-pub td[data-l="Monto"]::before { content: "Vendido "; }
+}

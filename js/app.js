@@ -13,6 +13,7 @@ const vistas = {
   patrimonio: () => import('./modulos/patrimonio.js'),
   inventario: () => import('./modulos/inventario.js'),
   cotizaciones: () => import('./modulos/cotizaciones.js'),
+  prospectos: () => import('./modulos/prospectos.js'),
 };
 
 // ================= MARCA =================
@@ -167,6 +168,7 @@ async function entrar(user) {
     $('user-box').innerHTML = `<span class="user-avatar" aria-hidden="true">${esc((miembro.nombre || '?').trim().charAt(0).toUpperCase())}</span>
       <span class="user-txt"><strong>${esc(miembro.nombre)}</strong><span>${esc([...new Set(etiquetas)].join(' · '))}</span></span>`;
     pintarNav();
+    avisoProspectos();
     $('login').hidden = true;
     $('shell').hidden = false;
     navegar();
@@ -194,6 +196,21 @@ function pintarNav() {
         </a>`).join('')}
     </div>`).join('');
 }
+
+// Contador en el menú de prospectos que llevan más de una hora sin respuesta (se revisa cada 5 minutos)
+async function avisoProspectos() {
+  const a = document.querySelector('#nav a[data-mod="prospectos"]');
+  if (!a || MARCA.demo) return;
+  try {
+    const desde = new Date(Date.now() - 3600e3).toISOString();
+    const { count, error } = await db().from('prospectos').select('id', { count: 'exact', head: true })
+      .eq('estado', 'nuevo').is('primera_respuesta', null).lt('creado_en', desde);
+    if (error) return;
+    a.querySelector('.nav-badge')?.remove();
+    if (count) a.insertAdjacentHTML('beforeend', `<span class="nav-badge" title="Sin contestar hace más de 1 hora">${count}</span>`);
+  } catch (e) { /* sin aviso si no hay conexión */ }
+}
+setInterval(() => { if (estado.miembro) avisoProspectos(); }, 5 * 60e3);
 
 window.addEventListener('hashchange', navegar);
 

@@ -19,6 +19,7 @@ const ICONOS = {
   usuarios:   svg('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
   inventario: svg('<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>'),
   cotizaciones: svg('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 12h6M10 16h6M4 7v14h10" opacity=".9"/>'),
+  prospectos: svg('<path d="M3 4h18l-7 8.5V19l-4 2v-8.5z"/>'),
 };
 
 // Marca de la plataforma. Por omisión, Treme / MEDCO. Otra instalación (o el demo, con ?demo) la cambia
@@ -42,6 +43,7 @@ export const MODULOS = [
   { id: 'cobranza',   grupo: 'Finanzas',  titulo: 'Cobranza Elysium', icono: ICONOS.cobranza,   roles: ['dueno','administracion','cobranza'], listo: true },
   { id: 'rentas',     grupo: 'Finanzas',  titulo: 'Rentas',           icono: ICONOS.rentas,     roles: ['dueno','administracion','cobranza'], listo: true },
   { id: 'obras',      grupo: 'Finanzas',  titulo: 'Obras',            icono: ICONOS.obras,      roles: ['dueno','administracion'], listo: true },
+  { id: 'prospectos', grupo: 'Ventas',    titulo: 'Prospectos',       icono: ICONOS.prospectos, roles: ['dueno','administracion'], listo: true },
   { id: 'cotizaciones', grupo: 'Ventas',  titulo: 'Cotizaciones',     icono: ICONOS.cotizaciones, roles: ['dueno','administracion','cobranza'], listo: true, opcional: true },
   { id: 'inventario', grupo: 'Ventas',    titulo: 'Inventario',       icono: ICONOS.inventario, roles: ['dueno','administracion','operacion'], listo: true, opcional: true },
   { id: 'patrimonio', grupo: 'Finanzas',  titulo: 'Patrimonio',       icono: ICONOS.patrimonio, roles: ['dueno','socio'], listo: true },

@@ -40,6 +40,8 @@ Rentas Treme, Acceso Elysium y Reporte Mensual.
    leer ni escribir desde internet (se quedan como respaldo).
 9. `0011_rol_socio.sql`: rol Socio (todo menos administrar usuarios).
 10. `0012_cerrar_tablas_viejas_fase2.sql`: se cierran las últimas tablas viejas; el esquema `public` ya no se usa.
+11. `0013` a `0022`: gastos por pagar, recibos, IMSS, vacaciones, categorías y otros ajustes.
+12. `0023_prospectos.sql` y `0024_prospectos_tiempos.sql`: prospectos de MEDCO, inversión en anuncios y el formulario público de construcciones.medco.mx.
 
 `supabase/functions/usuarios/`: función del servidor que crea usuarios, cambia contraseñas y da o quita acceso.
 Solo responde al dueño; usa la llave de servicio, que nunca llega al navegador.
@@ -58,6 +60,7 @@ El respaldo completo del sistema viejo está en el esquema `respaldo_20261012`.
 | Patrimonio | ✅ En la plataforma | — |
 | Reporte mensual | ✅ En la plataforma | Reporte Mensual: retirado |
 | Usuarios | ✅ En la plataforma | — |
+| Prospectos y publicidad (MEDCO) | ✅ En la plataforma | — |
 
 Las páginas retiradas muestran un aviso y mandan a la plataforma; su código sigue en el historial de cada repositorio.
 

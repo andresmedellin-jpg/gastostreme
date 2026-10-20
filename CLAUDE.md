@@ -86,6 +86,21 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 - Contraseña mínima: 6 caracteres. Usuario sin correo: `usuario@usuarios.medco.mx`.
 - **Nunca** dar acceso a franciscosr971@gmail.com (fsrsalazar).
 
+## Ventas y publicidad (MEDCO)
+- **Prospectos** (módulo `prospectos.js`, Ventas; dueño, socio y administración — Andrés y Miguel ven lo mismo): leads de MEDCO
+  para las campañas de Google y Meta. Tabla `prospectos` (estados nuevo → calificado / no_calificado → cotizado → ganado / perdido,
+  botones de un toque; `ganado` pide monto, `perdido`/`no_calificado` piden motivo). Botón WhatsApp abre wa.me y anota
+  `primera_respuesta`. El trigger `prospectos_tiempos` (0024) anota `primera_respuesta`, `calificado_en`, `atendido_por` y
+  `actualizado_en`. "Calificado" = tiene `calificado_en` o estado calificado/cotizado/ganado. Origen: google | instagram | facebook |
+  web | whatsapp | recomendacion | otro; Meta = instagram + facebook. Pestaña Publicidad: `inversion_publicidad` (semana = lunes,
+  plataforma google|meta, una fila por semana y plataforma, capturada a mano cada lunes) contra contactos, calificados, costo por
+  calificado, cotizados, ganados y vendido; tiempo de respuesta (mediana) y motivos de descarte. Contador rojo en el menú =
+  prospectos nuevos con más de 1 hora sin respuesta (app.js `avisoProspectos`, cada 5 min).
+- **Formulario de construcciones.medco.mx** (repo `andresmedellin-jpg/medco-web`): llama a la función pública
+  `app.registrar_prospecto(jsonb)` con la llave publishable (anon solo puede ejecutar esa función, no leer la tabla). Manda
+  utm_source/medium/campaign/term, gclid y fbclid guardados de la URL de llegada; la función deduce el origen y frena spam
+  (40 por 10 min, 3 por teléfono/correo por hora). Plan de publicidad: $7,000/mes Google, $5,000/mes Meta, 3 meses.
+
 ## Producto para vender a otros clientes
 - **Marca configurable** (`MARCA` en `js/config.js`, se sobreescribe con `window.__MARCA`): nombre, texto del menú, logos,
   color, módulos visibles (`modulos`), títulos (`titulos`), palabra para obra (`palabraObra`), categorías de gasto propias,
