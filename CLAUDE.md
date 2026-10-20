@@ -96,7 +96,8 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   plataforma google|meta, una fila por semana y plataforma, capturada a mano cada lunes) contra contactos, calificados, costo por
   calificado, cotizados, ganados y vendido; tiempo de respuesta (mediana) y motivos de descarte. Contador rojo en el menú =
   prospectos nuevos con más de 1 hora sin respuesta (app.js `avisoProspectos`, cada 5 min).
-  Alta a mano con origen whatsapp/recomendación/otro guarda `primera_respuesta` al crear (ya hablaron con él; no sale "sin contestar").
+  Alta a mano (＋ Prospecto) guarda `primera_respuesta` al crear, con cualquier origen (ya hablaron con él; no sale "sin contestar").
+  WhatsApp desde Instagram/página: construcciones.medco.mx/whatsapp?de=instagram|web abre wa.me/528134031022 con "los vi en …"; se captura a mano con ese origen.
   **Importar contactos de Meta** (botón en la pestaña Publicidad): sube el CSV del Centro de clientes potenciales (UTF-16 con
   tabuladores o UTF-8 con comas), mapea full_name/phone_number/email/platform/campaign_name/ad_name y las preguntas del formulario
   (construir → tipo, metros → m2, terreno, empezar → cuando), descarta prueba/incompletos/repetidos (mismo teléfono de 10 dígitos,

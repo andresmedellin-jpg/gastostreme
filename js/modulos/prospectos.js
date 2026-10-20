@@ -33,7 +33,6 @@ const TERRENO = { si: 'Tiene terreno', buscando: 'Buscando terreno', no: 'Sin te
 const CUANDO = { ya: 'Este trimestre', '3_meses': 'En 3 meses', '6_meses': 'En 6 meses', explorando: 'Solo cotizando' };
 const MOTIVOS = ['Precio', 'Eligió a otro', 'No contestó', 'Lo pospuso', 'Fuera de zona', 'No es lo que hacemos'];
 const UNA_HORA = 3600e3;
-const YA_CONTESTADO = ['whatsapp', 'recomendacion', 'otro'];
 
 const FILTROS = {
   atender:   { t: 'Por atender', f: (p) => p.estado === 'nuevo' },
@@ -324,8 +323,9 @@ function editar(p) {
     ev.currentTarget.disabled = true;
     if (nuevo) {
       const emp = estado.empresas.find((e) => e.nombre_corto === 'MEDCO') || estado.empresas[0];
-      // Si llegó por WhatsApp, recomendación u otro medio, quien lo captura ya habló con él: no cuenta como "sin contestar"
-      const yaContestado = YA_CONTESTADO.includes(reg.origen) ? { primera_respuesta: new Date().toISOString() } : {};
+      // Lo que se captura a mano ya llegó a alguien (WhatsApp, llamada, recomendación): no cuenta como "sin contestar".
+      // Los de la página y los de Meta entran solos (formulario / importar) y esos sí miden el tiempo de respuesta.
+      const yaContestado = { primera_respuesta: new Date().toISOString() };
       const { data, error } = await db().from('prospectos').insert({ ...reg, ...yaContestado, org_id: estado.miembro.org_id, empresa_id: emp?.id }).select().single();
       if (error) { ev.currentTarget.disabled = false; return toast('No se pudo guardar: ' + error.message, true); }
       pros.unshift(data);
