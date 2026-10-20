@@ -21,7 +21,7 @@
   const COLOR_INM = '#2d6a5f';
   const comunes = {
     color: INM ? COLOR_INM : COLOR, color2: INM ? '#22544b' : '#163a5c', colorSuave: INM ? '#e7f2ef' : '#eaf1f8',
-    ocultarPestanas: ['tareas', 'rondin', 'incidencias'], contacto: 'Monterrey, N.L.', demo: true,
+    contacto: 'Monterrey, N.L.', demo: true,
   };
   const CATS_BASE = { 'Nómina': '👷', 'Seguro social e ISN': '🏥', 'Luz': '⚡', 'Agua': '💧', 'Teléfono e internet': '📶',
     'Administración': '📋', 'Impuestos': '🧾', 'Publicidad': '📣', 'Intereses y comisiones': '🏦', 'Otros': '📌' };
@@ -36,7 +36,8 @@
     nombre: 'Inmobiliaria Galcor · Administración',
     marca: ['Galcor', 'Inmobiliaria'],
     logos: [{ src: logoInm.replaceAll(encodeURIComponent(COLOR), encodeURIComponent(COLOR_INM)), alt: 'Inmobiliaria Galcor', clase: 'logo-demo' }],
-    modulos: ['inicio', 'prospectos', 'rentas', 'gastos', 'personal'],
+    modulos: ['inicio', 'prospectos', 'rentas', 'gastos', 'patrimonio', 'nomina', 'asistencia', 'tareas', 'rondin', 'incidencias', 'empleados', 'vacaciones', 'prestamos', 'usuarios'],
+    centrosPersonal: ['Torre Cumbres', 'Torre Valle'],
     rentaParcial: true, ocupacion: true,
     reciboEmpresa: 'Inmobiliaria Galcor', reciboLogo: logoInm.replaceAll(encodeURIComponent(COLOR), encodeURIComponent(COLOR_INM)), reciboColor: COLOR_INM,
     centroPersonal: 'Torre Cumbres',
@@ -59,7 +60,8 @@
     nombre: 'Galcor · Administración',
     marca: ['Galcor'],
     logos: [{ src: logo, alt: 'Galcor', clase: 'logo-demo' }],
-    modulos: ['inicio', 'prospectos', 'cotizaciones', 'inventario', 'obras', 'gastos', 'personal'],
+    modulos: ['inicio', 'prospectos', 'cotizaciones', 'inventario', 'obras', 'gastos', 'patrimonio', 'nomina', 'asistencia', 'tareas', 'empleados', 'vacaciones', 'prestamos', 'usuarios'],
+    centrosPersonal: ['Taller de servicio', 'Almacén y ventas', 'Oficina'],
     titulos: { obras: 'Proyectos y servicios' }, palabraObra: ['proyecto', 'proyectos'],
     centroPersonal: 'Taller de servicio',
     categorias: { 'Compra de mercancía': '📦', 'Material y refacciones': '🔩', ...CATS_BASE, 'Viáticos': '🧳', 'Gasolina': '⛽',
@@ -551,6 +553,12 @@
             notas: null, calificado_en: ['calificado', 'cotizado', 'ganado'].includes(est) || (est === 'perdido') ? new Date(cuando.getTime() + 864e5).toISOString() : null, externo_id: null });
         });
       }
+      // que el mes en curso ya traiga ventas cerradas gracias a los anuncios (al menos 3)
+      const mesHoy = hoy.slice(0, 7);
+      const delMes = prospectos.filter((p) => p.empresa_id === empresa.id && p.creado_en.slice(0, 7) === mesHoy);
+      const faltan = 3 - delMes.filter((p) => p.estado === 'ganado').length;
+      delMes.filter((p) => ['cotizado', 'calificado'].includes(p.estado) && p.origen !== 'whatsapp' && (Date.now() - new Date(p.creado_en)) > 3 * 864e5)
+        .slice(0, Math.max(0, faltan)).forEach((p) => { p.estado = 'ganado'; p.monto = cfg.monto(p.tipo_obra); p.calificado_en ||= p.creado_en; });
       // lo invertido también es gasto (categoría Publicidad), un cargo por mes y plataforma
       const porMes = {};
       inversion_publicidad.filter((r) => r.empresa_id === empresa.id).forEach((r) => { const k = r.semana.slice(0, 7) + '|' + r.plataforma; porMes[k] = (porMes[k] || 0) + r.monto; });
@@ -586,21 +594,98 @@
       centroGasto: torreA,
     });
 
+    // ---------- tareas del día, rondines e incidencias ----------
+    const tareas = [];
+    const TPL = [
+      [torreA, 'Limpieza', ['Barrer y trapear el lobby', 'Limpiar elevadores y espejos', 'Sacar la basura de todos los pisos', 'Limpiar vidrios del acceso'], 'Limpieza'],
+      [torreA, 'Vigilante', ['Revisar cámaras al iniciar turno', 'Anotar visitas y paqueterías en bitácora', 'Recorrido de estacionamiento y azotea'], 'Seguridad'],
+      [torreA, 'Mantenimiento de torres', ['Revisar bomba y nivel de cisterna', 'Revisar luminarias de pasillos', 'Atender reportes de inquilinos'], 'Mantenimiento'],
+      [torreB, 'Vigilante', ['Revisar cámaras al iniciar turno', 'Anotar visitas en bitácora', 'Recorrido de estacionamiento'], 'Seguridad'],
+      [taller, 'Técnico', ['Revisar y cargar herramienta de la camioneta', 'Reporte fotográfico del servicio del día'], 'Servicio'],
+      [taller, 'Ayudante', ['Orden y limpieza del taller', 'Inventario de consumibles (empaques, tornillería)'], 'Limpieza'],
+      [taller, 'Supervisor', ['Revisión de EPP de la cuadrilla', 'Confirmar servicios del día con clientes'], 'Seguridad'],
+    ];
+    const tplRows = [];
+    TPL.forEach(([c, puesto, lista, cat]) => lista.forEach((t) => tplRows.push({ id: id('tpl'), org_id: ORG, centro_id: c.id, empleado_id: null, puesto, tarea: t, categoria: cat, frecuencia: 'diaria', dia_semana: null, activo: true })));
+    tareas_plantilla.length = 0; tareas_plantilla.push(...tplRows);
+    const empDe = (c) => empleados.filter((e) => e.centro_id === c.id);
+    for (let k = -3; k <= 0; k++) {
+      const f = dias(k);
+      if (new Date(f + 'T12:00:00').getDay() === 0) continue;
+      tplRows.forEach((p) => empDe(centros.find((c) => c.id === p.centro_id)).filter((e) => e.puesto.toLowerCase().includes(p.puesto.toLowerCase()) || p.puesto.toLowerCase().includes(e.puesto.toLowerCase())).forEach((e) => {
+        if (k === 0 && rnd() < 0.45) return;                       // hoy van a medias
+        const ok = rnd() < 0.9;
+        const h = hora(f, entre(8, 17), entre(0, 59));
+        if (h > new Date()) return;
+        tareas.push({ id: id('tar'), org_id: ORG, centro_id: p.centro_id, plantilla_id: p.id, empleado_id: e.id, fecha: f, tipo: 'tarea', tarea: p.tarea,
+          categoria: p.categoria, estado: ok ? 'hecho' : 'no_hecho', hora_registro: h.toISOString(), registrado_por: e.nombre, creado_en: h.toISOString() });
+      }));
+      // rondín de la administradora / supervisor: verifica a cada quien un par de veces al día
+      [torreA, torreB].forEach((c) => empDe(c).filter((e) => !/administradora/i.test(e.puesto)).forEach((e) => {
+        [10, 16].forEach((hh) => { const h = hora(f, hh, entre(0, 50)); if (h > new Date()) return;
+          tareas.push({ id: id('ron'), org_id: ORG, centro_id: c.id, empleado_id: e.id, fecha: f, tipo: 'rondin', tarea: 'Verificación de rondín', categoria: 'Rondín',
+            estado: rnd() < 0.92 ? 'hecho' : 'no_hecho', hora_registro: h.toISOString(), registrado_por: 'Rosa María Quiroga', creado_en: h.toISOString() }); });
+      }));
+    }
+    const INC = [
+      [torreA, -1, 'Fuga de agua en baño del depto 704', 'Falla de mantenimiento', 'grave', 'Se cerró la llave de paso; plomero viene mañana', false],
+      [torreA, -2, 'Elevador 2 hace ruido al subir', 'Falla de mantenimiento', 'leve', 'Se reportó a Elevadores del Norte', false],
+      [torreA, -4, 'Portón del estacionamiento no cierra', 'Falla de mantenimiento', 'grave', null, true],
+      [torreA, -6, 'Vigilante del turno nocturno dormido', 'Uso indebido de horario', 'grave', 'Se habló con él; primera llamada de atención', true],
+      [torreA, -3, 'Inquilino del 1003 se queja de ruido del 1103', 'Otro', 'leve', 'Se le avisó al inquilino del 1103', false],
+      [torreB, -5, 'Lámpara fundida en pasillo del piso 2', 'Falla de mantenimiento', 'leve', null, true],
+      [taller, -2, 'Camioneta 2 con llanta baja', 'Falla de mantenimiento', 'leve', null, false],
+      [taller, -8, 'Faltó equipo de protección en servicio de Aceros del Valle', 'Otro', 'grave', 'Se compraron 4 arneses nuevos', true],
+    ];
+    INC.forEach(([c, k, t, cat, sev, notas, ok]) => { const h = hora(dias(k), entre(9, 18), entre(0, 59));
+      tareas.push({ id: id('inc'), org_id: ORG, centro_id: c.id, empleado_id: null, fecha: dias(k), tipo: 'incidencia', tarea: t, categoria: cat, severidad: sev,
+        notas, estado: ok ? 'hecho' : 'pendiente', resuelto_en: ok ? new Date(h.getTime() + 864e5).toISOString() : null, registrado_por: ADMIN, creado_en: h.toISOString() }); });
+
+    // ---------- patrimonio ----------
+    const activos = [
+      { empresa_id: E2.id, codigo: 'INM-01', entidad_legal: E2.nombre, tipo_unidad: 'Edificio', identificador: 'Torre Cumbres', direccion: 'Av. Cumbres 1500', ciudad: 'Monterrey',
+        superficie_m2: 14800, valor_comercial: 385000000, moneda: 'MXN', fecha_valuacion: 'Avalúo 2025', costo_adquisicion: 210000000, fecha_adquisicion: '2016-03-01', uso_actual: 'Departamentos, oficinas y locales en renta' },
+      { empresa_id: E2.id, codigo: 'INM-02', entidad_legal: E2.nombre, tipo_unidad: 'Edificio', identificador: 'Torre Valle', direccion: 'Calz. del Valle 320', ciudad: 'San Pedro Garza García',
+        superficie_m2: 2900, valor_comercial: 92000000, moneda: 'MXN', fecha_valuacion: 'Avalúo 2025', costo_adquisicion: 61000000, fecha_adquisicion: '2019-08-15', uso_actual: 'Oficinas en renta' },
+      { empresa_id: E2.id, codigo: 'INM-03', entidad_legal: E2.nombre, tipo_unidad: 'Terreno', identificador: 'Terreno junto a Torre Cumbres', direccion: 'Av. Cumbres 1520', ciudad: 'Monterrey',
+        superficie_m2: 1800, valor_comercial: 18500000, moneda: 'MXN', fecha_valuacion: 'Estimado', costo_adquisicion: 9800000, fecha_adquisicion: '2021-02-10', uso_actual: 'Estacionamiento de visitas' },
+      { empresa_id: E.id, codigo: 'GAL-01', entidad_legal: E.nombre, tipo_unidad: 'Terreno', identificador: 'Lote industrial Apodaca', direccion: 'Parque Industrial Apodaca', ciudad: 'Apodaca',
+        superficie_m2: 3200, valor_comercial: 14500000, moneda: 'MXN', fecha_valuacion: 'Estimado', costo_adquisicion: 8200000, fecha_adquisicion: '2022-06-01', uso_actual: 'Para la bodega propia (hoy se renta una)' },
+      { empresa_id: E.id, codigo: 'GAL-02', entidad_legal: E.nombre, tipo_unidad: 'Vehículo', identificador: '3 camionetas de servicio', ciudad: 'Monterrey',
+        valor_comercial: 2100000, moneda: 'MXN', fecha_valuacion: 'Libro azul', costo_adquisicion: 2650000, fecha_adquisicion: '2023-01-15', uso_actual: 'Cuadrillas de servicio' },
+      { empresa_id: E.id, codigo: 'GAL-03', entidad_legal: E.nombre, tipo_unidad: 'Equipo', identificador: 'Banco de pruebas de válvulas', ciudad: 'Monterrey',
+        valor_comercial: 1350000, moneda: 'MXN', fecha_valuacion: 'Factura', costo_adquisicion: 1600000, fecha_adquisicion: '2020-09-01', uso_actual: 'Calibración y certificación' },
+    ].map((a) => ({ id: id('act'), org_id: ORG, centro_id: null, unidad_id: null, clave_catastral: null, renta_mercado_estimada: null, notas: null,
+      inquilino: null, ingreso_mensual: a.identificador === 'Torre Cumbres' ? 1285000 : a.identificador === 'Torre Valle' ? 190000 : null, fecha_vencimiento_contrato: null, ...a }));
+    const pasivos = [
+      { empresa_id: E2.id, acreedor: 'Banco del Norte', tipo_pasivo: 'Hipoteca', saldo_actual: 33200000, tasa_interes: 11.5, pago_mensual: 520000, fecha_inicio: '2018-05-01', fecha_vencimiento: '2033-05-01', activo_ref: 'Torre Cumbres', garantia: 'Torre Cumbres' },
+      { empresa_id: E2.id, acreedor: 'Banco del Norte', tipo_pasivo: 'Línea de crédito', saldo_actual: 2400000, tasa_interes: 13.2, pago_mensual: 85000, fecha_inicio: '2025-01-15', fecha_vencimiento: '2027-01-15', activo_ref: 'Remodelación de departamentos', garantia: null },
+      { empresa_id: E.id, acreedor: 'Emerson (crédito comercial)', tipo_pasivo: 'Proveedor a largo plazo', saldo_actual: 907000, tasa_interes: 0, pago_mensual: null, fecha_inicio: null, fecha_vencimiento: null, activo_ref: 'Compras de mercancía a 30 días', garantia: null },
+      { empresa_id: E.id, acreedor: 'Financiera Automotriz', tipo_pasivo: 'Crédito simple', saldo_actual: 980000, tasa_interes: 14.9, pago_mensual: 58000, fecha_inicio: '2023-01-15', fecha_vencimiento: '2027-01-15', activo_ref: '3 camionetas de servicio', garantia: 'Las camionetas' },
+    ].map((p) => ({ id: id('pas'), org_id: ORG, activo_id: null, fecha_saldo: hoy, moneda: 'MXN', notas: null, ...p }));
+
+    // ---------- usuarios con acceso (ejemplo) ----------
+    const miembros = [{ org_id: ORG, user_id: 'demo-usuario', nombre: ADMIN, usuario: 'direccion', rol: 'dueno', roles: [], empresas: null, activo: true, debe_cambiar_password: false, creado_en: '2026-01-05T12:00:00Z' },
+      ...(INM ? [['Rosa María Quiroga', 'rosa', 'administracion', []], ['Lupita Cantú', 'lupita', 'cobranza', []], ['Juan Carlos Benavides', 'juancarlos', 'encargado', []]]
+        : [['Patricia Garza Molina', 'patricia', 'administracion', []], ['Diana Treviño', 'diana', 'cobranza', ['operacion']], ['Raúl Garza Treviño', 'raul', 'encargado', []], ['Ricardo Elizondo', 'ricardo', 'operacion', []]])
+        .map(([nombre, usuario, rol, roles], k) => ({ org_id: ORG, user_id: 'demo-u' + k, nombre, usuario, rol, roles, empresas: null, activo: true, debe_cambiar_password: false,
+          creado_en: '2026-02-1' + k + 'T12:00:00Z', ultimo_acceso: new Date(Date.now() - entre(1, 48) * 3600e3).toISOString() }))];
+
     const todoJunto = {
       organizaciones: [{ id: ORG, nombre: 'Galcor', plan: 'demo' }],
-      miembros: [{ org_id: ORG, user_id: 'demo-usuario', nombre: ADMIN, usuario: 'direccion', rol: 'dueno', roles: [], empresas: null, activo: true, debe_cambiar_password: false }],
+      miembros,
       empresas: [E, E2], centros, productos, inventario_movs, ingresos, gastos, cuentas_por_cobrar, pagos, empleados,
-      nomina_periodos, nomina_lineas, asistencia, vacaciones, prestamos, prestamo_abonos, tareas_plantilla, tareas: [],
-      cotizaciones, contratos, unidades, cuotas: [], activos: [], pasivos: [], tipo_cambio: [], prospectos, inversion_publicidad,
+      nomina_periodos, nomina_lineas, asistencia, vacaciones, prestamos, prestamo_abonos, tareas_plantilla, tareas,
+      cotizaciones, contratos, unidades, cuotas: [], activos, pasivos, tipo_cambio: [], prospectos, inversion_publicidad,
     };
     // Cada demo lleva solo su empresa
     const SOLO = INM ? E2.id : E.id, D = todoJunto;
     const porEmp = (l) => l.filter((r) => r.empresa_id === SOLO);
     D.empresas = D.empresas.filter((e) => e.id === SOLO); D.centros = porEmp(D.centros);
     const cen = new Set(D.centros.map((c) => c.id));
-    ['gastos', 'ingresos', 'pagos', 'cuentas_por_cobrar', 'empleados', 'nomina_periodos', 'productos', 'cotizaciones', 'prospectos', 'inversion_publicidad']
+    ['gastos', 'ingresos', 'pagos', 'cuentas_por_cobrar', 'empleados', 'nomina_periodos', 'productos', 'cotizaciones', 'prospectos', 'inversion_publicidad', 'activos', 'pasivos']
       .forEach((t) => { D[t] = porEmp(D[t]); });
-    ['unidades', 'contratos', 'tareas_plantilla'].forEach((t) => { D[t] = D[t].filter((r) => cen.has(r.centro_id)); });
+    ['unidades', 'contratos', 'tareas_plantilla', 'tareas'].forEach((t) => { D[t] = D[t].filter((r) => cen.has(r.centro_id)); });
     const emps = new Set(D.empleados.map((e) => e.id));
     ['nomina_lineas', 'asistencia', 'vacaciones', 'prestamos'].forEach((t) => { D[t] = D[t].filter((r) => emps.has(r.empleado_id)); });
     const pres = new Set(D.prestamos.map((p) => p.id));

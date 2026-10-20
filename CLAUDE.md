@@ -117,6 +117,9 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   Cotizaciones, Inventario, Proyectos, Gastos, Personal; y `?demo=inmobiliaria`: sus torres en renta — Prospectos, Rentas (abonos y
   Ocupación), Gastos, Personal. Cada uno filtra los datos a su empresa. Prospectos con 12 semanas de inversión simulada en Google y
   Meta (también como gasto "Publicidad"). El vocabulario de Prospectos se cambia con `MARCA.prospectos` (tipos, cuándo, terreno, saludo…).
+  Los demos traen el menú completo: Patrimonio, Usuarios (alta simulada) y Personal separado en opciones del menú (Nómina,
+  Asistencia, Tareas, Rondín, Incidencias, Empleados, Vacaciones, Préstamos: módulos `opcional` con `vista: 'personal'` y `tab`;
+  `MARCA.centrosPersonal` limita los centros). Galcor sin Rondín ni Incidencias; la inmobiliaria con todo.
 - **Rentas con opciones de marca:** `rentaParcial` (abonos: si los pagos del mes no suman la renta queda "Abonado" y muestra lo que
   falta; el recibo dice el saldo) y `ocupacion` (pestaña Ocupación: mapa de unidades por torre/tipo, ligado por `contratos.unidad_id`).
   Treme hoy no las usa (si se activa `rentaParcial`, Apetit jul–ago saldría con $3,400 pendientes). Recibo: `reciboEmpresa/Logo/Color`.

@@ -178,7 +178,7 @@
     equipo_de: ({ p_centro }) => T('empleados').filter((e) => e.centro_id === p_centro && e.activo)
       .sort((a, b) => a.nombre.localeCompare(b.nombre))
       .map(({ id, nombre, puesto, hora_entrada, hora_salida, tolerancia_min, dias_laborales }) => ({ id, nombre, puesto, hora_entrada, hora_salida, tolerancia_min, dias_laborales })),
-    usuarios_lista: () => T('miembros').map((m) => ({ ...m, correo: m.usuario + '@demo.mx', ultimo_acceso: new Date().toISOString() })),
+    usuarios_lista: () => T('miembros').map((m) => ({ ...m, correo: m.usuario + '@usuarios.demo', ultimo_acceso: m.ultimo_acceso || new Date().toISOString() })),
     asistencia_marcar: ({ p_empleado, p_fecha, p_accion }) => {
       const e = T('empleados').find((x) => x.id === p_empleado);
       if (!e) throw new Error('Empleado no encontrado');
@@ -254,7 +254,21 @@
     schema: () => ({ from: (t) => new Consulta(t), rpc }),
     // Sin almacenamiento en el demo: las fotos y PDFs se guardan dentro del registro (la app ya sabe hacerlo)
     storage: { from: () => ({ upload: async () => ({ data: null, error: { message: 'demo' } }), getPublicUrl: () => ({ data: { publicUrl: '' } }) }) },
-    functions: { invoke: async () => ({ data: null, error: { message: 'En el demo no se pueden crear usuarios.' } }) },
+    // Alta y edición de usuarios: en el demo se simula (no se crea ninguna cuenta real)
+    functions: { invoke: async (nombre, { body } = {}) => {
+      await espera();
+      if (nombre !== 'usuarios' || !body) return { data: null, error: { message: 'No disponible en el demo' } };
+      const M = T('miembros');
+      if (body.accion === 'crear') {
+        if (M.some((m) => m.usuario === body.usuario)) return { data: null, error: { message: 'Ese usuario ya existe' } };
+        M.push({ org_id: M[0].org_id, user_id: uid(), nombre: body.nombre, usuario: body.usuario, rol: body.rol, roles: body.roles || [],
+          empresas: body.empresas, activo: true, debe_cambiar_password: true, creado_en: new Date().toISOString() });
+      } else if (body.accion === 'editar' || body.accion === 'activo') {
+        const m = M.find((x) => x.user_id === body.user_id);
+        if (m) Object.entries(body).forEach(([k, v]) => { if (!['accion', 'user_id', 'password'].includes(k) && v !== undefined) m[k] = v; });
+      }
+      return { data: { ok: true }, error: null };
+    } },
   };
   window.supabase = { createClient: () => cliente };
   window.__DEMO = { datos: D };

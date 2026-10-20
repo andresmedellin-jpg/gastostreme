@@ -17,6 +17,14 @@ const ICONOS = {
   obras:      svg('<path d="M3 18h18M5 18a7 7 0 0 1 14 0M12 7v4M9 8.5v2.5M15 8.5v2.5"/><path d="M4 21h16"/>'),
   personal:   svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/>'),
   usuarios:   svg('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
+  nomina:     svg('<rect x="3" y="6" width="18" height="12" rx="1"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9v.01M18 15v.01"/>'),
+  asistencia: svg('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/>'),
+  tareas:     svg('<path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1 1 2-2M3.5 12l1 1 2-2M3.5 18l1 1 2-2"/>'),
+  rondin:     svg('<path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2"/>'),
+  incidencias: svg('<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.01"/>'),
+  vacaciones: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+  prestamos:  svg('<path d="M3 10h18M5 10V20M19 10V20M9.5 10V20M14.5 10V20M2 21h20M12 3l9 5H3z"/>'),
+  empleados:  svg('<rect x="3" y="4" width="18" height="16" rx="1"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 17a3.5 3.5 0 0 1 7 0M15 10h3M15 14h3"/>'),
   inventario: svg('<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>'),
   cotizaciones: svg('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 12h6M10 16h6M4 7v14h10" opacity=".9"/>'),
   prospectos: svg('<path d="M3 4h18l-7 8.5V19l-4 2v-8.5z"/>'),
@@ -48,6 +56,15 @@ export const MODULOS = [
   { id: 'inventario', grupo: 'Ventas',    titulo: 'Inventario',       icono: ICONOS.inventario, roles: ['dueno','administracion','operacion'], listo: true, opcional: true },
   { id: 'patrimonio', grupo: 'Finanzas',  titulo: 'Patrimonio',       icono: ICONOS.patrimonio, roles: ['dueno','socio'], listo: true },
   { id: 'personal',   grupo: 'Operación', titulo: 'Personal',         icono: ICONOS.personal,   roles: ['dueno','administracion','encargado'], listo: true },
+  // Personal separado en el menú (solo si la marca lo pide con sus ids en "modulos"; usan el módulo de Personal)
+  { id: 'nomina',      grupo: 'Personal', titulo: 'Nómina',      icono: ICONOS.nomina,      roles: ['dueno','administracion'], listo: true, opcional: true, vista: 'personal', tab: 'nomina' },
+  { id: 'asistencia',  grupo: 'Personal', titulo: 'Asistencia',  icono: ICONOS.asistencia,  roles: ['dueno','administracion','encargado'], listo: true, opcional: true, vista: 'personal', tab: 'asistencia' },
+  { id: 'tareas',      grupo: 'Personal', titulo: 'Tareas',      icono: ICONOS.tareas,      roles: ['dueno','administracion','encargado'], listo: true, opcional: true, vista: 'personal', tab: 'tareas' },
+  { id: 'rondin',      grupo: 'Personal', titulo: 'Rondín',      icono: ICONOS.rondin,      roles: ['dueno','administracion','encargado'], listo: true, opcional: true, vista: 'personal', tab: 'rondin' },
+  { id: 'incidencias', grupo: 'Personal', titulo: 'Incidencias', icono: ICONOS.incidencias, roles: ['dueno','administracion','encargado'], listo: true, opcional: true, vista: 'personal', tab: 'incidencias' },
+  { id: 'empleados',   grupo: 'Personal', titulo: 'Empleados',   icono: ICONOS.empleados,   roles: ['dueno','administracion'], listo: true, opcional: true, vista: 'personal', tab: 'empleados' },
+  { id: 'vacaciones',  grupo: 'Personal', titulo: 'Vacaciones',  icono: ICONOS.vacaciones,  roles: ['dueno','administracion'], listo: true, opcional: true, vista: 'personal', tab: 'vacaciones' },
+  { id: 'prestamos',   grupo: 'Personal', titulo: 'Préstamos',   icono: ICONOS.prestamos,   roles: ['dueno','administracion'], listo: true, opcional: true, vista: 'personal', tab: 'prestamos' },
   { id: 'usuarios',   grupo: 'Operación', titulo: 'Usuarios',         icono: ICONOS.usuarios,   roles: ['dueno'], listo: true },
 ];
 
@@ -58,7 +75,7 @@ export const PERFILES = [
   { id: 'captura',   titulo: 'Captura: gastos y cobranza', rol: 'cobranza',  roles: ['operacion'],
     desc: 'Captura gastos de obra y oficina, y registra cobranza. No ve Casa, Socios, nómina ni patrimonio.' },
   { id: 'cobranza',  titulo: 'Cobranza y rentas',          rol: 'cobranza',  roles: [],
-    desc: 'Rentas, cobranza de Elysium y adeudos. No ve gastos.' },
+    desc: MARCA.demo ? 'Rentas, cobranza y adeudos. No ve gastos.' : 'Rentas, cobranza de Elysium y adeudos. No ve gastos.' },
   { id: 'gastos',    titulo: 'Solo gastos',                rol: 'operacion', roles: [],
     desc: 'Captura y consulta gastos de obra y oficina.' },
   { id: 'encargado', titulo: 'Encargado de sitio',         rol: 'encargado', roles: [],
@@ -68,7 +85,7 @@ export const PERFILES = [
 ];
 
 // Altas sugeridas (desaparecen al crearlas)
-export const SUGERIDOS = [
+export const SUGERIDOS = MARCA.demo ? [] : [
   { nombre: 'Victoria Carrillo', usuario: 'victoria', perfil: 'captura',   empresas: 'todas' },
   { nombre: 'Víctor Olazarán',   usuario: 'victor',   perfil: 'encargado', empresas: ['Treme'] },
   { nombre: 'Miguel Medellín',   usuario: 'miguel',   perfil: 'socio',     empresas: 'todas' },

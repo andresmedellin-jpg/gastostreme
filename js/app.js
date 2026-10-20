@@ -241,7 +241,7 @@ async function navegar() {
   caja.innerHTML = '<div class="cargando">Cargando…</div>';
   view.replaceChildren(caja);
   try {
-    const m = await (vistas[mod.id] || pendiente)();
+    const m = await (vistas[mod.vista || mod.id] || pendiente)();
     if (mio !== turno) return;
     await m.render(caja, mod);
   } catch (e) {

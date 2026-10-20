@@ -31,8 +31,11 @@ const etiquetaSemana = (lunes) => {
 const iniciales = (n) => (n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join('').toUpperCase();
 
 // ---------- entrada ----------
-export async function render(view) {
+// Con la marca "personalEnMenu", cada pestaña es su propia opción del menú (mod.tab) y no se muestran pestañas.
+export async function render(view, mod) {
   raiz = view;
+  const fijo = mod?.tab;
+  if (fijo) st.tab = fijo;
   // La marca puede ocultar pestañas que no aplican a su giro (p. ej. rondín de un edificio)
   const tabsDia = [['asistencia', 'Asistencia'], ['tareas', 'Tareas'], ['rondin', 'Rondín'], ['incidencias', 'Incidencias']]
     .filter(([id]) => !(MARCA.ocultarPestanas || []).includes(id));
@@ -41,12 +44,13 @@ export async function render(view) {
   st.tab ||= tabs[0][0];
 
   // centros con personal (para el encargado: los de su empresa)
-  const visibles = estado.centros.filter((c) => !['socio', 'personal'].includes(c.tipo) || admin());
+  // (con la marca, solo los centros que tienen personal)
+  const visibles = estado.centros.filter((c) => (!['socio', 'personal'].includes(c.tipo) || admin()) && (!MARCA.centrosPersonal || MARCA.centrosPersonal.includes(c.nombre)));
   st.centro ||= (visibles.find((c) => c.nombre === (MARCA.centroPersonal || 'Torre Elysium')) || visibles[0])?.id;
 
   view.innerHTML = `
     <div class="sub-head">
-      <div class="tabs" role="tablist">${tabs.map(([id, t]) => `<button role="tab" data-tab="${id}">${t}</button>`).join('')}</div>
+      ${fijo ? '<span></span>' : `<div class="tabs" role="tablist">${tabs.map(([id, t]) => `<button role="tab" data-tab="${id}">${t}</button>`).join('')}</div>`}
       <select id="p-centro" aria-label="Centro" class="${admin() ? '' : 'solo-dia'}">
         ${visibles.map((c) => `<option value="${c.id}" ${c.id === st.centro ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select>
     </div>
