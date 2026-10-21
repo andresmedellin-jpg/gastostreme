@@ -58,6 +58,8 @@ $('login-form').addEventListener('submit', async (e) => {
   const usuario = $('login-user').value.trim();
   const password = $('login-pass').value;
   if (!usuario || !password) return mensajeLogin('Escribe tu usuario y contraseña.');
+  // Usuario de demostración: abre la plataforma completa con números inventados (no toca la base real)
+  if (usuario.toLowerCase() === 'demo' && password === 'medco2026') { location.href = location.pathname + '?demo=medco#/inicio'; return; }
   $('login-btn').disabled = true;
   mensajeLogin('');
   try {

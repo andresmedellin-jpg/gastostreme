@@ -16,6 +16,8 @@
     <text x="78" y="66" font-family="Arial,Helvetica,sans-serif" font-size="11" letter-spacing="2.4" fill="${COLOR}">INMOBILIARIA</text></svg>`);
 
   // Dos demos: ?demo=galcor (válvulas y servicio, por omisión) y ?demo=inmobiliaria (torres en renta)
+  // ?demo=medco: la plataforma de Treme/MEDCO completa con números inventados (usuario "demo" en el acceso)
+  const MEDCO = /[?&]demo=medco/i.test(location.search);
   const VARIANTE = /[?&]demo=inmob/i.test(location.search) ? 'inmobiliaria' : 'galcor';
   const INM = VARIANTE === 'inmobiliaria';
   const COLOR_INM = '#2d6a5f';
@@ -31,7 +33,11 @@
     'Publicidad': 'Google Ads, Meta (Instagram y Facebook), letreros', 'Intereses y comisiones': 'Intereses de créditos y comisiones bancarias',
     'Otros': 'Solo si no cabe en ninguna de las anteriores' };
 
-  window.__MARCA = INM ? {
+  window.__MARCA = MEDCO ? {
+    demo: true, contacto: 'Monterrey, N.L.', rentaParcial: true, ocupacion: true,
+    modulos: ['inicio', 'prospectos', 'cotizaciones', 'inventario', 'obras', 'rentas', 'gastos', 'patrimonio', 'nomina', 'asistencia',
+      'tareas', 'rondin', 'incidencias', 'empleados', 'vacaciones', 'prestamos', 'usuarios'],
+  } : INM ? {
     ...comunes,
     nombre: 'Inmobiliaria Galcor · Administración',
     marca: ['Galcor', 'Inmobiliaria'],
@@ -678,6 +684,12 @@
       nomina_periodos, nomina_lineas, asistencia, vacaciones, prestamos, prestamo_abonos, tareas_plantilla, tareas,
       cotizaciones, contratos, unidades, cuotas: [], activos, pasivos, tipo_cambio: [], prospectos, inversion_publicidad,
     };
+    if (MEDCO) {            // las dos empresas juntas, con los nombres de Treme y MEDCO
+      E.nombre = 'Desarrollos y Proyectos MEDCO'; E.nombre_corto = 'MEDCO';
+      E2.nombre = 'Grupo Inmobiliario Treme'; E2.nombre_corto = 'Treme';
+      todoJunto.organizaciones[0].nombre = 'Treme / MEDCO';
+      return todoJunto;
+    }
     // Cada demo lleva solo su empresa
     const SOLO = INM ? E2.id : E.id, D = todoJunto;
     const porEmp = (l) => l.filter((r) => r.empresa_id === SOLO);
