@@ -303,7 +303,7 @@ function registrarPago(r, concepto, m) {
     }
     cerrarModal(); toast(ms.length > 1 ? `Pago guardado en ${ms.length} meses ✓` : `Pago guardado en ${MESES[ms[0]].toLowerCase()} ✓`);
     await cargar();
-    if (conRecibo) generarRecibo(w, r.u, ms[0], ms.length > 1 ? { conceptos: [concepto], meses: ms } : { conceptos: conceptosPorDefecto(r.u, ms[0], concepto) });
+    if (conRecibo) generarRecibo(w, r.u, ms[0], { conceptos: [concepto], meses: ms });   // solo lo que se acaba de cobrar; juntos se saca con el botón Recibo
   };
   modal.querySelector('#pf-si').addEventListener('click', (ev) => guardar(ev, false));
   modal.querySelector('#pf-rec').addEventListener('click', (ev) => guardar(ev, true));
