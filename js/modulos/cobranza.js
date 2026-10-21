@@ -239,13 +239,17 @@ function pintarDeudores(el) {
 
 // ---------- acciones ----------
 function registrarPago(r, concepto, m) {
-  const sugerido = r.pagado(m) > 0 ? '' : Number(r.cuota.monto);
+  const cuota = Number(r.cuota.monto) || 0;
   const modal = abrirModal({
-    titulo: `${CONCEPTOS[concepto].titulo} · ${etiquetaUnidad(r.u)} · ${MESES[m]}`,
+    titulo: `${CONCEPTOS[concepto].titulo} · ${etiquetaUnidad(r.u)}`,
     cuerpo: `<form class="form" id="pf" novalidate>
-      <p class="nota">${esc(r.u.ocupante || '')}${r.pagado(m) ? ` · ya tiene ${fmt(r.pagado(m))} registrado este mes` : ''}</p>
+      <p class="nota" id="pf-info"></p>
       <div class="form-2">
-        <label>Monto recibido<input type="number" name="monto" min="0.01" step="0.01" inputmode="decimal" value="${sugerido}" required></label>
+        <label>Mes que paga<select name="mes">${MESES.map((t, i) => `<option value="${i}" ${i === m ? 'selected' : ''}>${t} ${st.anio}</option>`).join('')}</select></label>
+        <label>¿Cuántos meses paga?<select name="n">${[1, 2, 3, 4, 5, 6].map((n) => `<option>${n}</option>`).join('')}</select></label>
+      </div>
+      <div class="form-2">
+        <label>Monto recibido <small id="pf-reparto"></small><input type="number" name="monto" min="0.01" step="0.01" inputmode="decimal" required></label>
         <label>Fecha de pago<input type="date" name="fecha" value="${hoyISO()}" required></label>
       </div>
       <label>Forma de pago<select name="forma">${FORMAS_COBRO.map((f) => `<option>${f}</option>`).join('')}</select></label>
@@ -255,28 +259,51 @@ function registrarPago(r, concepto, m) {
       <button class="btn btn-primary" id="pf-rec">Guardar y ver recibo</button>`,
   });
   const f = modal.querySelector('#pf');
+  const meses = () => { const a = +f.mes.value; return Array.from({ length: Math.min(+f.n.value, 12 - a) }, (_, i) => a + i); };
+  const actualizar = () => {
+    const ms = meses(), ya = ms.filter((i) => r.pagado(i) > 0);
+    f.n.querySelectorAll('option').forEach((o) => { o.disabled = +f.mes.value + +o.value > 12; });
+    if (!f.monto.dataset.tocado) f.monto.value = ya.length ? '' : (cuota * ms.length || '');
+    modal.querySelector('#pf-info').innerHTML = `${esc(r.u.ocupante || '')} · paga <strong>${ms.length === 1 ? MESES[ms[0]] : `${MESES[ms[0]]} a ${MESES[ms.at(-1)]}`}</strong>`
+      + (ya.length ? ` · <span style="color:var(--neg)">ya hay pago en ${ya.map((i) => MESES[i].toLowerCase()).join(', ')}</span>` : '');
+    modal.querySelector('#pf-reparto').textContent = ms.length > 1 ? `(se reparte en ${ms.length} meses)` : '';
+  };
+  f.mes.addEventListener('change', () => { f.mes.dataset.tocado = '1'; actualizar(); });
+  f.n.addEventListener('change', actualizar);
+  f.monto.addEventListener('input', () => { f.monto.dataset.tocado = '1'; actualizar(); });
+  // Si cambian la fecha a otro mes del mismo año y no han tocado "Mes que paga", el mes la sigue
+  f.fecha.addEventListener('change', () => {
+    const [y, mm] = (f.fecha.value || '').split('-').map(Number);
+    if (!f.mes.dataset.tocado && y === st.anio && mm) { f.mes.value = String(mm - 1); actualizar(); }
+  });
+  actualizar();
   modal.querySelector('#pf-no').addEventListener('click', cerrarModal);
   const guardar = async (ev, conRecibo) => {
     const btn = ev.currentTarget;
     const monto = Number(f.monto.value);
     if (!(monto > 0)) return toast('Escribe el monto recibido', true);
     if (!f.fecha.value) return toast('Pon la fecha de pago', true);
+    const ms = meses();
+    if (ms.some((i) => r.pagado(i) > 0) && !confirm('Alguno de esos meses ya tiene pago. ¿Registrar otro de todos modos?')) return;
     const w = conRecibo ? abrirVentana() : null;           // se abre antes de esperar, para que el navegador no la bloquee
     if (conRecibo && !w) return;
     btn.disabled = true; btn.textContent = 'Guardando…';
-    const { error } = await db().from('pagos').insert({
+    // Varios meses: un pago por mes, repartido en partes iguales (el último ajusta los centavos)
+    const parte = Math.floor(monto / ms.length * 100) / 100;
+    const { error } = await db().from('pagos').insert(ms.map((i, k) => ({
       org_id: estado.miembro.org_id, empresa_id: centro.empresa_id, centro_id: centro.id, unidad_id: r.u.id,
-      concepto, periodo: `${st.anio}-${String(m + 1).padStart(2, '0')}-01`,
-      monto: Math.round(monto * 100) / 100, forma_pago: f.forma.value, fecha: f.fecha.value,
+      concepto, periodo: `${st.anio}-${String(i + 1).padStart(2, '0')}-01`,
+      monto: k === ms.length - 1 ? Math.round((monto - parte * (ms.length - 1)) * 100) / 100 : parte,
+      forma_pago: f.forma.value, fecha: f.fecha.value,
       notas: f.nota.value.trim() || null, capturado_por: estado.miembro.nombre,
-    });
+    })));
     if (error) {
       w?.close(); btn.disabled = false; btn.textContent = conRecibo ? 'Guardar y ver recibo' : 'Guardar pago';
       return toast('No se pudo guardar: ' + error.message, true);
     }
-    cerrarModal(); toast('Pago guardado ✓');
+    cerrarModal(); toast(ms.length > 1 ? `Pago guardado en ${ms.length} meses ✓` : `Pago guardado en ${MESES[ms[0]].toLowerCase()} ✓`);
     await cargar();
-    if (conRecibo) generarRecibo(w, r.u, m, { conceptos: conceptosPorDefecto(r.u, m, concepto) });
+    if (conRecibo) generarRecibo(w, r.u, ms[0], ms.length > 1 ? { conceptos: [concepto], meses: ms } : { conceptos: conceptosPorDefecto(r.u, ms[0], concepto) });
   };
   modal.querySelector('#pf-si').addEventListener('click', (ev) => guardar(ev, false));
   modal.querySelector('#pf-rec').addEventListener('click', (ev) => guardar(ev, true));
@@ -444,8 +471,9 @@ function pedirRecibo(u, m, concepto) {
 }
 
 async function generarRecibo(w, u, m, op) {
-  const conceptos = op.conceptos.filter((k) => pagosDelMes(u.id, m, k).length);
-  const ps = pagos.filter((p) => p.unidad_id === u.id && mesDe(p.periodo) === m && conceptos.includes(p.concepto));
+  const ms = op.meses || [m];
+  const conceptos = op.conceptos.filter((k) => ms.some((i) => pagosDelMes(u.id, i, k).length));
+  const ps = pagos.filter((p) => p.unidad_id === u.id && ms.includes(mesDe(p.periodo)) && conceptos.includes(p.concepto));
   if (!ps.length) { w.close(); return toast('No hay pagos para el recibo', true); }
   // Folio: si todos los pagos ya comparten uno, se reusa; si no, uno nuevo para este recibo
   const folios = [...new Set(ps.map((p) => p.folio))];
@@ -460,12 +488,12 @@ async function generarRecibo(w, u, m, op) {
   }
   const nombre = op.nombre || pagadorDe(u, conceptos[0]) || '—';
   const tipo = TIPO_RECIBO[op.tipo || u.tipo] || 'Unidad';
-  const per = `${MESES[m]} ${st.anio}`;
-  const lineas = conceptos.map((k) => {
-    const monto = pagosDelMes(u.id, m, k).reduce((s, p) => s + Number(p.monto), 0);
+  const per = ms.length === 1 ? `${MESES[m]} ${st.anio}` : `${MESES[ms[0]]} a ${MESES[ms.at(-1)]} ${st.anio}`;
+  const lineas = ms.flatMap((i) => conceptos.map((k) => {
+    const monto = pagosDelMes(u.id, i, k).reduce((s, p) => s + Number(p.monto), 0);
     const cuota = Number(cuotaDe(u.id, k)?.monto || 0);
-    return { k, concepto: NOMBRE_LINEA[k], detalle: per, cantidad: 1, precio: monto, subtotal: monto, completo: !(cuota > 0) || monto >= cuota };
-  });
+    return { k, concepto: NOMBRE_LINEA[k], detalle: `${MESES[i]} ${st.anio}`, cantidad: 1, precio: monto, subtotal: monto, completo: !(cuota > 0) || monto >= cuota };
+  })).filter((l) => l.subtotal > 0);
   const textoConcepto = conceptos.map((k) => NOMBRE_CORTO[k]).join(' + ');
   const formas = [...new Set(ps.map((p) => formaLegible(p.forma_pago)).filter(Boolean))].join(' / ') || '—';
   const notas = [op.nota, ...new Set(ps.map((p) => p.notas).filter(Boolean))].filter(Boolean).join(' · ');

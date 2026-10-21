@@ -291,7 +291,11 @@ function cobrar(r) {
     }
   };
   f.contrato.addEventListener('change', alCambiar);
-  f.periodo.addEventListener('change', alCambiar);
+  f.periodo.addEventListener('change', () => { f.periodo.dataset.tocado = '1'; alCambiar(); });
+  // Si cambian la fecha de pago a otro mes y no han tocado el periodo, el periodo la sigue
+  f.fecha.addEventListener('change', () => {
+    if (!f.periodo.dataset.tocado && /^\d{4}-\d{2}/.test(f.fecha.value)) { f.periodo.value = f.fecha.value.slice(0, 7); alCambiar(); }
+  });
   f.monto.addEventListener('input', () => (f.monto.dataset.tocado = '1'));
   alCambiar();
   modal.querySelector('#cf-no').addEventListener('click', cerrarModal);
