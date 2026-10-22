@@ -128,6 +128,14 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   **Cotizaciones** (`cotizaciones.js` + `cotizacion-pdf.js`): partidas en jsonb, IVA 16 %, estados borrador/enviada/aceptada/rechazada;
   al aceptar crea proyecto (centro tipo obra + cxc venta) y descuenta inventario. Sus tablas están en
   `supabase/plantilla/inventario_cotizaciones.sql` (no aplicadas en Treme/MEDCO).
+- **Lecturas de luz, gas y agua** (`lecturas.js`, opcionales `lecturas` = "Toma de lecturas" y `servicios` = "Luz, gas y agua", vista
+  `lecturas`): para edificios que pagan un solo recibo (CFE, gas, Agua y Drenaje) y cobran a cada unidad según su submedidor (primer
+  cliente: la torre de la inmobiliaria de Galcor). Placa QR por medidor ("MED:<id>", hoja imprimible con `js/vendor/qrcode.min.js`);
+  el lecturista escanea con la cámara (BarcodeDetector o `js/vendor/jsQR.js`), escribe la lectura y foto obligatoria; avisa si es menor
+  a la anterior o más de 2.2× su consumo normal (queda "revisar"). Encargado: avance, revisión/aprobación, cuadre contra el recibo de
+  cada compañía, aviso de cobro PDF por unidad (recibo.js con `encabezado`/`totalTexto`/`estadoTexto`), tarifas (fija o reparto del
+  recibo real). Tablas en `supabase/plantilla/lecturas_servicios.sql` (no aplicadas en Treme/MEDCO). En el demo: ?demo=inmobiliaria.
+  Pendiente: leer la foto con IA para confirmar el número; ligar el cobro a Rentas/abonos.
 - Cada cliente real debe ir en su propio proyecto de Supabase (no mezclar con los datos de Treme/MEDCO).
 
 ## Personas

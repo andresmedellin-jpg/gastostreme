@@ -14,6 +14,7 @@ const vistas = {
   inventario: () => import('./modulos/inventario.js'),
   cotizaciones: () => import('./modulos/cotizaciones.js'),
   prospectos: () => import('./modulos/prospectos.js'),
+  lecturas: () => import('./modulos/lecturas.js'),
 };
 
 // ================= MARCA =================

@@ -35,14 +35,14 @@
 
   window.__MARCA = MEDCO ? {
     demo: true, contacto: 'Monterrey, N.L.', rentaParcial: true, ocupacion: true,
-    modulos: ['inicio', 'prospectos', 'cotizaciones', 'inventario', 'obras', 'rentas', 'gastos', 'patrimonio', 'nomina', 'asistencia',
+    modulos: ['inicio', 'prospectos', 'cotizaciones', 'inventario', 'obras', 'rentas', 'lecturas', 'servicios', 'gastos', 'patrimonio', 'nomina', 'asistencia',
       'tareas', 'rondin', 'incidencias', 'empleados', 'vacaciones', 'prestamos', 'usuarios'],
   } : INM ? {
     ...comunes,
     nombre: 'Inmobiliaria Galcor · Administración',
     marca: ['Galcor', 'Inmobiliaria'],
     logos: [{ src: logoInm.replaceAll(encodeURIComponent(COLOR), encodeURIComponent(COLOR_INM)), alt: 'Inmobiliaria Galcor', clase: 'logo-demo' }],
-    modulos: ['inicio', 'prospectos', 'rentas', 'gastos', 'patrimonio', 'nomina', 'asistencia', 'tareas', 'rondin', 'incidencias', 'empleados', 'vacaciones', 'prestamos', 'usuarios'],
+    modulos: ['inicio', 'prospectos', 'rentas', 'lecturas', 'servicios', 'gastos', 'patrimonio', 'nomina', 'asistencia', 'tareas', 'rondin', 'incidencias', 'empleados', 'vacaciones', 'prestamos', 'usuarios'],
     centrosPersonal: ['Torre Cumbres', 'Torre Valle'],
     rentaParcial: true, ocupacion: true,
     reciboEmpresa: 'Inmobiliaria Galcor', reciboLogo: logoInm.replaceAll(encodeURIComponent(COLOR), encodeURIComponent(COLOR_INM)), reciboColor: COLOR_INM,
@@ -677,12 +677,65 @@
         .map(([nombre, usuario, rol, roles], k) => ({ org_id: ORG, user_id: 'demo-u' + k, nombre, usuario, rol, roles, empresas: null, activo: true, debe_cambiar_password: false,
           creado_en: '2026-02-1' + k + 'T12:00:00Z', ultimo_acceso: new Date(Date.now() - entre(1, 48) * 3600e3).toISOString() }))];
 
+    // ---------- lecturas de luz, gas y agua (Torre Cumbres y Torre Valle) ----------
+    // Aleatorio propio, para no mover el resto de los datos del demo
+    let sem2 = 777; const rm2 = () => ((sem2 = (sem2 * 1664525 + 1013904223) % 4294967296) / 4294967296);
+    const em2 = (a, b) => Math.round(a + rm2() * (b - a));
+    const medidores = [], lecturas = [], recibos_servicio = [], tarifas_servicio = [];
+    const ZONA = { luz: 'Cuarto de medidores (sótano)', gas: 'Fila de gas (estacionamiento)', agua: 'Cuarto de bombas' };
+    const PER = []; for (let k = 4; k >= 0; k--) { const d = new Date(HOY); d.setDate(1); d.setMonth(d.getMonth() - k); PER.push(iso(d).slice(0, 7) + '-01'); }
+    const ocupada = new Set(contratos.filter((c) => c.activo).map((c) => c.unidad_id));
+    const BASE = { luz: { depto: 260, oficina: 420, local: 900 }, gas: { depto: 16 }, agua: { depto: 13, oficina: 6, local: 9 } };
+    const fotoDe = (v) => 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="480" height="300"><rect width="480" height="300" fill="#d9d6cf"/><rect x="60" y="100" width="360" height="90" rx="6" fill="#141414"/>${[...String(Math.round(v)).padStart(6, '0')].map((d, i) => `<text x="${95 + i * 58}" y="163" fill="#f5f5f0" font-family="monospace" font-size="50" text-anchor="middle">${d}</text>`).join('')}<text x="240" y="240" fill="#555" font-family="Arial" font-size="18" text-anchor="middle">foto de ejemplo</text></svg>`);
+    for (const torre of [torreA, torreB]) {
+      const orden = { luz: 0, gas: 0, agua: 0 };
+      unidades.filter((u) => u.centro_id === torre.id).forEach((u) => {
+        for (const sv of ['luz', 'gas', 'agua']) {
+          const base = BASE[sv][u.tipo]; if (!base) continue;
+          const med = { id: id('med'), org_id: ORG, centro_id: torre.id, unidad_id: u.id, servicio: sv, serie: `${sv[0].toUpperCase()}${em2(1000000, 9999999)}`,
+            zona: ZONA[sv], orden: ++orden[sv], lectura_inicial: em2(1500, 60000), activo: true };
+          medidores.push(med);
+          const prom = ocupada.has(u.id) ? base * (0.6 + rm2() * 0.8) : base * 0.05;
+          let v = med.lectura_inicial;
+          PER.forEach((pe, k) => {
+            const actual = k === PER.length - 1;
+            if (actual && rm2() < 0.14) return;                        // faltan algunas este mes
+            let c = Math.max(0, Math.round(prom * (0.85 + rm2() * 0.3)));
+            let est = actual ? 'ok' : 'aprobada';
+            if (actual && rm2() < 0.025) { c = Math.round(prom * 3.1) + 5; est = 'revisar'; }
+            v += c;
+            lecturas.push({ id: id('lec'), org_id: ORG, centro_id: torre.id, medidor_id: med.id, periodo: pe, lectura: v,
+              fecha: pe.slice(0, 8) + String(em2(2, 5)).padStart(2, '0'), estado: est, foto_path: actual || k === PER.length - 2 ? fotoDe(v) : null,
+              capturado_por: 'Juan Carlos Benavides', nota: null });
+          });
+        }
+      });
+      // Recibos de las compañías: lo de los medidores + áreas comunes; el gas del mes actual no cuadra
+      PER.forEach((pe, k) => {
+        for (const sv of ['luz', 'gas', 'agua']) {
+          const ms = medidores.filter((m) => m.centro_id === torre.id && m.servicio === sv); if (!ms.length) continue;
+          let suma = 0;
+          ms.forEach((m) => { const ls = lecturas.filter((l) => l.medidor_id === m.id).sort((a, b) => a.periodo.localeCompare(b.periodo));
+            const i = ls.findIndex((l) => l.periodo === pe); const ant = i > 0 ? ls[i - 1].lectura : i === 0 ? m.lectura_inicial : null;
+            if (i >= 0) suma += ls[i].lectura - ant; else { const s0 = ls.length > 1 ? (ls[ls.length - 1].lectura - ls[0].lectura) / (ls.length - 1) : 0; suma += s0; } });
+          const factor = sv === 'gas' && k === PER.length - 1 ? 1.24 : sv === 'luz' ? 1.07 : 1.05;
+          const consumo = Math.round(suma * factor);
+          const precio = { luz: 3.05, gas: 13.8, agua: 29.5 }[sv];
+          recibos_servicio.push({ id: id('rsv'), org_id: ORG, centro_id: torre.id, servicio: sv, periodo: pe,
+            compania: { luz: 'CFE', gas: 'Naturgy', agua: 'Agua y Drenaje de Monterrey' }[sv], consumo, monto: Math.round(consumo * precio * (0.95 + rm2() * 0.1)) });
+        }
+      });
+      tarifas_servicio.push({ id: id('tar'), org_id: ORG, centro_id: torre.id, servicio: 'luz', modo: 'prorrateo', precio: 0, cargo_fijo: 0 },
+        { id: id('tar'), org_id: ORG, centro_id: torre.id, servicio: 'gas', modo: 'tarifa', precio: 14.5, cargo_fijo: 0 },
+        { id: id('tar'), org_id: ORG, centro_id: torre.id, servicio: 'agua', modo: 'tarifa', precio: 31.5, cargo_fijo: 45 });
+    }
+
     const todoJunto = {
       organizaciones: [{ id: ORG, nombre: 'Galcor', plan: 'demo' }],
       miembros,
       empresas: [E, E2], centros, productos, inventario_movs, ingresos, gastos, cuentas_por_cobrar, pagos, empleados,
       nomina_periodos, nomina_lineas, asistencia, vacaciones, prestamos, prestamo_abonos, tareas_plantilla, tareas,
-      cotizaciones, contratos, unidades, cuotas: [], activos, pasivos, tipo_cambio: [], prospectos, inversion_publicidad,
+      cotizaciones, contratos, unidades, cuotas: [], medidores, lecturas, recibos_servicio, tarifas_servicio, activos, pasivos, tipo_cambio: [], prospectos, inversion_publicidad,
     };
     if (MEDCO) {            // las dos empresas juntas, con los nombres de Treme y MEDCO
       E.nombre = 'Desarrollos y Proyectos MEDCO'; E.nombre_corto = 'MEDCO';
@@ -697,7 +750,7 @@
     const cen = new Set(D.centros.map((c) => c.id));
     ['gastos', 'ingresos', 'pagos', 'cuentas_por_cobrar', 'empleados', 'nomina_periodos', 'productos', 'cotizaciones', 'prospectos', 'inversion_publicidad', 'activos', 'pasivos']
       .forEach((t) => { D[t] = porEmp(D[t]); });
-    ['unidades', 'contratos', 'tareas_plantilla', 'tareas'].forEach((t) => { D[t] = D[t].filter((r) => cen.has(r.centro_id)); });
+    ['unidades', 'contratos', 'tareas_plantilla', 'tareas', 'medidores', 'lecturas', 'recibos_servicio', 'tarifas_servicio'].forEach((t) => { D[t] = D[t].filter((r) => cen.has(r.centro_id)); });
     const emps = new Set(D.empleados.map((e) => e.id));
     ['nomina_lineas', 'asistencia', 'vacaciones', 'prestamos'].forEach((t) => { D[t] = D[t].filter((r) => emps.has(r.empleado_id)); });
     const pres = new Set(D.prestamos.map((p) => p.id));

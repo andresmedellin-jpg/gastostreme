@@ -483,3 +483,43 @@ h4.grupo:first-of-type { margin-top: 4px; }
   .tabla-pub td.num::before { content: attr(data-l) " "; color: var(--text-3); font-size: 12px; }
   .tabla-pub td[data-l="Monto"]::before { content: "Vendido "; }
 }
+
+/* ---------- lecturas de luz, gas y agua ---------- */
+.lec-head { align-items: center; }
+.lec-campo { display: grid; gap: 12px; max-width: 520px; }
+.lec-barra { height: 8px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.lec-barra i { display: block; height: 100%; background: var(--primary); }
+.lec-zonas { display: grid; gap: 6px; margin: 12px 0; font-size: 13px; }
+.lec-zonas div { display: flex; justify-content: space-between; gap: 8px; }
+.lec-scan { height: 52px; font-size: 16px; }
+.lec-buscar { width: 100%; margin-bottom: 8px; }
+.lec-lista { display: grid; gap: 4px; max-height: 50vh; overflow: auto; }
+.lec-lista button { display: flex; justify-content: space-between; align-items: center; gap: 8px; text-align: left; font: inherit; font-size: 14px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 10px 12px; color: var(--text); cursor: pointer; }
+.lec-camara { position: relative; background: #000; border-radius: 4px; overflow: hidden; aspect-ratio: 3 / 4; max-height: 60vh; }
+.lec-camara video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lec-mira { position: absolute; inset: 22% 18%; border: 3px solid #fff; border-radius: 8px; box-shadow: 0 0 0 999px rgba(0,0,0,.35); }
+.lec-ficha { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface-2); }
+.lec-tag { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .08em; padding: 3px 7px; border-radius: 3px; color: #141414; }
+.lec-luz { background: #f5c518; } .lec-gas { background: #f2a54a; } .lec-agua { background: #7cc4f0; }
+.lec-drum { display: inline-flex; gap: 2px; background: #141414; padding: 4px; border-radius: 3px; margin-top: 2px; }
+.lec-drum i { font: 700 17px/1 "Courier New", monospace; font-style: normal; color: #fafafa; background: #2b2b2b; width: 17px; padding: 3px 0; text-align: center; border-radius: 2px; }
+.lec-input { font: 700 24px "Courier New", monospace !important; height: 52px !important; letter-spacing: .06em; }
+.form label.lec-foto { border: 2px dashed var(--border); border-radius: 4px; padding: 14px; text-align: center; cursor: pointer; place-items: center; font-size: 14px; }
+.form label.lec-foto.lista { border-style: solid; border-color: var(--ok); color: var(--ok); }
+.lec-foto img { max-height: 160px; border-radius: 4px; }
+.lec-aviso { border-radius: 4px; padding: 10px 12px; font-size: 13px; font-weight: 600; }
+.lec-aviso.mal { background: #fde7e4; color: var(--neg); } .lec-aviso.ojo { background: #fff3dc; color: var(--warn); }
+.lec-cuadre { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.lec-dl { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; margin: 0 0 12px; font-size: 13px; }
+.lec-dl dt { color: var(--text-3); } .lec-dl dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 900px) { .lec-cuadre { grid-template-columns: minmax(0, 1fr); } }
+.lec-foto img { max-width: 100%; }
+.lec-ficha, .lec-foto { min-width: 0; }
+@media (max-width: 760px) {
+  .tabla.lec-t tbody tr { grid-template-columns: 1fr 1fr 1fr; gap: 6px 10px; }
+  .tabla.lec-t td[data-l="Unidad"] { grid-column: 1 / -1; grid-row: auto; }
+  .tabla.lec-t td[data-l]:not([data-l="Unidad"]):not([data-l=""])::before { content: attr(data-l); display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); }
+  .tabla.lec-t td.num { text-align: left; }
+  .tabla.lec-t td[data-l=""] { grid-column: 1 / -1; }
+}

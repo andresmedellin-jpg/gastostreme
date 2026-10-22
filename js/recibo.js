@@ -84,24 +84,24 @@ export async function pintarRecibo(w, d) {
 <div class="barra"><button class="ok" id="pdf">Descargar PDF</button><button onclick="print()">Imprimir</button><button onclick="close()">Cerrar</button></div>
 <div class="hoja"><div class="topbar"></div><div class="c">
   <div class="head">${img ? `<img src="${img}" alt="${esc(EMISOR)}">` : `<strong style="font-size:24px">${esc(EMISOR)}</strong>`}
-    <div class="t"><h1>RECIBO DE PAGO</h1><div>Folio: <b>${esc(d.folio || '—')}</b></div><div>Fecha: ${fechaLarga(d.fecha)}</div></div></div>
+    <div class="t"><h1>${esc(d.encabezado || 'RECIBO DE PAGO')}</h1><div>Folio: <b>${esc(d.folio || '—')}</b></div><div>Fecha: ${fechaLarga(d.fecha)}</div></div></div>
   <div class="st">INFORMACIÓN DE PAGO</div>
   <table class="info">${d.info.map(([k, v]) => `<tr><td class="l">${esc(k)}:</td><td>${esc(v)}</td></tr>`).join('')}</table>
   <div class="st">DETALLE DE CONCEPTOS</div>
   <table class="det">
-    <tr><th style="width:6%">#</th><th>Concepto</th><th class="ce" style="width:13%">Cantidad</th><th class="r" style="width:17%">Precio Unit.</th><th class="r" style="width:17%">Subtotal</th></tr>
+    <tr><th style="width:6%">#</th><th>Concepto</th><th class="ce" style="width:13%">${esc(d.colCantidad || 'Cantidad')}</th><th class="r" style="width:17%">${esc(d.colPrecio || 'Precio Unit.')}</th><th class="r" style="width:17%">Subtotal</th></tr>
     ${d.lineas.map((l, i) => `<tr><td>${i + 1}</td><td>${esc(l.concepto)}${l.detalle ? `<br>${esc(l.detalle)}` : ''}</td>
-      <td class="ce">${esc(l.cantidad ?? 1)}</td><td class="r">${dinero(l.precio, m)}</td><td class="r">${dinero(l.subtotal, m)}</td></tr>`).join('')}
+      <td class="ce">${esc(l.cantidad ?? 1)}</td><td class="r">${l.precioTexto ? esc(l.precioTexto) : dinero(l.precio, m)}</td><td class="r">${dinero(l.subtotal, m)}</td></tr>`).join('')}
   </table>
   <div class="tot">
     <div><span>Subtotal:</span><span>${dinero(d.total, m)}</span></div>
-    <div><span>IVA (incluido):</span><span>Incluido en el total</span></div>
-    <div class="g"><span>TOTAL PAGADO:</span><span>${dinero(d.total, m)} ${m}</span></div>
+    ${d.sinIva ? '' : '<div><span>IVA (incluido):</span><span>Incluido en el total</span></div>'}
+    <div class="g"><span>${esc(d.totalTexto || 'TOTAL PAGADO:')}</span><span>${dinero(d.total, m)} ${m}</span></div>
   </div>
-  <div class="estado">${d.liquidado === false ? 'PAGO RECIBIDO' : 'PAGO RECIBIDO — LIQUIDADO EN SU TOTALIDAD'}</div>
+  <div class="estado">${esc(d.estadoTexto || (d.liquidado === false ? 'PAGO RECIBIDO' : 'PAGO RECIBIDO — LIQUIDADO EN SU TOTALIDAD'))}</div>
   ${d.notas ? `<div class="nota"><b>Notas:</b> ${esc(d.notas)}</div>` : ''}
   <div class="aviso">${esc(d.aviso)} Para cualquier aclaración, comuníquese con el departamento de administración de ${esc(EMISOR)}.</div>
-  <div class="pie">${esc(EMISOR)}<br>Este recibo es comprobante de pago válido • Consérvelo para sus registros</div>
+  <div class="pie">${esc(EMISOR)}<br>${esc(d.pie || 'Este recibo es comprobante de pago válido • Consérvelo para sus registros')}</div>
 </div></div>
 <script>
   // Descarga directa del PDF (tamaño carta), con el nombre del folio y de quien pagó

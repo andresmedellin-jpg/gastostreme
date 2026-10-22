@@ -23,6 +23,8 @@ const ICONOS = {
   rondin:     svg('<path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2"/>'),
   incidencias: svg('<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.01"/>'),
   vacaciones: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+  medidor:    svg('<circle cx="12" cy="13" r="8"/><path d="M12 13l4-4M8 21h8"/>'),
+  lecturaqr:  svg('<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/>'),
   prestamos:  svg('<path d="M3 10h18M5 10V20M19 10V20M9.5 10V20M14.5 10V20M2 21h20M12 3l9 5H3z"/>'),
   empleados:  svg('<rect x="3" y="4" width="18" height="16" rx="1"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 17a3.5 3.5 0 0 1 7 0M15 10h3M15 14h3"/>'),
   inventario: svg('<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>'),
@@ -65,6 +67,9 @@ export const MODULOS = [
   { id: 'empleados',   grupo: 'Personal', titulo: 'Empleados',   icono: ICONOS.empleados,   roles: ['dueno','administracion'], listo: true, opcional: true, vista: 'personal', tab: 'empleados' },
   { id: 'vacaciones',  grupo: 'Personal', titulo: 'Vacaciones',  icono: ICONOS.vacaciones,  roles: ['dueno','administracion'], listo: true, opcional: true, vista: 'personal', tab: 'vacaciones' },
   { id: 'prestamos',   grupo: 'Personal', titulo: 'Préstamos',   icono: ICONOS.prestamos,   roles: ['dueno','administracion'], listo: true, opcional: true, vista: 'personal', tab: 'prestamos' },
+  // Luz, gas y agua por medidor (opcionales: solo para edificios que reparten un recibo entre sus unidades)
+  { id: 'lecturas',  grupo: 'Servicios', titulo: 'Toma de lecturas', icono: ICONOS.lecturaqr, roles: ['dueno','administracion','operacion','encargado'], listo: true, opcional: true, vista: 'lecturas', tab: 'recorrido' },
+  { id: 'servicios', grupo: 'Servicios', titulo: 'Luz, gas y agua',  icono: ICONOS.medidor,   roles: ['dueno','administracion','cobranza'], listo: true, opcional: true, vista: 'lecturas' },
   { id: 'usuarios',   grupo: 'Operación', titulo: 'Usuarios',         icono: ICONOS.usuarios,   roles: ['dueno'], listo: true },
 ];
 
