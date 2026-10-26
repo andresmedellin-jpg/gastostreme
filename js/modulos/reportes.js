@@ -1,7 +1,9 @@
 // Reporte mensual de Torre Elysium (mantenimiento cobrado vs. gasto del edificio).
 // Reemplaza la página "Reporte mensual". Se arma como documento aparte (iframe) para que
 // se vea igual en tema claro u oscuro y salga limpio al guardarlo como PDF.
-import { MESES } from '../config.js';
+import { MESES, MARCA } from '../config.js';
+const CONDOMINIO = MARCA.condominio || 'Torre Elysium';
+const EMISOR = MARCA.reciboEmpresa || 'Treme Grupo Inmobiliario';
 import { db, todo, estado, fmtFecha, esc, toast, normalizar } from '../lib.js';
 
 const st = { anio: new Date().getFullYear(), mes: new Date().getMonth(), inversionistas: false };
@@ -9,8 +11,8 @@ let centro, raiz;
 
 export async function render(view) {
   raiz = view;
-  centro = estado.centros.find((c) => c.nombre === 'Torre Elysium');
-  if (!centro) { view.innerHTML = '<div class="vacio">No tienes acceso a Torre Elysium.</div>'; return; }
+  centro = estado.centros.find((c) => c.nombre === CONDOMINIO);
+  if (!centro) { view.innerHTML = `<div class="vacio">No tienes acceso a ${esc(CONDOMINIO)}.</div>`; return; }
   const anios = [];
   for (let a = new Date().getFullYear() + 1; a >= 2024; a--) anios.push(a);
   view.innerHTML = `
@@ -20,7 +22,7 @@ export async function render(view) {
         <select id="r-anio" aria-label="Año">${anios.map((a) => `<option>${a}</option>`).join('')}</select>
         <label class="check-linea"><input type="checkbox" id="r-inv"> Vista inversionistas</label>
       </div>
-      <div class="sub-meta">Torre Elysium · reporte mensual</div>
+      <div class="sub-meta">${esc(CONDOMINIO)} · reporte mensual</div>
     </div>
     <div id="r-estado" class="sub-meta" role="status"></div>
     <div class="reporte-marco"><iframe id="r-doc" title="Reporte mensual"></iframe></div>`;
@@ -123,7 +125,7 @@ async function cargar() {
     pagosMes, operativos, totalNomina, totalOp, egresos, egresosPrev,
     personal: [...porPersona.values()].sort((x, y) => y.total - x.total),
   };
-  const logo = new URL('img/logo-treme.jpg', location.href).href;
+  const logo = new URL(MARCA.reciboLogo || 'img/logo-treme.jpg', location.href).href;
   raiz.querySelector('#r-doc').srcdoc = documento(datos, logo, st.inversionistas);
 }
 
@@ -156,7 +158,7 @@ function documento(d, logo, inv) {
     <td class="c">${x.pagos}</td><td class="r neg">${n0(x.total)}</td></tr>`).join('');
 
   return `<!doctype html><html lang="es"><head><meta charset="utf-8">
-<title>Reporte mensual Torre Elysium · ${mes}</title>
+<title>Reporte mensual ${esc(CONDOMINIO)} · ${mes}</title>
 
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -198,9 +200,9 @@ td{padding:8px 10px;border-bottom:1px solid #E8E8E8;vertical-align:top}tr:last-c
 @media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{background:#fff;padding:0}
  .hoja{box-shadow:none;border-radius:0;max-width:100%}tr,.deu{break-inside:avoid}@page{margin:10mm;size:A4}}
 </style></head><body><div class="hoja">
-<div class="cab"><img src="${esc(logo)}" alt="Treme Grupo Inmobiliario" onerror="this.remove()">
+<div class="cab"><img src="${esc(logo)}" alt="${esc(EMISOR)}" onerror="this.remove()">
  <div class="der"><div class="tit">Reporte mensual</div>
- <div class="sub">Torre Elysium · ${inv ? 'Resumen para inversionistas' : 'Administración'}</div><div class="per">${mes}</div></div></div>
+ <div class="sub">${esc(CONDOMINIO)} · ${inv ? 'Resumen para inversionistas' : 'Administración'}</div><div class="per">${mes}</div></div></div>
 
 <div class="sec">
  <div class="saldo ${saldo >= 0 ? 'pos' : 'neg'}"><div><div class="kl" style="color:#525252">Resultado del mes · saldo neto</div>
@@ -250,7 +252,7 @@ ${d.deudores.length ? `<div class="sec"><div class="st">Pendientes por cobrar ·
    : '<div class="vacio">Sin nómina registrada este mes</div>'}
 </div>
 
-<div class="pie"><div>Treme Grupo Inmobiliario · Torre Elysium<br>Monterrey, N.L.</div>
+<div class="pie"><div>${esc(EMISOR)} · ${esc(CONDOMINIO)}<br>Monterrey, N.L.</div>
  <div>Generado el ${hoy}<br>${inv ? 'Resumen mensual para inversionistas' : 'Administración de propiedades'}</div></div>
 </div></body></html>`;
 }

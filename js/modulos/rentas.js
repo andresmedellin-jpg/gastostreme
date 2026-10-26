@@ -317,7 +317,7 @@ function cobrar(r) {
       if (e1) throw e1;
       const { data, error } = await db().from('pagos').insert({
         org_id: estado.miembro.org_id, empresa_id: estado.centros.find((x) => x.id === c.centro_id)?.empresa_id
-          || estado.empresas.find((e) => e.nombre_corto === 'Treme')?.id,
+          || (estado.empresas.find((e) => e.nombre_corto === 'Treme') || estado.empresas[0])?.id,
         centro_id: c.centro_id, contrato_id: c.id, concepto: 'renta', periodo: per,
         monto: Math.round(monto * 100) / 100, moneda: c.moneda, forma_pago: f.forma.value, fecha: f.fecha.value,
         folio, notas: f.notas.value.trim() || null, capturado_por: estado.miembro.nombre,
@@ -436,7 +436,7 @@ function editarAdeudo(r, atrasoAuto) {
     else if (a) res = await db().from('cuentas_por_cobrar').update({ meses, monto_original: monto, notas }).eq('id', a.id);
     else res = await db().from('cuentas_por_cobrar').insert({
       org_id: estado.miembro.org_id, empresa_id: estado.centros.find((x) => x.id === r.centro_id)?.empresa_id
-        || estado.empresas.find((e) => e.nombre_corto === 'Treme')?.id,
+        || (estado.empresas.find((e) => e.nombre_corto === 'Treme') || estado.empresas[0])?.id,
       centro_id: r.centro_id, contrato_id: r.id, tipo: 'adeudo_inicial', cliente: r.arrendatario,
       meses, monto_original: monto, moneda: r.moneda, notas });
     if (res.error) { btn.disabled = false; return toast('No se pudo guardar: ' + res.error.message, true); }

@@ -523,3 +523,8 @@ h4.grupo:first-of-type { margin-top: 4px; }
   .tabla.lec-t td.num { text-align: left; }
   .tabla.lec-t td[data-l=""] { grid-column: 1 / -1; }
 }
+.login-nombre { font-size: 26px; letter-spacing: -.01em; }
+/* ---------- importar datos ---------- */
+.im-lista { margin: 0 0 10px; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; }
+.im-archivo { display: grid; place-items: center; min-height: 90px; border: 2px dashed var(--border); border-radius: 4px; cursor: pointer; color: var(--text-2); font-weight: 600; padding: 16px; text-align: center; }
+.im-archivo:hover { border-color: var(--primary); color: var(--text); }

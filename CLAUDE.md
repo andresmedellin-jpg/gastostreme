@@ -138,6 +138,24 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   Pendiente: leer la foto con IA para confirmar el número; ligar el cobro a Rentas/abonos.
 - Cada cliente real debe ir en su propio proyecto de Supabase (no mezclar con los datos de Treme/MEDCO).
 
+## Operia (el producto para otros clientes)
+- **Nombre provisional: Operia.** Un solo código para todos; cada cliente con su **propia base de Supabase** (~US$10/mes extra
+  por proyecto en el plan Pro de Andrés; se le cobra al cliente) y su carpeta: `app.medco.mx/<cliente>/` (luego dominio propio).
+- **Cliente = archivo `clientes/<id>.js`** (`window.__CLIENTE` = { id, nombre, supabaseUrl, supabaseKey, marca }). `publicar.py`
+  genera `<id>/index.html` desde `index.html` (con `<base href="/">`, sin modo demo; no editar a mano). Sin `supabaseUrl` la
+  página dice "en preparación". En `config.js`, `CLIENTE` cambia la base y parte de una marca genérica (`BASE_CLIENTE`: categorías,
+  vocabulario de Prospectos, módulos, sin nada de Treme); `clientes/<id>.js → marca` la ajusta. Sin cliente todo es Treme/MEDCO.
+- **Base nueva:** `supabase/plantilla/operia_base.sql` (estructura completa del esquema app de Treme sin datos + inventario,
+  cotizaciones y lecturas; probada en Postgres local) y luego `alta_cliente.sql` (organización, empresas, centros y dueño, que
+  antes se crea en Authentication). En el proyecto: exponer el esquema `app` en la API y desplegar la función `usuarios`
+  con el secreto `DOMINIO_INTERNO` (p. ej. usuarios.operia.mx; marca.dominioUsuarios = '@usuarios.operia.mx').
+  Si cambias la base de Treme (migración nueva), aplica el mismo cambio a operia_base.sql.
+- **Importar datos** (`importar.js`, opcional `importar`): plantilla de Excel (Unidades, Inquilinos, Empleados, Medidores),
+  revisa renglón por renglón, no duplica lo existente, crea unidades que falten. Lector SheetJS 0.20.3 desde cdn.sheetjs.com
+  (no usar 0.18.5 de npm: tiene fallas de seguridad al leer archivos).
+- Lo de Treme quedó como opción: `MARCA.condominio` (Cobranza/Reporte; por omisión Torre Elysium), `reciboEmpresa`, `dominioUsuarios`.
+- Primer cliente: Galcor (`clientes/galcor.js`, aún sin base).
+
 ## Personas
 - Andrés: dueño. Miguel (hermano): socio. Victoria: captura gastos y cobranza. Víctor: encargado de Torre Elysium.
 

@@ -64,10 +64,10 @@ alter table lecturas enable row level security;
 alter table recibos_servicio enable row level security;
 alter table tarifas_servicio enable row level security;
 
-create policy medidores_ver on medidores for select using (app.es_miembro(org_id) and app.puede_ver_centro(centro_id));
+create policy medidores_ver on medidores for select using (app.es_miembro(org_id) and app.puede_ver_centro(org_id, centro_id));
 create policy medidores_editar on medidores for all using (app.tiene_rol(org_id, array['administracion']::app.rol_usuario[]))
   with check (app.tiene_rol(org_id, array['administracion']::app.rol_usuario[]));
-create policy lecturas_ver on lecturas for select using (app.es_miembro(org_id) and app.puede_ver_centro(centro_id));
+create policy lecturas_ver on lecturas for select using (app.es_miembro(org_id) and app.puede_ver_centro(org_id, centro_id));
 -- El que hace el recorrido (operación / encargado) captura y corrige; administración aprueba
 create policy lecturas_capturar on lecturas for insert with check (app.tiene_rol(org_id, array['administracion','operacion','encargado']::app.rol_usuario[]));
 create policy lecturas_corregir on lecturas for update using (app.tiene_rol(org_id, array['administracion','operacion','encargado']::app.rol_usuario[]));

@@ -1,4 +1,4 @@
-import { MODULOS_ACTIVOS as MODULOS, MARCA } from './config.js';
+import { MODULOS_ACTIVOS as MODULOS, MARCA, CLIENTE } from './config.js';
 import { sb, db, estado, esc, toast, abrirModal, cerrarModal, tieneRol } from './lib.js';
 
 const vistas = {
@@ -15,6 +15,7 @@ const vistas = {
   cotizaciones: () => import('./modulos/cotizaciones.js'),
   prospectos: () => import('./modulos/prospectos.js'),
   lecturas: () => import('./modulos/lecturas.js'),
+  importar: () => import('./modulos/importar.js'),
 };
 
 // ================= MARCA =================
@@ -27,8 +28,9 @@ const vistas = {
     if (MARCA.colorSuave) r.setProperty('--primary-soft', MARCA.colorSuave);
   }
   document.querySelector('.sidebar .brand').innerHTML = MARCA.marca.map(esc).join(' <span class="brand-sep">/</span> ');
-  document.querySelector('.login-logos').innerHTML = MARCA.logos.map((l) =>
-    `<picture><img src="${l.src}" alt="${esc(l.alt)}" class="${l.clase || ''}"></picture>`).join('<span class="login-logos-sep" aria-hidden="true"></span>');
+  document.querySelector('.login-logos').innerHTML = MARCA.logos.length ? MARCA.logos.map((l) =>
+    `<picture><img src="${l.src}" alt="${esc(l.alt)}" class="${l.clase || ''}"></picture>`).join('<span class="login-logos-sep" aria-hidden="true"></span>')
+    : `<strong class="login-nombre">${esc(MARCA.marca.join(' / '))}</strong>`;   // cliente sin logo todavía: su nombre
   if (MARCA.demo) {
     const b = document.createElement('div');
     b.className = 'demo-banda';
@@ -44,7 +46,7 @@ const $ = (id) => document.getElementById(id);
 
 // ================= ACCESO =================
 // Usuarios sin correo propio reciben uno interno con este dominio (nunca recibe mensajes)
-const DOMINIO_INTERNO = '@usuarios.medco.mx';
+const DOMINIO_INTERNO = MARCA.dominioUsuarios || '@usuarios.medco.mx';
 
 // El usuario puede escribir su nombre de usuario o, si tiene, su correo
 async function correoDe(usuario) {
@@ -60,7 +62,7 @@ $('login-form').addEventListener('submit', async (e) => {
   const password = $('login-pass').value;
   if (!usuario || !password) return mensajeLogin('Escribe tu usuario y contraseña.');
   // Usuario de demostración: abre la plataforma completa con números inventados (no toca la base real)
-  if (usuario.toLowerCase() === 'demo' && password === 'medco2026') { location.href = location.pathname + '?demo=medco#/inicio'; return; }
+  if (!CLIENTE && usuario.toLowerCase() === 'demo' && password === 'medco2026') { location.href = location.pathname + '?demo=medco#/inicio'; return; }
   $('login-btn').disabled = true;
   mensajeLogin('');
   try {

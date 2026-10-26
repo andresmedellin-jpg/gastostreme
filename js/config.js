@@ -1,7 +1,10 @@
 // Configuración pública. La llave "publishable" está hecha para ir en el navegador:
 // lo que protege los datos son los permisos por usuario (RLS) en la base, no esta llave.
-export const SUPABASE_URL = 'https://mqzuaxxnidaokhdqcurm.supabase.co';
-export const SUPABASE_KEY = 'sb_publishable_y1lW-QidgXb4LoVtqoC2rw_5Oj4GpKJ';
+// Operia: cada cliente entra por su carpeta (app.medco.mx/<cliente>/), que carga clientes/<cliente>.js y define
+// window.__CLIENTE con SU base de datos y su marca. Sin cliente, es la instalación de Treme / MEDCO, igual que siempre.
+export const CLIENTE = window.__CLIENTE || null;
+export const SUPABASE_URL = CLIENTE ? CLIENTE.supabaseUrl : 'https://mqzuaxxnidaokhdqcurm.supabase.co';
+export const SUPABASE_KEY = CLIENTE ? CLIENTE.supabaseKey : 'sb_publishable_y1lW-QidgXb4LoVtqoC2rw_5Oj4GpKJ';
 export const ESQUEMA = 'app';
 export const BUCKET_COMPROBANTES = 'comprobantes';
 
@@ -25,6 +28,7 @@ const ICONOS = {
   vacaciones: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
   medidor:    svg('<circle cx="12" cy="13" r="8"/><path d="M12 13l4-4M8 21h8"/>'),
   lecturaqr:  svg('<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/>'),
+  importar:   svg('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v3h16v-3"/>'),
   prestamos:  svg('<path d="M3 10h18M5 10V20M19 10V20M9.5 10V20M14.5 10V20M2 21h20M12 3l9 5H3z"/>'),
   empleados:  svg('<rect x="3" y="4" width="18" height="16" rx="1"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 17a3.5 3.5 0 0 1 7 0M15 10h3M15 14h3"/>'),
   inventario: svg('<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>'),
@@ -34,7 +38,27 @@ const ICONOS = {
 
 // Marca de la plataforma. Por omisión, Treme / MEDCO. Otra instalación (o el demo, con ?demo) la cambia
 // definiendo window.__MARCA antes de cargar la app: nombre, logos, color, módulos visibles y títulos.
-export const MARCA = Object.assign({
+// Lo que trae un cliente de Operia si su archivo no dice otra cosa (sin nada de Treme / MEDCO)
+const BASE_CLIENTE = CLIENTE && {
+  nombre: `${CLIENTE.nombre} · Operia`, marca: [CLIENTE.nombre], logos: [], color: '#1f4e79',
+  modulos: ['inicio', 'gastos', 'patrimonio', 'nomina', 'asistencia', 'empleados', 'vacaciones', 'prestamos', 'importar', 'usuarios'],
+  titulos: {}, reciboEmpresa: CLIENTE.nombre, dominioUsuarios: '@usuarios.operia.mx', producto: 'Operia',
+  categorias: { 'Compras y mercancía': '📦', 'Material y refacciones': '🔩', 'Nómina': '👷', 'Seguro social e ISN': '🏥', 'Renta': '🏢',
+    'Luz': '⚡', 'Agua': '💧', 'Gas': '🔥', 'Teléfono e internet': '📶', 'Gasolina': '⛽', 'Vehículos': '🚗', 'Mantenimiento': '🔧',
+    'Limpieza': '🧹', 'Seguridad': '🔒', 'Publicidad': '📣', 'Administración': '📋', 'Impuestos': '🧾', 'Intereses y comisiones': '🏦', 'Otros': '📌' },
+  ayuda: { 'Compras y mercancía': 'Lo que se compra para revender', 'Material y refacciones': 'Material, refacciones y consumibles de trabajo',
+    'Nómina': 'Sueldos, vacaciones, aguinaldo', 'Seguro social e ISN': 'IMSS, Infonavit e impuesto sobre nómina', 'Renta': 'Renta de oficina, bodega o local',
+    'Luz': 'Recibos de CFE', 'Agua': 'Agua y Drenaje', 'Gas': 'Gas natural o LP', 'Teléfono e internet': 'Celulares e internet',
+    'Gasolina': 'Gasolina y diésel', 'Vehículos': 'Servicio, llantas y refacciones de vehículos', 'Mantenimiento': 'Reparaciones y mantenimiento',
+    'Limpieza': 'Productos y servicios de limpieza', 'Seguridad': 'Vigilancia, cámaras, cerrajería', 'Publicidad': 'Google, Meta, letreros, impresos',
+    'Administración': 'Papelería, software, contador, trámites', 'Impuestos': 'Predial y otros impuestos que no son de nómina',
+    'Intereses y comisiones': 'Intereses de créditos y comisiones bancarias', 'Otros': 'Solo si no cabe en ninguna de las anteriores' },
+  prospectos: { negocio: CLIENTE.nombre, empresaCorta: CLIENTE.nombre, sitio: 'la página y los anuncios',
+    tipos: ['Producto', 'Servicio', 'Cotización', 'Otro'], campoTipo: 'Necesita', columnaTipo: 'Necesita', terreno: null,
+    campoM2: 'Cantidad', sufijoM2: '', ganados: 'Ventas ganadas', montoGanado: 'Monto vendido', seVuelve: 'se vuelva venta',
+    saludo: (n) => `Hola ${n}, te escribe ${CLIENTE.nombre}. Recibimos tu solicitud. ¿Tienes unos minutos para platicar?` },
+};
+export const MARCA = Object.assign(BASE_CLIENTE || {
   nombre: 'Treme / MEDCO',                         // título de la pestaña
   marca: ['Treme', 'MEDCO'],                       // texto del menú (separado por una diagonal roja)
   logos: [{ src: 'img/logo-treme.png', alt: 'Treme Grupo Inmobiliario', clase: 'logo-treme' },
@@ -43,7 +67,7 @@ export const MARCA = Object.assign({
   modulos: null,                                   // lista de ids visibles; null = todos los "listo"
   titulos: {},                                     // { obras: 'Proyectos y servicios', … }
   demo: false,
-}, window.__MARCA || {});
+}, CLIENTE?.marca || {}, window.__MARCA || {});
 
 // Módulos de la plataforma, en el orden y grupo del menú, y qué roles los ven.
 export const MODULOS = [
@@ -70,6 +94,7 @@ export const MODULOS = [
   // Luz, gas y agua por medidor (opcionales: solo para edificios que reparten un recibo entre sus unidades)
   { id: 'lecturas',  grupo: 'Servicios', titulo: 'Toma de lecturas', icono: ICONOS.lecturaqr, roles: ['dueno','administracion','operacion','encargado'], listo: true, opcional: true, vista: 'lecturas', tab: 'recorrido' },
   { id: 'servicios', grupo: 'Servicios', titulo: 'Luz, gas y agua',  icono: ICONOS.medidor,   roles: ['dueno','administracion','cobranza'], listo: true, opcional: true, vista: 'lecturas' },
+  { id: 'importar',   grupo: 'Operación', titulo: 'Importar datos',  icono: ICONOS.importar,  roles: ['dueno','administracion'], listo: true, opcional: true },
   { id: 'usuarios',   grupo: 'Operación', titulo: 'Usuarios',         icono: ICONOS.usuarios,   roles: ['dueno'], listo: true },
 ];
 
@@ -80,7 +105,7 @@ export const PERFILES = [
   { id: 'captura',   titulo: 'Captura: gastos y cobranza', rol: 'cobranza',  roles: ['operacion'],
     desc: 'Captura gastos de obra y oficina, y registra cobranza. No ve Casa, Socios, nómina ni patrimonio.' },
   { id: 'cobranza',  titulo: 'Cobranza y rentas',          rol: 'cobranza',  roles: [],
-    desc: MARCA.demo ? 'Rentas, cobranza y adeudos. No ve gastos.' : 'Rentas, cobranza de Elysium y adeudos. No ve gastos.' },
+    desc: MARCA.demo || CLIENTE ? 'Rentas, cobranza y adeudos. No ve gastos.' : 'Rentas, cobranza de Elysium y adeudos. No ve gastos.' },
   { id: 'gastos',    titulo: 'Solo gastos',                rol: 'operacion', roles: [],
     desc: 'Captura y consulta gastos de obra y oficina.' },
   { id: 'encargado', titulo: 'Encargado de sitio',         rol: 'encargado', roles: [],
@@ -90,7 +115,7 @@ export const PERFILES = [
 ];
 
 // Altas sugeridas (desaparecen al crearlas)
-export const SUGERIDOS = MARCA.demo ? [] : [
+export const SUGERIDOS = MARCA.demo || CLIENTE ? [] : [
   { nombre: 'Victoria Carrillo', usuario: 'victoria', perfil: 'captura',   empresas: 'todas' },
   { nombre: 'Víctor Olazarán',   usuario: 'victor',   perfil: 'encargado', empresas: ['Treme'] },
   { nombre: 'Miguel Medellín',   usuario: 'miguel',   perfil: 'socio',     empresas: 'todas' },

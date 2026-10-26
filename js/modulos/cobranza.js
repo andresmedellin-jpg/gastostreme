@@ -1,6 +1,9 @@
 // Cobranza de Torre Elysium: mantenimiento y luz por unidad y por mes.
 // Reemplaza la página "Cobranza Elysium".
-import { MESES, FORMAS_COBRO } from '../config.js';
+import { MESES, FORMAS_COBRO, MARCA } from '../config.js';
+// Edificio en condominio que cobra mantenimiento y luz: Torre Elysium en Treme; otra instalación lo dice en MARCA.condominio
+const CONDOMINIO = MARCA.condominio || 'Torre Elysium';
+const EMISOR = MARCA.reciboEmpresa || 'Grupo Inmobiliario Treme';
 import { pintarRecibo, abrirVentanaRecibo } from '../recibo.js';
 import { db, todo, estado, tieneRol, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal } from '../lib.js';
 
@@ -24,15 +27,15 @@ let centro, unidades = [], cuotas = [], pagos = [], raiz;
 
 export async function render(view) {
   raiz = view;
-  centro = estado.centros.find((c) => c.nombre === 'Torre Elysium');
-  if (!centro) { view.innerHTML = '<div class="vacio">No tienes acceso a Torre Elysium.</div>'; return; }
+  centro = estado.centros.find((c) => c.nombre === CONDOMINIO);
+  if (!centro) { view.innerHTML = `<div class="vacio">No tienes acceso a ${esc(CONDOMINIO)}.</div>`; return; }
   view.innerHTML = `
     <div class="sub-head">
       <div class="tabs" role="tablist">
         ${[['resumen','Resumen'],['mantenimiento','🏠 Mantenimiento'],['luz','⚡ Luz'],['deudores','Deudores']]
           .map(([id, t]) => `<button role="tab" data-vista="${id}">${t}</button>`).join('')}
       </div>
-      <div class="sub-meta">Torre Elysium · cuotas de condominio</div>
+      <div class="sub-meta">${esc(CONDOMINIO)} · cuotas de condominio</div>
     </div>
     <div class="periodo">
       <div class="pills" id="c-meses"></div>
@@ -501,11 +504,11 @@ async function generarRecibo(w, u, m, op) {
   await pintarRecibo(w, {
     titulo: `${nombre} - ${tipo} ${u.identificador} - ${textoConcepto} ${per}`,
     folio, fecha: op.fecha || ps.map((p) => p.fecha).sort().pop(),
-    info: [['Recibí de', nombre], [tipo, `${u.identificador} · Torre Elysium`], ['Concepto', textoConcepto], ['Periodo', per],
-      ['Recibido por', 'Administración — Grupo Inmobiliario Treme'], ['Método de pago', formas]],
+    info: [['Recibí de', nombre], [tipo, `${u.identificador} · ${CONDOMINIO}`], ['Concepto', textoConcepto], ['Periodo', per],
+      ['Recibido por', 'Administración — ' + EMISOR], ['Método de pago', formas]],
     lineas, total: lineas.reduce((s, l) => s + l.subtotal, 0), moneda: 'MXN',
     liquidado: lineas.every((l) => l.completo), notas,
-    aviso: `Este recibo ampara el pago de ${textoConcepto} correspondiente al periodo indicado, para ${art} ${tipo} ${u.identificador} de Torre Elysium, recibido a nombre de ${nombre}.`,
+    aviso: `Este recibo ampara el pago de ${textoConcepto} correspondiente al periodo indicado, para ${art} ${tipo} ${u.identificador} de ${CONDOMINIO}, recibido a nombre de ${nombre}.`,
   });
   pintar();
 }
