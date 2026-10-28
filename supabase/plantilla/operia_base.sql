@@ -1574,3 +1574,10 @@ grant execute on function app.registrar_prospecto(jsonb) to anon, authenticated;
 -- Exponer el esquema app en la API (equivale a Settings → API → Exposed schemas)
 alter role authenticator set pgrst.db_schemas = 'public, graphql_public, app';
 notify pgrst, 'reload config';
+
+-- ===== pláticas del chat con IA (28/10/2026): un prospecto por conversación, solo lo llama el servidor del chat =====
+alter table app.prospectos add column if not exists datos jsonb;
+-- La función app.guardar_chat(p jsonb) está en la base de Unaria (gimvgsjpeyvdretubrgc); copiarla de ahí con
+--   select pg_get_functiondef('app.guardar_chat(jsonb)'::regprocedure);
+-- y después: revoke execute on function app.guardar_chat(jsonb) from public, anon, authenticated;
+--            grant execute on function app.guardar_chat(jsonb) to service_role;

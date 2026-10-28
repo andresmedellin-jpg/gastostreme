@@ -162,6 +162,11 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   `registrar_prospecto` acepta `empresa_destino` (empresa que recibe), `empresa` (la del prospecto), `puntaje`, `resumen`,
   `costo_mensual`, `conversacion` (columnas nuevas en `prospectos`). La página unaria.mx (no vive en este repo) manda ahí
   los prospectos del chat "¿Por dónde empiezo?". Nunca mezclar con la base de Treme/MEDCO ni con la de Moncan.
+  Chat con IA (plantilla para clientes, basada en el prompt calificador de Angel): `chat-widget.js` (burbuja de una línea),
+  `functions/api/chat.js` (Cloudflare Pages: Claude + herramientas `registrar_datos` y `calcular_costo`, aviso por Resend)
+  y `lib/chat-config.js` (lo único que cambia por cliente). Guarda vía `app.guardar_chat(jsonb)` (solo service_role;
+  un prospecto por plática con `externo_id = 'chat:<id>'`, columnas `datos`, `puntaje`, `resumen`, `costo_mensual`,
+  `conversacion`, `completa`). Ese código vive fuera de este repo (carpeta unaria-web entregada en zip).
 
 ## Personas
 - Andrés: dueño. Miguel (hermano): socio. Victoria: captura gastos y cobranza. Víctor: encargado de Torre Elysium.
