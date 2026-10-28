@@ -155,6 +155,13 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   (no usar 0.18.5 de npm: tiene fallas de seguridad al leer archivos).
 - Lo de Treme quedó como opción: `MARCA.condominio` (Cobranza/Reporte; por omisión Torre Elysium), `reciboEmpresa`, `dominioUsuarios`.
 - Primer cliente: Galcor (`clientes/galcor.js`, aún sin base).
+- **Unaria** (nombre final del producto; socio: Angel Galván Treviño, clientes y operación; Andrés: producto y tecnología).
+  Su propia base de Supabase: proyecto `gimvgsjpeyvdretubrgc` ("unaria", us-east-2), creada el 28/10/2026 con
+  operia_base.sql + módulos opcionales. Org "Unaria", empresa "Unaria", centro "Oficina"; aún sin usuarios (crearlos en
+  Authentication y luego `app.miembros`). Anon solo ejecuta `registrar_prospecto` y `correo_para_login`.
+  `registrar_prospecto` acepta `empresa_destino` (empresa que recibe), `empresa` (la del prospecto), `puntaje`, `resumen`,
+  `costo_mensual`, `conversacion` (columnas nuevas en `prospectos`). La página unaria.mx (no vive en este repo) manda ahí
+  los prospectos del chat "¿Por dónde empiezo?". Nunca mezclar con la base de Treme/MEDCO ni con la de Moncan.
 
 ## Personas
 - Andrés: dueño. Miguel (hermano): socio. Victoria: captura gastos y cobranza. Víctor: encargado de Torre Elysium.
