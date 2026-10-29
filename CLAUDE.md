@@ -165,9 +165,9 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   Chat con IA (plantilla para clientes, basada en el prompt calificador de Angel): `chat-widget.js` (burbuja de una línea)
   + función de Supabase `chat` en el proyecto unaria (publicada 29/10/2026, sin verificación JWT; Claude + herramientas
   `registrar_datos` y `calcular_costo`, aviso opcional por Resend; secreto ANTHROPIC_API_KEY lo pone Andrés) y su `config.ts`
-  (lo único que cambia por cliente). Sin Cloudflare: la página va en GitHub Pages (repo andresmedellin-jpg/unaria-web, por crear). Guarda vía `app.guardar_chat(jsonb)` (solo service_role;
+  (lo único que cambia por cliente). Sin Cloudflare: la página va en GitHub Pages desde el repo andresmedellin-jpg/unaria (carpeta docs/, CNAME unaria.mx; código del servidor en supabase/functions/chat). La página empieza con preguntas guiadas y cambia sola al chat con IA cuando GET a la función responde {listo:true}. Guarda vía `app.guardar_chat(jsonb)` (solo service_role;
   un prospecto por plática con `externo_id = 'chat:<id>'`, columnas `datos`, `puntaje`, `resumen`, `costo_mensual`,
-  `conversacion`, `completa`). Ese código vive fuera de este repo (carpeta unaria-web entregada en zip).
+  `conversacion`, `completa`). Ese código vive en el repo unaria, no en este.
 
 ## Personas
 - Andrés: dueño. Miguel (hermano): socio. Victoria: captura gastos y cobranza. Víctor: encargado de Torre Elysium.
