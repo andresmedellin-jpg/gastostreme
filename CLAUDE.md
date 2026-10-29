@@ -155,6 +155,10 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   (no usar 0.18.5 de npm: tiene fallas de seguridad al leer archivos).
 - Lo de Treme quedó como opción: `MARCA.condominio` (Cobranza/Reporte; por omisión Torre Elysium), `reciboEmpresa`, `dominioUsuarios`.
 - Primer cliente: Galcor (`clientes/galcor.js`, aún sin base).
+- **El modelo de Unaria** (`clientes/unaria.js` → **app.medco.mx/unaria/**, base `gimvgsjpeyvdretubrgc`): la instalación propia de
+  Unaria, vacía, color #BF4D17, módulos generales (sin paquete inmobiliario). Aquí se construye y prueba todo lo nuevo de AI
+  (no en Treme/MEDCO: Andrés no quiere mezclar Anthropic con Treme). Funciones `usuarios` (correos internos @usuarios.unaria.mx),
+  `asistente` y `chat` desplegadas ahí; la llave de Anthropic solo está en ese proyecto.
 - **Unaria** (nombre final del producto; socio: Angel Galván Treviño, clientes y operación; Andrés: producto y tecnología).
   Su propia base de Supabase: proyecto `gimvgsjpeyvdretubrgc` ("unaria", us-east-2), creada el 28/10/2026 con
   operia_base.sql + módulos opcionales. Org "Unaria", empresa "Unaria", centro "Oficina"; aún sin usuarios (crearlos en

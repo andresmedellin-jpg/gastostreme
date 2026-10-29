@@ -1,6 +1,6 @@
 // Configuración pública. La llave "publishable" está hecha para ir en el navegador:
 // lo que protege los datos son los permisos por usuario (RLS) en la base, no esta llave.
-// Operia: cada cliente entra por su carpeta (app.medco.mx/<cliente>/), que carga clientes/<cliente>.js y define
+// Unaria: cada cliente entra por su carpeta (app.medco.mx/<cliente>/), que carga clientes/<cliente>.js y define
 // window.__CLIENTE con SU base de datos y su marca. Sin cliente, es la instalación de Treme / MEDCO, igual que siempre.
 export const CLIENTE = window.__CLIENTE || null;
 export const SUPABASE_URL = CLIENTE ? CLIENTE.supabaseUrl : 'https://mqzuaxxnidaokhdqcurm.supabase.co';
@@ -38,11 +38,11 @@ const ICONOS = {
 
 // Marca de la plataforma. Por omisión, Treme / MEDCO. Otra instalación (o el demo, con ?demo) la cambia
 // definiendo window.__MARCA antes de cargar la app: nombre, logos, color, módulos visibles y títulos.
-// Lo que trae un cliente de Operia si su archivo no dice otra cosa (sin nada de Treme / MEDCO)
+// Lo que trae un cliente de Unaria si su archivo no dice otra cosa (sin nada de Treme / MEDCO)
 const BASE_CLIENTE = CLIENTE && {
-  nombre: `${CLIENTE.nombre} · Operia`, marca: [CLIENTE.nombre], logos: [], color: '#1f4e79',
+  nombre: `${CLIENTE.nombre} · Unaria`, marca: [CLIENTE.nombre], logos: [], color: '#1f4e79',
   modulos: ['inicio', 'gastos', 'patrimonio', 'nomina', 'asistencia', 'empleados', 'vacaciones', 'prestamos', 'importar', 'usuarios'],
-  titulos: {}, reciboEmpresa: CLIENTE.nombre, dominioUsuarios: '@usuarios.operia.mx', producto: 'Operia',
+  titulos: {}, reciboEmpresa: CLIENTE.nombre, dominioUsuarios: '@usuarios.unaria.mx', producto: 'Unaria',
   categorias: { 'Compras y mercancía': '📦', 'Material y refacciones': '🔩', 'Nómina': '👷', 'Seguro social e ISN': '🏥', 'Renta': '🏢',
     'Luz': '⚡', 'Agua': '💧', 'Gas': '🔥', 'Teléfono e internet': '📶', 'Gasolina': '⛽', 'Vehículos': '🚗', 'Mantenimiento': '🔧',
     'Limpieza': '🧹', 'Seguridad': '🔒', 'Publicidad': '📣', 'Administración': '📋', 'Impuestos': '🧾', 'Intereses y comisiones': '🏦', 'Otros': '📌' },

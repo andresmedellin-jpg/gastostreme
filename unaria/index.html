@@ -1,0 +1,90 @@
+<!doctype html>
+<!-- Generado por publicar.py a partir de index.html: no editar -->
+<html lang="es">
+<head>
+  <base href="/">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Unaria</title>
+  <meta name="theme-color" content="#ffffff">
+  <meta name="color-scheme" content="light only">
+  <link rel="stylesheet" href="css/app.css?v=20261029-1600">
+</head>
+<body>
+  <!-- Pantalla de acceso -->
+  <section id="login" class="login" hidden>
+    <div class="login-card">
+      <div class="login-logos"></div>
+      <p class="login-sub">Inicia sesión con tu usuario</p>
+      <form id="login-form" autocomplete="on">
+        <label>Usuario
+          <input type="text" id="login-user" required autocomplete="username" autocapitalize="none"
+                 autocorrect="off" spellcheck="false" placeholder="tu usuario">
+        </label>
+        <label>Contraseña
+          <input type="password" id="login-pass" required autocomplete="current-password" placeholder="••••••••">
+        </label>
+        <button type="submit" class="btn btn-primary btn-block" id="login-btn">Entrar</button>
+        <button type="button" class="link-btn" id="login-olvide">¿Olvidaste tu contraseña?</button>
+        <p class="login-msg" id="login-msg" role="status"></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- Aplicación -->
+  <div id="shell" class="shell" hidden>
+    <aside class="sidebar" id="sidebar">
+      <div class="brand"></div>
+      <nav id="nav" class="nav" aria-label="Módulos"></nav>
+      <div class="sidebar-foot">
+        <div class="user" id="user-box"></div>
+        <button class="btn btn-ghost btn-sm" id="logout">Salir</button>
+      </div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <button class="icon-btn" id="menu-btn" aria-label="Menú">☰</button>
+        <h1 id="page-title">—</h1>
+        <div class="topbar-actions" id="page-actions"></div>
+      </header>
+      <main id="view" class="view" tabindex="-1"></main>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="modal-root"></div>
+
+  <script type="importmap">
+  { "imports": {
+    "./js/app.js": "./js/app.js?v=20261029-1600",
+    "./js/config.js": "./js/config.js?v=20261029-1600",
+    "./js/recibo.js": "./js/recibo.js?v=20261029-1600",
+    "./js/asistente.js": "./js/asistente.js?v=20261029-1600",
+    "./js/lib.js": "./js/lib.js?v=20261029-1600",
+    "./js/modulos/gastos.js": "./js/modulos/gastos.js?v=20261029-1600",
+    "./js/modulos/usuarios.js": "./js/modulos/usuarios.js?v=20261029-1600",
+    "./js/modulos/personal.js": "./js/modulos/personal.js?v=20261029-1600",
+    "./js/modulos/rentas.js": "./js/modulos/rentas.js?v=20261029-1600",
+    "./js/modulos/cobranza.js": "./js/modulos/cobranza.js?v=20261029-1600",
+    "./js/modulos/inicio.js": "./js/modulos/inicio.js?v=20261029-1600",
+    "./js/modulos/patrimonio.js": "./js/modulos/patrimonio.js?v=20261029-1600",
+    "./js/modulos/obras.js": "./js/modulos/obras.js?v=20261029-1600",
+    "./js/modulos/reportes.js": "./js/modulos/reportes.js?v=20261029-1600",
+    "./js/modulos/inventario.js": "./js/modulos/inventario.js?v=20261029-1600",
+    "./js/modulos/cotizaciones.js": "./js/modulos/cotizaciones.js?v=20261029-1600",
+    "./js/modulos/prospectos.js": "./js/modulos/prospectos.js?v=20261029-1600",
+    "./js/modulos/importar.js": "./js/modulos/importar.js?v=20261029-1600",
+    "./js/modulos/lecturas.js": "./js/modulos/lecturas.js?v=20261029-1600",
+    "./js/cotizacion-pdf.js": "./js/cotizacion-pdf.js?v=20261029-1600",
+    "./js/modulos/pendiente.js": "./js/modulos/pendiente.js?v=20261029-1600"
+  } }
+  </script>
+  <script src="clientes/unaria.js?v=20261029-1600"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script type="module">
+    // Cliente de Unaria: si su base todavía no está lista, se avisa en lugar de abrir la app
+    if (window.__CLIENTE && window.__CLIENTE.supabaseUrl) import('./js/app.js?v=20261029-1600');
+    else document.body.innerHTML = '<div style="font-family:Arial,sans-serif;max-width:420px;margin:18vh auto;padding:24px;text-align:center"><h2 style="margin:0 0 8px">' + (window.__CLIENTE ? window.__CLIENTE.nombre : 'Unaria') + '</h2><p style="color:#555">Tu plataforma está en preparación. Pronto podrás entrar aquí.</p></div>';
+  </script>
+</body>
+</html>

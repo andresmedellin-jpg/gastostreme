@@ -2,8 +2,10 @@
 // Solo el dueño puede usarla. Corre con la llave de servicio, que nunca sale del servidor.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-// Correo interno para quien no tiene correo propio. Cada instalación (Treme o un cliente de Operia) lo fija con el secreto DOMINIO_INTERNO.
-const DOMINIO_INTERNO = Deno.env.get("DOMINIO_INTERNO") ?? "usuarios.medco.mx";
+// Correo interno para quien no tiene correo propio. Treme / MEDCO usa usuarios.medco.mx; Unaria y sus clientes,
+// usuarios.unaria.mx. El secreto DOMINIO_INTERNO lo cambia si algún cliente quiere el suyo.
+const DOMINIO_INTERNO = Deno.env.get("DOMINIO_INTERNO") ??
+  ((Deno.env.get("SUPABASE_URL") ?? "").includes("mqzuaxxnidaokhdqcurm") ? "usuarios.medco.mx" : "usuarios.unaria.mx");
 const ROLES = ["dueno", "socio", "administracion", "cobranza", "operacion", "encargado", "lectura"];
 const ORIGENES = ["https://app.medco.mx", "https://andresmedellin-jpg.github.io", "http://localhost:8000", "http://127.0.0.1:8000"];
 

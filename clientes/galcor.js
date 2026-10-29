@@ -1,4 +1,4 @@
-// Operia · cliente Galcor (válvulas Emerson y servicio) y su inmobiliaria (Torre Cumbres / Torre Valle en el demo).
+// Unaria · cliente Galcor (válvulas Emerson y servicio) y su inmobiliaria (Torre Cumbres / Torre Valle en el demo).
 // Su base de datos es SUYA (proyecto de Supabase aparte). Mientras supabaseUrl esté vacío, su dirección muestra "en preparación".
 window.__CLIENTE = {
   id: 'galcor',
