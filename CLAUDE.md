@@ -162,9 +162,10 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   `registrar_prospecto` acepta `empresa_destino` (empresa que recibe), `empresa` (la del prospecto), `puntaje`, `resumen`,
   `costo_mensual`, `conversacion` (columnas nuevas en `prospectos`). La página unaria.mx (no vive en este repo) manda ahí
   los prospectos del chat "¿Por dónde empiezo?". Nunca mezclar con la base de Treme/MEDCO ni con la de Moncan.
-  Chat con IA (plantilla para clientes, basada en el prompt calificador de Angel): `chat-widget.js` (burbuja de una línea),
-  `functions/api/chat.js` (Cloudflare Pages: Claude + herramientas `registrar_datos` y `calcular_costo`, aviso por Resend)
-  y `lib/chat-config.js` (lo único que cambia por cliente). Guarda vía `app.guardar_chat(jsonb)` (solo service_role;
+  Chat con IA (plantilla para clientes, basada en el prompt calificador de Angel): `chat-widget.js` (burbuja de una línea)
+  + función de Supabase `chat` en el proyecto unaria (publicada 29/10/2026, sin verificación JWT; Claude + herramientas
+  `registrar_datos` y `calcular_costo`, aviso opcional por Resend; secreto ANTHROPIC_API_KEY lo pone Andrés) y su `config.ts`
+  (lo único que cambia por cliente). Sin Cloudflare: la página va en GitHub Pages (repo andresmedellin-jpg/unaria-web, por crear). Guarda vía `app.guardar_chat(jsonb)` (solo service_role;
   un prospecto por plática con `externo_id = 'chat:<id>'`, columnas `datos`, `puntaje`, `resumen`, `costo_mensual`,
   `conversacion`, `completa`). Ese código vive fuera de este repo (carpeta unaria-web entregada en zip).
 
