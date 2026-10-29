@@ -1581,3 +1581,24 @@ alter table app.prospectos add column if not exists datos jsonb;
 --   select pg_get_functiondef('app.guardar_chat(jsonb)'::regprocedure);
 -- y después: revoke execute on function app.guardar_chat(jsonb) from public, anon, authenticated;
 --            grant execute on function app.guardar_chat(jsonb) to service_role;
+
+-- ===== Asistente de Ayuda (migración 0026) =====
+create table if not exists app.asistente_preguntas (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid references app.organizaciones(id),
+  user_id uuid not null,
+  nombre text,
+  modulo text,
+  pregunta text not null check (length(pregunta) <= 2000),
+  respuesta text,
+  escalar text,
+  tokens_entrada integer,
+  tokens_salida integer,
+  creado_en timestamptz not null default now()
+);
+create index if not exists asistente_preguntas_user_idx on app.asistente_preguntas (user_id, creado_en desc);
+create index if not exists asistente_preguntas_org_idx on app.asistente_preguntas (org_id, creado_en desc);
+alter table app.asistente_preguntas enable row level security;
+create policy asistente_ver on app.asistente_preguntas for select using (app.tiene_rol(org_id, array['dueno']::app.rol_usuario[]));
+grant select on app.asistente_preguntas to authenticated;
+grant all on app.asistente_preguntas to service_role;

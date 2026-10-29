@@ -169,6 +169,14 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   un prospecto por plática con `externo_id = 'chat:<id>'`, columnas `datos`, `puntaje`, `resumen`, `costo_mensual`,
   `conversacion`, `completa`). Ese código vive en el repo unaria, no en este.
 
+- **Asistente de Ayuda** (botón "Ayuda" en la barra de arriba, `js/asistente.js`): las personas preguntan cómo usar la plataforma
+  y responde Claude (Haiku) con el manual `supabase/functions/asistente/manual.ts` (una sección por módulo; solo recibe las de los
+  módulos que la persona ve). Función `asistente` (verify_jwt; revisa la sesión y `miembros`), límite 100 preguntas/persona/día
+  (`ASISTENTE_LIMITE`), cada pregunta queda en `app.asistente_preguntas` (0026; solo el dueño la lee). Si no resuelve, la respuesta
+  trae `escalar` → botón de WhatsApp a `MARCA.soporte.whatsapp` (sin número: "Quedó anotado"). El botón solo aparece si la función
+  tiene `ANTHROPIC_API_KEY` (GET → {listo}); nunca en el demo; `MARCA.asistente = false` lo apaga. **Si cambias una pantalla,
+  actualiza su sección del manual y vuelve a desplegar la función** (index.ts + manual.ts).
+
 ## Personas
 - Andrés: dueño. Miguel (hermano): socio. Victoria: captura gastos y cobranza. Víctor: encargado de Torre Elysium.
 

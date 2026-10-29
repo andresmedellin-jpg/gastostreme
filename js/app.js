@@ -1,5 +1,6 @@
 import { MODULOS_ACTIVOS as MODULOS, MARCA, CLIENTE } from './config.js';
 import { sb, db, estado, esc, toast, abrirModal, cerrarModal, tieneRol } from './lib.js';
+import { iniciarAsistente, quitarAsistente } from './asistente.js';
 
 const vistas = {
   inicio: () => import('./modulos/inicio.js'),
@@ -140,6 +141,7 @@ sb.auth.onAuthStateChange((_evento, sesion) => {
 
 function salir() {
   estado.user = estado.miembro = null;
+  quitarAsistente();
   $('shell').hidden = true;
   $('login').hidden = false;
 }
@@ -177,6 +179,7 @@ async function entrar(user) {
     $('login').hidden = true;
     $('shell').hidden = false;
     navegar();
+    iniciarAsistente();
     if (miembro.debe_cambiar_password) pedirNuevaPassword({ obligatoria: true });
   })().finally(() => (entrando = null));
   return entrando;
