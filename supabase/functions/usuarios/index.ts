@@ -7,7 +7,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const DOMINIO_INTERNO = Deno.env.get("DOMINIO_INTERNO") ??
   ((Deno.env.get("SUPABASE_URL") ?? "").includes("mqzuaxxnidaokhdqcurm") ? "usuarios.medco.mx" : "usuarios.unaria.mx");
 const ROLES = ["dueno", "socio", "administracion", "cobranza", "operacion", "encargado", "lectura"];
-const ORIGENES = ["https://app.medco.mx", "https://andresmedellin-jpg.github.io", "http://localhost:8000", "http://127.0.0.1:8000"];
+const ORIGENES = ["https://app.medco.mx", "https://unaria.mx", "https://www.unaria.mx", "https://andresmedellin-jpg.github.io", "http://localhost:8000", "http://127.0.0.1:8000"];
 
 function cors(req: Request) {
   const origin = req.headers.get("Origin") ?? "";

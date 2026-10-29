@@ -107,79 +107,15 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   utm_source/medium/campaign/term, gclid y fbclid guardados de la URL de llegada; la función deduce el origen y frena spam
   (40 por 10 min, 3 por teléfono/correo por hora). Plan de publicidad: $7,000/mes Google, $5,000/mes Meta, 3 meses.
 
-## Producto para vender a otros clientes
-- **Marca configurable** (`MARCA` en `js/config.js`, se sobreescribe con `window.__MARCA`): nombre, texto del menú, logos,
-  color, módulos visibles (`modulos`), títulos (`titulos`), palabra para obra (`palabraObra`), categorías de gasto propias,
-  pestañas de Personal ocultas (`ocultarPestanas`) y centro inicial (`centroPersonal`).
-  Por omisión es Treme / MEDCO y nada cambia. Módulos con `opcional: true` (Cotizaciones, Inventario) solo salen si la marca los pide.
-- **Dos demos** (base en memoria `js/demo/supabase-demo.js`, datos inventados `js/demo/datos-demo.js`; no tocan la base real,
-  se reinician al recargar): `app.medco.mx/?demo=galcor` (o `?demo`): distribuidor de válvulas Emerson con servicio — Prospectos,
-  Cotizaciones, Inventario, Proyectos, Gastos, Personal; y `?demo=inmobiliaria`: sus torres en renta — Prospectos, Rentas (abonos y
-  Ocupación), Gastos, Personal. Cada uno filtra los datos a su empresa. Prospectos con 12 semanas de inversión simulada en Google y
-  Meta (también como gasto "Publicidad"). El vocabulario de Prospectos se cambia con `MARCA.prospectos` (tipos, cuándo, terreno, saludo…).
-  Los demos traen el menú completo: Patrimonio, Usuarios (alta simulada) y Personal separado en opciones del menú (Nómina,
-  Asistencia, Tareas, Rondín, Incidencias, Empleados, Vacaciones, Préstamos: módulos `opcional` con `vista: 'personal'` y `tab`;
-  `MARCA.centrosPersonal` limita los centros). Galcor sin Rondín ni Incidencias; la inmobiliaria con todo.
-- **Rentas con opciones de marca:** `rentaParcial` (abonos: si los pagos del mes no suman la renta queda "Abonado" y muestra lo que
-  falta; el recibo dice el saldo) y `ocupacion` (pestaña Ocupación: mapa de unidades por torre/tipo, ligado por `contratos.unidad_id`).
-  Treme hoy no las usa (si se activa `rentaParcial`, Apetit jul–ago saldría con $3,400 pendientes). Recibo: `reciboEmpresa/Logo/Color`.
-  El demo trae 2a empresa del cliente: inmobiliaria con Torre Cumbres (8 locales, 12 oficinas, 80 deptos) y Torre Valle (12 oficinas).
-- **Inventario** (`inventario.js`): productos + movimientos (entrada/salida/ajuste); existencia = suma de movimientos.
-  **Cotizaciones** (`cotizaciones.js` + `cotizacion-pdf.js`): partidas en jsonb, IVA 16 %, estados borrador/enviada/aceptada/rechazada;
-  al aceptar crea proyecto (centro tipo obra + cxc venta) y descuenta inventario. Sus tablas están en
-  `supabase/plantilla/inventario_cotizaciones.sql` (no aplicadas en Treme/MEDCO).
-- **Lecturas de luz, gas y agua** (`lecturas.js`, opcionales `lecturas` = "Toma de lecturas" y `servicios` = "Luz, gas y agua", vista
-  `lecturas`): para edificios que pagan un solo recibo (CFE, gas, Agua y Drenaje) y cobran a cada unidad según su submedidor (primer
-  cliente: la torre de la inmobiliaria de Galcor). Placa QR por medidor ("MED:<id>", hoja imprimible con `js/vendor/qrcode.min.js`);
-  el lecturista escanea con la cámara (BarcodeDetector o `js/vendor/jsQR.js`), escribe la lectura y foto obligatoria; avisa si es menor
-  a la anterior o más de 2.2× su consumo normal (queda "revisar"). Encargado: avance, revisión/aprobación, cuadre contra el recibo de
-  cada compañía, aviso de cobro PDF por unidad (recibo.js con `encabezado`/`totalTexto`/`estadoTexto`), tarifas (fija o reparto del
-  recibo real). Tablas en `supabase/plantilla/lecturas_servicios.sql` (no aplicadas en Treme/MEDCO). En el demo: ?demo=inmobiliaria.
-  Pendiente: leer la foto con IA para confirmar el número; ligar el cobro a Rentas/abonos.
-- Cada cliente real debe ir en su propio proyecto de Supabase (no mezclar con los datos de Treme/MEDCO).
-
-## Operia (el producto para otros clientes)
-- **Nombre provisional: Operia.** Un solo código para todos; cada cliente con su **propia base de Supabase** (~US$10/mes extra
-  por proyecto en el plan Pro de Andrés; se le cobra al cliente) y su carpeta: `app.medco.mx/<cliente>/` (luego dominio propio).
-- **Cliente = archivo `clientes/<id>.js`** (`window.__CLIENTE` = { id, nombre, supabaseUrl, supabaseKey, marca }). `publicar.py`
-  genera `<id>/index.html` desde `index.html` (con `<base href="/">`, sin modo demo; no editar a mano). Sin `supabaseUrl` la
-  página dice "en preparación". En `config.js`, `CLIENTE` cambia la base y parte de una marca genérica (`BASE_CLIENTE`: categorías,
-  vocabulario de Prospectos, módulos, sin nada de Treme); `clientes/<id>.js → marca` la ajusta. Sin cliente todo es Treme/MEDCO.
-- **Base nueva:** `supabase/plantilla/operia_base.sql` (estructura completa del esquema app de Treme sin datos + inventario,
-  cotizaciones y lecturas; probada en Postgres local) y luego `alta_cliente.sql` (organización, empresas, centros y dueño, que
-  antes se crea en Authentication). En el proyecto: exponer el esquema `app` en la API y desplegar la función `usuarios`
-  con el secreto `DOMINIO_INTERNO` (p. ej. usuarios.operia.mx; marca.dominioUsuarios = '@usuarios.operia.mx').
-  Si cambias la base de Treme (migración nueva), aplica el mismo cambio a operia_base.sql.
-- **Importar datos** (`importar.js`, opcional `importar`): plantilla de Excel (Unidades, Inquilinos, Empleados, Medidores),
-  revisa renglón por renglón, no duplica lo existente, crea unidades que falten. Lector SheetJS 0.20.3 desde cdn.sheetjs.com
-  (no usar 0.18.5 de npm: tiene fallas de seguridad al leer archivos).
-- Lo de Treme quedó como opción: `MARCA.condominio` (Cobranza/Reporte; por omisión Torre Elysium), `reciboEmpresa`, `dominioUsuarios`.
-- Primer cliente: Galcor (`clientes/galcor.js`, aún sin base).
-- **El modelo de Unaria** (`clientes/unaria.js` → **app.medco.mx/unaria/**, base `gimvgsjpeyvdretubrgc`): la instalación propia de
-  Unaria, vacía, color #BF4D17, módulos generales (sin paquete inmobiliario). Aquí se construye y prueba todo lo nuevo de AI
-  (no en Treme/MEDCO: Andrés no quiere mezclar Anthropic con Treme). Funciones `usuarios` (correos internos @usuarios.unaria.mx),
-  `asistente` y `chat` desplegadas ahí; la llave de Anthropic solo está en ese proyecto.
-- **Unaria** (nombre final del producto; socio: Angel Galván Treviño, clientes y operación; Andrés: producto y tecnología).
-  Su propia base de Supabase: proyecto `gimvgsjpeyvdretubrgc` ("unaria", us-east-2), creada el 28/10/2026 con
-  operia_base.sql + módulos opcionales. Org "Unaria", empresa "Unaria", centro "Oficina"; aún sin usuarios (crearlos en
-  Authentication y luego `app.miembros`). Anon solo ejecuta `registrar_prospecto` y `correo_para_login`.
-  `registrar_prospecto` acepta `empresa_destino` (empresa que recibe), `empresa` (la del prospecto), `puntaje`, `resumen`,
-  `costo_mensual`, `conversacion` (columnas nuevas en `prospectos`). La página unaria.mx (no vive en este repo) manda ahí
-  los prospectos del chat "¿Por dónde empiezo?". Nunca mezclar con la base de Treme/MEDCO ni con la de Moncan.
-  Chat con IA (plantilla para clientes, basada en el prompt calificador de Angel): `chat-widget.js` (burbuja de una línea)
-  + función de Supabase `chat` en el proyecto unaria (publicada 29/10/2026, sin verificación JWT; Claude + herramientas
-  `registrar_datos` y `calcular_costo`, aviso opcional por Resend; secreto ANTHROPIC_API_KEY lo pone Andrés) y su `config.ts`
-  (lo único que cambia por cliente). Sin Cloudflare: la página va en GitHub Pages desde el repo andresmedellin-jpg/unaria (carpeta docs/, CNAME unaria.mx; código del servidor en supabase/functions/chat). La página empieza con preguntas guiadas y cambia sola al chat con IA cuando GET a la función responde {listo:true}. Guarda vía `app.guardar_chat(jsonb)` (solo service_role;
-  un prospecto por plática con `externo_id = 'chat:<id>'`, columnas `datos`, `puntaje`, `resumen`, `costo_mensual`,
-  `conversacion`, `completa`). Ese código vive en el repo unaria, no en este.
-
-- **Asistente de Ayuda** (botón "AI" en la barra de arriba, `js/asistente.js`): las personas preguntan cómo usar la plataforma
-  y responde Claude (Haiku) con el manual `supabase/functions/asistente/manual.ts` (una sección por módulo; solo recibe las de los
-  módulos que la persona ve). Función `asistente` (verify_jwt; revisa la sesión y `miembros`), límite 100 preguntas/persona/día
-  (`ASISTENTE_LIMITE`), cada pregunta queda en `app.asistente_preguntas` (0026; solo el dueño la lee). Si no resuelve, la respuesta
-  trae `escalar` → botón de WhatsApp a `MARCA.soporte.whatsapp` (sin número: "Quedó anotado"). El botón solo aparece si la función
-  tiene `ANTHROPIC_API_KEY` (GET → {listo}); nunca en el demo; `MARCA.asistente = false` lo apaga. **Si cambias una pantalla,
-  actualiza su sección del manual y vuelve a desplegar la función** (index.ts + manual.ts).
+## Unaria (NO va aquí)
+- **Unaria** (producto de Andrés con su socio Angel Galván Treviño) vive **completamente aparte**: repositorio
+  `andresmedellin-jpg/unaria` (unaria.mx, unaria.mx/app = la app modelo, unaria.mx/demo = demos de Galcor/inmobiliaria),
+  base de Supabase `gimvgsjpeyvdretubrgc`, su propia cuenta de Anthropic. **Andrés pidió no meter nada de Unaria en
+  Treme/MEDCO**: ni demos, ni clientes, ni la llave de Anthropic, ni el asistente AI. Lo nuevo de Unaria se hace allá.
+- En este repo solo queda el demo propio de Treme/MEDCO (`?demo=medco`, usuario "demo"), y el código de marca configurable
+  (`MARCA`, `CLIENTE` en `js/config.js`) que no se usa aquí. La app de Unaria partió de una copia de este código.
+- Restos inactivos en el proyecto de Treme: función `asistente` (sin llave, nadie la llama) y tabla `app.asistente_preguntas`
+  (migración 0026, vacía). No conectar Anthropic a este proyecto.
 
 ## Personas
 - Andrés: dueño. Miguel (hermano): socio. Victoria: captura gastos y cobranza. Víctor: encargado de Torre Elysium.
