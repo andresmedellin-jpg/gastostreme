@@ -1,4 +1,4 @@
-// Asistente de Ayuda: botón "Ayuda" en la barra de arriba que abre un panel para preguntar cómo usar la plataforma.
+// Asistente de Ayuda: botón "AI" en la barra de arriba que abre un panel para preguntar cómo usar la plataforma.
 // Responde la función "asistente" de Supabase (supabase/functions/asistente) con el manual de las pantallas que la persona ve.
 // Si el servidor no tiene llave de Anthropic, el botón no aparece. En el demo tampoco.
 import { SUPABASE_URL, SUPABASE_KEY, MARCA, MODULOS_ACTIVOS as MODULOS } from './config.js';
@@ -51,8 +51,8 @@ export async function iniciarAsistente() {
   if (!barra) return;
   const btn = document.createElement('button');
   btn.id = 'ayuda-btn'; btn.type = 'button'; btn.className = 'ayuda-btn';
-  btn.setAttribute('aria-label', 'Ayuda: pregunta cómo usar la plataforma');
-  btn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.2a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.5-2.7 4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg><span>Ayuda</span>`;
+  btn.setAttribute('aria-label', 'Asistente AI: pregunta cómo usar la plataforma');
+  btn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M10 3.5l1.6 4.4a3 3 0 0 0 1.8 1.8L17.8 11.3l-4.4 1.6a3 3 0 0 0-1.8 1.8L10 19.1l-1.6-4.4a3 3 0 0 0-1.8-1.8L2.2 11.3l4.4-1.6a3 3 0 0 0 1.8-1.8z"/><path d="M18.5 2.5v4M16.5 4.5h4"/></svg><span>AI</span>`;
   btn.addEventListener('click', () => (abierto ? cerrar() : abrir()));
   barra.appendChild(btn);
 }
@@ -69,10 +69,10 @@ function abrir() {
   if (!p) {
     p = document.createElement('aside');
     p.id = 'ayuda-panel'; p.className = 'ayuda-panel';
-    p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Ayuda');
+    p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Asistente AI');
     p.innerHTML = `
       <div class="ayuda-head">
-        <div><strong>Ayuda</strong><span>Pregunta cómo hacer cualquier cosa en la plataforma</span></div>
+        <div><strong>Asistente AI</strong><span>Pregunta cómo hacer cualquier cosa en la plataforma</span></div>
         <button type="button" class="ayuda-x" aria-label="Cerrar">✕</button>
       </div>
       <div class="ayuda-msgs" aria-live="polite"></div>
@@ -168,8 +168,8 @@ function estilos() {
   const st = document.createElement('style');
   st.id = 'ayuda-css';
   st.textContent = `
-.ayuda-btn { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; flex: none; background: var(--surface); color: var(--text);
-  border: 1px solid #d6d6d6; border-radius: var(--radius); padding: 6px 11px; font: inherit; font-size: 13px; cursor: pointer; }
+.ayuda-btn { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; margin-left: 8px; flex: none; background: var(--surface); color: var(--text);
+  border: 1px solid #d6d6d6; border-radius: var(--radius); padding: 6px 11px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .ayuda-btn:hover, .ayuda-btn.activo { border-color: var(--primary); color: var(--primary); }
 .ayuda-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 380px; max-width: 100vw; z-index: 45; background: var(--surface);
   border-left: 1px solid var(--border); box-shadow: -8px 0 30px rgba(0,0,0,.08); display: flex; flex-direction: column; }
@@ -201,7 +201,6 @@ function estilos() {
 .ayuda-pie { padding: 0 18px 12px; font-size: 11px; color: var(--text-3); }
 .ayuda-nueva { background: none; border: 0; padding: 0; margin-left: 6px; font: inherit; font-size: 11px; color: var(--primary); text-decoration: underline; cursor: pointer; }
 @media (max-width: 760px) {
-  .ayuda-btn span { display: none; }
   .ayuda-btn { padding: 6px 8px; }
   .ayuda-panel { width: 100vw; border-left: 0; }
 }`;
