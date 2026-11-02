@@ -117,11 +117,15 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 - Restos inactivos en el proyecto de Treme: función `asistente` (sin llave, nadie la llama) y tabla `app.asistente_preguntas`
   (migración 0026, vacía). No conectar Anthropic a este proyecto.
 
-## Equipo (Personal → Hoy) — igual que en Unaria (02/11/2026)
-- `js/modulos/equipo.js`: pestaña **Hoy** (quién está ahorita, "Hoy en <centro>" con entradas con foto, rondines, tareas,
-  reportes, paquetes y cambios de turno; pendientes; reportes de residentes; paquetes; turnos de la semana con huecos de caseta;
-  nómina estimada), y pestañas Turnos, Rondines (puntos con placa QR "PTO:<id>"), Reportes, Paquetes.
-  La pestaña vieja "Rondín" (Víctor verifica a cada persona) ahora se llama **Supervisión** y sigue igual.
+## Equipo (Personal) — igual que en Unaria (02/11/2026)
+- **Solo 3 pestañas, por momento:** Hoy · Semana (turnos + nómina) · Personas (empleados; Vacaciones y Préstamos como botones).
+  El encargado (Víctor) ve solo Hoy y Semana. Lo demás son vistas de detalle con "← Volver" (Asistencia, Tareas, Rondines,
+  Reportes, Paquetes, Incidencias por día). "⚙ Configurar": puntos del rondín/QR, tareas de cada día (`tareas_plantilla`), QR del elevador.
+- En Hoy cada persona es una tarjeta: Llegó / Faltó / Salió, 👁 Supervisar (antes la pestaña Rondín/Supervisión de Víctor;
+  guarda `tareas` tipo rondin), y al tocarla su día (tareas, darle otra tarea, permiso, reportar algo = incidencia).
+  A la derecha "Necesita tu atención": quién no ha llegado, tareas de quien faltó (se pasan a otro), reportes sin asignar o
+  atorados, último rondín incompleto, paquetes de más de un día, caseta sin vigilante.
+- `js/modulos/equipo.js`: Hoy, turnos, rondines (placas QR "PTO:<id>"), reportes, paquetes, tareas de cada día, configurar.
 - `js/modulos/turno.js` = **Mi turno**, la pantalla del celular del personal (rol `equipo`): checar entrada/salida con selfie,
   rondín por QR, pendientes con foto, reportes asignados, paquetes, buscar placa, reportar, entregar turno con nota.
   Acceso: Personal → Empleados → "📱 Dar acceso" (solo el dueño; queda ligado con `miembros.empleado_id`).

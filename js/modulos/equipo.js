@@ -74,7 +74,7 @@ async function cargarDia(centro, fecha, equipo) {
     ids.length ? q('asistencia').select('*').in('empleado_id', ids).gte('fecha', lun < ayer ? lun : ayer).lte('fecha', fecha) : { data: [] },
     q('puntos_rondin').select('*').eq('centro_id', centro).eq('activo', true).order('orden'),
     q('rondin_marcas').select('*').eq('centro_id', centro).eq('fecha', fecha).order('hora'),
-    q('tareas').select('*').eq('centro_id', centro).eq('fecha', fecha).in('tipo', ['tarea', 'incidencia']),
+    q('tareas').select('*').eq('centro_id', centro).eq('fecha', fecha).in('tipo', ['tarea', 'rondin']),
     q('tareas_plantilla').select('*').eq('centro_id', centro).eq('activo', true),
     q('solicitudes').select('*').eq('centro_id', centro).or(`estado.neq.resuelta,resuelto_en.gte.${sumarDias(fecha, -7)}`).order('creado_en', { ascending: false }),
     q('paquetes').select('*').eq('centro_id', centro).or(`entregado_en.is.null,recibido_en.gte.${fecha}`).order('recibido_en', { ascending: false }),
@@ -121,25 +121,30 @@ export function rondas(marcas, puntos) {
 }
 
 // ================= HOY =================
+// Todo lo del día en una pantalla. Cada persona es una tarjeta: se toca para marcar su entrada o falta, supervisarla,
+// ver y marcar sus tareas o reportar algo de ella. A la derecha, solo lo que necesita atención.
+const puedeOperar = () => tieneRol(['administracion', 'encargado']);
 export async function hoy(el, ctx) {
   const { centro, equipo, fecha } = ctx;
   const D = await cargarDia(centro, fecha, equipo);
   const nombre = (id) => equipo.find((e) => e.id === id)?.nombre || '';
   const est = equipo.map((e) => ({ e, s: estadoAhora(e, D, fecha) })).sort((a, b) => ORDEN_EST[a.s.k] - ORDEN_EST[b.s.k]);
   const pend = pendientesDe(equipo, D.plantillas, D.tareas, fecha);
-  const hechas = pend.filter((f) => f.reg?.estado === 'hecho').length;
   const abiertas = D.solicitudes.filter((s) => s.estado !== 'resuelta');
   const porEntregar = D.paquetes.filter((p) => !p.entregado_en);
-  const tareasDe = (e) => { const l = pend.filter((f) => f.e.id === e.id); return l.length ? `${l.filter((f) => f.reg?.estado === 'hecho').length} de ${l.length} tareas` : ''; };
+  const supDe = (e) => D.tareas.filter((t) => t.tipo === 'rondin' && t.empleado_id === e.id).sort((a, b) => String(b.hora_registro).localeCompare(String(a.hora_registro)))[0];
+  const tareasDe = (e) => pend.filter((f) => f.e.id === e.id);
+  const esHoy = fecha === hoyISO();
 
-  // línea de tiempo
+  // ---- línea de tiempo ----
   const ev = [];
   D.asistencia.filter((a) => a.fecha === fecha).forEach((a) => {
     const n = nombre(a.empleado_id);
-    if (a.hora_entrada) ev.push({ t: a.hora_entrada, ic: a.minutos_tarde ? 'lat' : 'ok', s: a.minutos_tarde ? '⏱' : '✓', txt: `<b>${esc(n)}</b> checó entrada${a.minutos_tarde ? ` ${a.minutos_tarde} min tarde` : ''}`,
-      sub: a.minutos_tarde ? 'no se descuenta solo; tú decides en la nómina' : (a.foto_entrada ? 'con foto' : ''), foto: a.foto_entrada });
-    if (a.hora_salida) ev.push({ t: a.hora_salida, ic: 'gr', s: '→', txt: `<b>${esc(n)}</b> checó salida`, foto: a.foto_salida });
-    if (a.estado === 'falta') ev.push({ t: a.creado_en, ic: 'no', s: '✕', txt: `<b>${esc(n)}</b> no llegó`, sub: 'falta registrada' });
+    if (a.hora_entrada) ev.push({ t: a.hora_entrada, ic: a.minutos_tarde ? 'lat' : 'ok', s: a.minutos_tarde ? '⏱' : '✓', txt: `<b>${esc(n)}</b> llegó${a.minutos_tarde ? ` ${a.minutos_tarde} min tarde` : ''}`,
+      sub: a.foto_entrada ? 'checó con foto' : a.registrado_por && a.registrado_por !== n ? `lo marcó ${a.registrado_por}` : '', foto: a.foto_entrada });
+    if (a.hora_salida) ev.push({ t: a.hora_salida, ic: 'gr', s: '→', txt: `<b>${esc(n)}</b> salió`, foto: a.foto_salida });
+    if (a.estado === 'falta') ev.push({ t: a.creado_en, ic: 'no', s: '✕', txt: `<b>${esc(n)}</b> faltó` });
+    if (a.estado === 'permiso') ev.push({ t: a.creado_en, ic: 'gr', s: 'P', txt: `<b>${esc(n)}</b> con permiso` });
   });
   rondas(D.marcas, D.puntos).forEach((r) => {
     const completa = D.puntos.length && !r.faltan.length;
@@ -149,11 +154,12 @@ export async function hoy(el, ctx) {
   });
   D.tareas.filter((t) => t.tipo === 'tarea' && t.estado === 'hecho' && t.hora_registro).forEach((t) =>
     ev.push({ t: t.hora_registro, ic: 'ok', s: '✓', txt: `<b>${esc(primerNombre(nombre(t.empleado_id)))} terminó:</b> ${esc(t.tarea)}`, sub: t.foto_path ? 'con foto' : '', foto: t.foto_path }));
+  D.tareas.filter((t) => t.tipo === 'rondin').forEach((t) =>
+    ev.push({ t: t.hora_registro || t.creado_en, ic: t.estado === 'hecho' ? 'ok' : 'no', s: t.estado === 'hecho' ? '👁' : '?', txt: t.estado === 'hecho' ? `<b>${esc(t.registrado_por || '')}</b> vio a ${esc(primerNombre(nombre(t.empleado_id)))} trabajando` : `<b>${esc(t.registrado_por || '')}</b> no encontró a ${esc(primerNombre(nombre(t.empleado_id)))}`, foto: t.foto_path }));
   D.incidencias.forEach((t) => ev.push({ t: t.hora_registro || t.creado_en, ic: 'no', s: '!', txt: `<b>Incidencia:</b> ${esc(t.tarea)}`, sub: [nombre(t.empleado_id), t.categoria].filter(Boolean).map(esc).join(' · ') }));
   D.solicitudes.forEach((s) => {
-    if (fl(s.creado_en) === fecha)
-      ev.push({ t: s.creado_en, ic: 'az', s: 'R', txt: `<b>${esc(s.unidad_txt || 'Residente')} reportó:</b> ${esc(s.descripcion)}${s.asignado_a ? ` <span class="eq-tag lat">Asignado a ${esc(primerNombre(nombre(s.asignado_a)))}</span>` : ''}`,
-        sub: [s.reporta, { qr: 'por el QR del elevador', whatsapp: 'por WhatsApp', caseta: 'en caseta', oficina: 'en oficina' }[s.origen]].filter(Boolean).map(esc).join(' · ') });
+    if (fl(s.creado_en) === fecha) ev.push({ t: s.creado_en, ic: 'az', s: 'R', txt: `<b>${esc(s.unidad_txt || 'Residente')} reportó:</b> ${esc(s.descripcion)}`,
+      sub: [s.reporta, { qr: 'por el QR del elevador', whatsapp: 'por WhatsApp', caseta: 'en caseta', oficina: 'en oficina' }[s.origen]].filter(Boolean).map(esc).join(' · ') });
     if (fl(s.resuelto_en) === fecha) ev.push({ t: s.resuelto_en, ic: 'ok', s: '✓', txt: `<b>Resuelto ${esc(s.unidad_txt || '')}:</b> ${esc(s.descripcion)}`, sub: s.nota_cierre || '', foto: s.foto_cierre });
   });
   D.paquetes.forEach((p) => {
@@ -163,68 +169,243 @@ export async function hoy(el, ctx) {
   D.bitacora.forEach((b) => ev.push({ t: b.creado_en, ic: 'ok', s: '⇄', txt: `<b>Cambio de turno</b> · ${esc(primerNombre(nombre(b.empleado_id)))} entregó a ${esc(primerNombre(nombre(b.recibe_id)) || '—')}`, sub: b.nota ? `“${b.nota}”` : '' }));
   ev.sort((a, b) => String(b.t).localeCompare(String(a.t)));
 
-  // nómina estimada de la semana (solo administración: necesita los sueldos)
-  let nomina = null;
-  if (tieneRol(['administracion'])) {
-    const { data: emps } = await db().from('empleados').select('id, salario_semanal').in('id', equipo.map((e) => e.id));
-    const lun = lunesDe(fecha);
-    const desc = D.asistencia.filter((a) => a.fecha >= lun).reduce((s, a) => s + Number(a.monto_descuento || 0), 0);
-    const faltas = D.asistencia.filter((a) => a.fecha >= lun && a.estado === 'falta').length, retardos = D.asistencia.filter((a) => a.fecha >= lun && a.minutos_tarde > 0).length;
-    nomina = { total: (emps || []).reduce((s, e) => s + Number(e.salario_semanal || 0), 0) - desc, faltas, retardos, n: (emps || []).length, desc };
-  }
+  // ---- lo que necesita atención (solo lo que hay que hacer algo) ----
+  const at = [];
+  if (esHoy) est.filter(({ s }) => s.k === 'nollego').forEach(({ e, s }) => at.push({ n: 3, ic: 'no', txt: `<b>${esc(e.nombre)}</b> no ha llegado`, sub: `debía entrar a las ${hhmm(s.h.ini)}`,
+    acc: `${e.telefono ? `<a class="btn btn-sm btn-wa" target="_blank" rel="noopener" href="https://wa.me/52${String(e.telefono).replace(/\D/g, '').slice(-10)}?text=${encodeURIComponent(`Hola ${primerNombre(e.nombre)}, ¿todo bien? Tu turno empezaba a las ${hhmm(s.h.ini)}.`)}">Escribirle</a>` : ''}
+      ${puedeOperar() ? `<button class="btn btn-sm btn-ghost" data-marca="falta" data-e="${e.id}">Marcar falta</button><button class="btn btn-sm btn-ghost" data-marca="entrada" data-e="${e.id}">Ya llegó</button>` : ''}` }));
+  est.filter(({ s }) => s.k === 'falta').forEach(({ e }) => { const sin = tareasDe(e).filter((f) => f.reg?.estado !== 'hecho');
+    if (sin.length) at.push({ n: 2, ic: 'lat', txt: `<b>${esc(e.nombre)}</b> faltó: ${sin.length} tarea${sin.length === 1 ? '' : 's'} sin quien las haga`, sub: sin.slice(0, 3).map((f) => esc(f.tarea)).join(' · '),
+      acc: puedeOperar() ? `<select data-pasar="${e.id}"><option value="">Pasárselas a…</option>${equipo.filter((x) => x.id !== e.id).map((x) => `<option value="${x.id}">${esc(x.nombre)}</option>`).join('')}</select>` : '' }); });
+  abiertas.filter((s) => !s.asignado_a).forEach((s) => at.push({ n: 3, ic: 'az', txt: `<b>${esc(s.unidad_txt || 'Reporte')}:</b> ${esc(s.descripcion)}`, sub: `sin asignar · ${haceCuanto(s.creado_en)}`,
+    acc: `<select data-asignar="${s.id}"><option value="">Asignar a…</option>${equipo.map((x) => `<option value="${x.id}">${esc(x.nombre)}</option>`).join('')}</select>` }));
+  abiertas.filter((s) => s.asignado_a && Date.now() - new Date(s.asignado_en || s.creado_en) > 864e5).forEach((s) => at.push({ n: 1, ic: 'lat', txt: `<b>${esc(s.unidad_txt || 'Reporte')}:</b> ${esc(s.descripcion)}`,
+    sub: `${esc(primerNombre(nombre(s.asignado_a)))} lo tiene desde ${haceCuanto(s.asignado_en || s.creado_en).replace('hace ', 'hace ')}`, acc: `<button class="btn btn-sm btn-ghost" data-resolver="${s.id}">Ya quedó</button>` }));
+  const ult = rondas(D.marcas, D.puntos).sort((a, b) => String(b.fin).localeCompare(String(a.fin)))[0];
+  if (ult && ult.faltan.length && ult.faltan.length < D.puntos.length) at.push({ n: 1, ic: 'lat', txt: `Último rondín incompleto: faltó ${ult.faltan.slice(0, 3).map((p) => `<b>${esc(p.nombre)}</b>`).join(', ')}`, sub: `${esc(nombre(ult.empleado_id))} · ${hora(ult.fin)}` });
+  porEntregar.filter((p) => Date.now() - new Date(p.recibido_en) > 864e5).forEach((p) => at.push({ n: 1, ic: 'gr', txt: `Paquete de <b>${esc(unidadTxt(p, ctx))}</b> lleva ${haceCuanto(p.recibido_en).replace('hace ', '')} en caseta`, acc: avisoPaquete(p, ctx) }));
+  const hueco = esHoy ? coberturaCaseta(equipo, D.turnos, [fecha]) : null;
+  if (hueco?.length) at.push({ n: 2, ic: 'no', txt: `<b>Caseta sin vigilante hoy</b> de ${esc(hueco[0].replace(/^\S+ /, ''))}`, acc: '<button class="btn btn-sm btn-ghost" data-ir="semana">Arreglar turnos</button>' });
+  at.sort((a, b) => b.n - a.n);
 
-  const pct = pend.length ? Math.round(hechas / pend.length * 100) : 0;
   const acc = document.getElementById('page-actions');
-  acc.innerHTML = `${nomina?.n ? `<button class="btn btn-primary" id="eq-nom">Nómina de la semana · ${fmt(nomina.total)}</button>` : ''}`;
-  acc.querySelector('#eq-nom')?.addEventListener('click', () => ctx.irA('nomina'));
+  acc.innerHTML = '';
 
+  const botones = (e, s) => {
+    if (!puedeOperar() || !esHoy) return '';
+    const sup = supDe(e);
+    if (['descanso', 'permiso', 'falta'].includes(s.k)) return '';
+    if (['nollego', 'proximo', 'sin'].includes(s.k)) return `<button class="btn btn-sm btn-primary" data-marca="entrada" data-e="${e.id}">Llegó</button><button class="btn btn-sm btn-ghost" data-marca="falta" data-e="${e.id}">Faltó</button>`;
+    if (s.k === 'turno') return `<button class="btn btn-sm btn-ghost" data-sup="${e.id}" title="La vi trabajando">👁 ${sup ? `Vista ${hora(sup.hora_registro)}` : 'Supervisar'}</button><button class="btn btn-sm btn-ghost" data-marca="salida" data-e="${e.id}">Salió</button>`;
+    return '';
+  };
   el.innerHTML = `
-    ${fecha !== hoyISO() ? `<div class="panel rs-aviso">Estás viendo el ${fmtFecha(fecha)}. <button class="btn btn-sm btn-ghost" id="eq-hoy">Volver a hoy</button></div>` : ''}
-    ${equipo.length ? `<div class="eq-ahora">${est.map(({ e, s }) => `
-      <div class="eq-pers ${s.k === 'descanso' ? 'apagada' : ''}">
-        <span class="eq-dot ${s.cls}">${esc(s.t)}</span>
-        ${avatar(e.nombre)}
-        <div><div class="eq-nm">${esc(e.nombre)}</div><div class="eq-r">${esc([e.puesto, s.h?.lugar].filter(Boolean).join(' · ') || '—')}</div></div>
-        <div class="eq-ln ${s.k === 'nollego' ? 'neg' : ''}">${s.a?.foto_entrada ? `<button class="eq-foto" data-foto="${esc(s.a.foto_entrada)}" title="Ver foto" style="background-image:url('${esc(s.a.foto_entrada)}')"></button>` : ''}
-          <span>${esc(s.linea)}${s.k === 'turno' && tareasDe(e) ? ' · ' + tareasDe(e) : ''}</span></div>
-        ${s.k === 'nollego' && e.telefono ? `<a class="btn btn-sm btn-wa" target="_blank" rel="noopener" href="https://wa.me/52${String(e.telefono).replace(/\D/g, '').slice(-10)}?text=${encodeURIComponent(`Hola ${primerNombre(e.nombre)}, ¿todo bien? Tu turno empezaba a las ${hhmm(s.h.ini)}.`)}">Escribirle</a>` : ''}
-      </div>`).join('')}</div>` : `<div class="vacio">Todavía no hay personal en este edificio. Agrégalo en la pestaña Empleados.</div>`}
+    ${!esHoy ? `<div class="panel rs-aviso">Estás viendo el ${fmtFecha(fecha)}. <button class="btn btn-sm btn-ghost" id="eq-hoy">Volver a hoy</button></div>` : ''}
+    ${equipo.length ? `<div class="eq-ahora">${est.map(({ e, s }) => { const ts = tareasDe(e), h = ts.filter((f) => f.reg?.estado === 'hecho').length;
+      return `<div class="eq-pers ${s.k === 'descanso' ? 'apagada' : ''}">
+        <button class="eq-pers-top" data-ficha="${e.id}" title="Ver su día">
+          <span class="eq-dot ${s.cls}">${esc(s.t)}</span>${avatar(e.nombre)}
+          <div><div class="eq-nm">${esc(e.nombre)}</div><div class="eq-r">${esc([e.puesto, s.h?.lugar].filter(Boolean).join(' · ') || '—')}</div></div>
+          <div class="eq-ln ${s.k === 'nollego' ? 'neg' : ''}">${s.a?.foto_entrada ? `<span class="eq-foto" style="background-image:url('${esc(s.a.foto_entrada)}')"></span>` : ''}<span>${esc(s.linea)}</span></div>
+          ${ts.length && !['descanso', 'falta', 'permiso'].includes(s.k) ? `<div class="eq-barra" title="${h} de ${ts.length} tareas"><i style="width:${h / ts.length * 100}%"></i></div><div class="eq-r">${h} de ${ts.length} tareas</div>` : ''}
+        </button>
+        ${botones(e, s) ? `<div class="eq-bot">${botones(e, s)}</div>` : ''}
+      </div>`; }).join('')}</div>`
+      : `<div class="vacio">Todavía no hay personal en este edificio. Agrégalo en <button class="link-btn" data-ir="personas">Personas</button>.</div>`}
     <div class="eq-grid">
       <div>
-        <section class="panel"><div class="panel-head"><h3>Hoy en ${esc(estado.centros.find((c) => c.id === centro)?.nombre || 'la torre')}</h3><span class="sub-meta">se llena solo con lo que hace el equipo desde su celular</span></div>
+        <section class="panel"><div class="panel-head"><h3>Hoy en ${esc(estado.centros.find((c) => c.id === centro)?.nombre || 'la torre')}</h3><span class="sub-meta">se llena solo con lo que hace el equipo</span></div>
           ${ev.length ? `<ul class="eq-tl">${ev.slice(0, 40).map((x) => `<li><span class="h">${hora(x.t)}</span><span class="ic ${x.ic}">${x.s}</span>
             <span class="tx">${x.txt}${x.sub ? `<small>${x.sub}</small>` : ''}</span>${x.foto ? `<button class="eq-foto" data-foto="${esc(x.foto)}" style="background-image:url('${esc(x.foto)}')" title="Ver foto"></button>` : ''}</li>`).join('')}</ul>`
-          : '<div class="vacio">Todavía no hay movimientos hoy. Aquí aparecen las entradas con foto, los rondines, las tareas terminadas, los reportes y los paquetes.</div>'}
+          : '<div class="vacio">Todavía no hay movimientos hoy. Aquí aparecen las llegadas, los rondines, las tareas terminadas, los reportes y los paquetes.</div>'}
         </section>
-        <section class="panel" id="eq-turnos"></section>
+        <p class="eq-otros">Ver otros días: <button class="link-btn" data-ir="asistencia">Asistencia</button> · <button class="link-btn" data-ir="tareas">Tareas</button> · <button class="link-btn" data-ir="rondines">Rondines</button> · <button class="link-btn" data-ir="incidencias">Incidencias</button></p>
       </div>
       <div>
-        <section class="panel"><div class="panel-head"><h3>Pendientes de hoy</h3><span class="sub-meta">${hechas} de ${pend.length}</span></div>
-          ${pend.length ? `<div class="eq-ring">${anillo(pct)}<div class="nota">Las tareas de cada día salen solas. Cada quien las marca desde su celular, con foto.</div></div>
-            ${[...pend].sort((a, b) => (a.reg?.estado === 'hecho') - (b.reg?.estado === 'hecho')).slice(0, 8).map((f) => {
-              const s = est.find((x) => x.e.id === f.e.id)?.s, ok = f.reg?.estado === 'hecho';
-              return `<div class="eq-chk"><i class="${ok ? 'y' : ''}"></i><span>${esc(f.tarea)}</span><span class="who ${!ok && ['falta', 'nollego'].includes(s?.k) ? 'neg' : ''}">${esc(primerNombre(f.e.nombre))}${ok ? ' · ' + hora(f.reg.hora_registro) : !ok && s?.k === 'falta' ? ' · faltó' : ''}</span></div>`; }).join('')}
-            ${pend.length > 8 ? `<button class="link-btn" data-ir="tareas">Ver las ${pend.length}</button>` : ''}`
-          : `<p class="nota">No hay tareas fijas para hoy. <button class="link-btn" data-ir="tareas">Configúralas en Tareas</button>: limpieza de lobby, basura, revisar bombas…</p>`}
+        <section class="panel eq-atencion"><div class="panel-head"><h3>Necesita tu atención</h3><span class="sub-meta">${at.length || ''}</span></div>
+          ${at.length ? at.map((x) => `<div class="eq-at"><span class="ic ${x.ic}"></span><div><div>${x.txt}</div>${x.sub ? `<small>${x.sub}</small>` : ''}${x.acc ? `<div class="eq-acc">${x.acc}</div>` : ''}</div></div>`).join('')
+            : `<div class="eq-ok">✓ Todo en orden${esHoy ? ' por ahora' : ''}</div>`}
         </section>
         <section class="panel"><div class="panel-head"><h3>Reportes de residentes</h3><span class="sub-meta">${abiertas.length} abierto${abiertas.length === 1 ? '' : 's'}</span></div>
-          ${abiertas.slice(0, 4).map((s) => tarjetaReporte(s, ctx)).join('') || '<p class="nota">Sin reportes abiertos.</p>'}
+          ${abiertas.filter((s) => s.asignado_a).slice(0, 4).map((s) => tarjetaReporte(s, ctx)).join('') || (abiertas.length ? '' : '<p class="nota">Sin reportes abiertos.</p>')}
           <div class="eq-acc"><button class="btn btn-sm btn-ghost" id="eq-nuevo-rep">＋ Registrar reporte</button><button class="btn btn-sm btn-ghost" data-ir="reportes">Ver todos</button></div>
         </section>
         <section class="panel"><div class="panel-head"><h3>Paquetes en caseta</h3><span class="sub-meta">${porEntregar.length} por entregar</span></div>
           ${porEntregar.slice(0, 4).map((p) => `<div class="eq-rep"><b>${esc(unidadTxt(p, ctx))}</b>${p.paqueteria ? ' · ' + esc(p.paqueteria) : ''}<div class="m"><span>${esc(p.descripcion || 'Paquete')}</span><span>${haceCuanto(p.recibido_en)}</span></div></div>`).join('') || '<p class="nota">No hay paquetes esperando.</p>'}
+          <div class="eq-acc"><button class="btn btn-sm btn-ghost" id="eq-paq">＋ Recibir paquete</button>${porEntregar.length || D.paquetes.length ? '<button class="btn btn-sm btn-ghost" data-ir="paquetes">Ver todos</button>' : ''}</div>
         </section>
-        ${nomina?.n ? `<section class="panel"><div class="panel-head"><h3>Nómina de la semana</h3><span class="sub-meta">se calcula sola</span></div>
-          <div class="eq-nom"><div><strong>${fmt(nomina.total)}</strong><small>${nomina.n} personas · ${nomina.faltas} falta${nomina.faltas === 1 ? '' : 's'} · ${nomina.retardos} retardo${nomina.retardos === 1 ? '' : 's'}</small></div>
-          <button class="btn btn-primary" data-ir="nomina">Revisar y pagar</button></div></section>` : ''}
       </div>
     </div>`;
+
   el.querySelector('#eq-hoy')?.addEventListener('click', () => ctx.cambiarFecha(hoyISO()));
   el.querySelectorAll('[data-foto]').forEach((b) => b.addEventListener('click', () => verFoto(b.dataset.foto)));
   el.querySelectorAll('[data-ir]').forEach((b) => b.addEventListener('click', () => ctx.irA(b.dataset.ir)));
-  el.querySelector('#eq-nuevo-rep').addEventListener('click', () => nuevoReporte(ctx, () => ctx.repintar()));
+  el.querySelector('#eq-nuevo-rep').addEventListener('click', () => nuevoReporte(ctx, ctx.repintar));
+  el.querySelector('#eq-paq').addEventListener('click', () => recibirPaquete(ctx, ctx.repintar));
   enlazarReportes(el, ctx, D.solicitudes);
-  await pintarTurnos(el.querySelector('#eq-turnos'), { ...ctx, turnos: D.turnos }, lunesDe(fecha), true);
+  el.querySelectorAll('[data-marca]').forEach((b) => b.addEventListener('click', async () => {
+    const e = equipo.find((x) => x.id === b.dataset.e), accion = b.dataset.marca;
+    b.disabled = true;
+    const { data, error } = await db().rpc('asistencia_marcar', { p_empleado: e.id, p_fecha: fecha, p_accion: accion });
+    if (error) { b.disabled = false; return toast(error.message, true); }
+    toast(accion === 'entrada' ? (data.minutos_tarde ? `${primerNombre(e.nombre)} llegó ${data.minutos_tarde} min tarde` : `${primerNombre(e.nombre)} llegó ✓`)
+      : accion === 'salida' ? `${primerNombre(e.nombre)} salió ✓` : accion === 'falta' ? `Falta de ${primerNombre(e.nombre)} (se descuenta el día)` : 'Permiso (sin descuento)');
+    ctx.repintar();
+  }));
+  el.querySelectorAll('[data-sup]').forEach((b) => b.addEventListener('click', () => supervisar(equipo.find((x) => x.id === b.dataset.sup), ctx)));
+  el.querySelectorAll('[data-ficha]').forEach((b) => b.addEventListener('click', () => { const x = est.find((y) => y.e.id === b.dataset.ficha); fichaDia(x.e, x.s, tareasDe(x.e), ctx, fecha); }));
+  el.querySelectorAll('[data-pasar]').forEach((sel) => sel.addEventListener('change', async () => {
+    if (!sel.value) return;
+    const de = equipo.find((x) => x.id === sel.dataset.pasar), a = equipo.find((x) => x.id === sel.value);
+    const filas = tareasDe(de).filter((f) => f.reg?.estado !== 'hecho').map((f) => ({ org_id: estado.miembro.org_id, centro_id: centro, empleado_id: a.id, fecha, tipo: 'tarea',
+      tarea: f.tarea, categoria: f.categoria, estado: 'pendiente', notas: `Por falta de ${de.nombre}`, registrado_por: estado.miembro.nombre }));
+    const { error } = await db().from('tareas').insert(filas);
+    if (error) return toast(error.message, true);
+    toast(`${filas.length} tarea${filas.length === 1 ? '' : 's'} para ${primerNombre(a.nombre)} ✓ · le aparecen en su celular`); ctx.repintar();
+  }));
+}
+
+// "La vi trabajando" (lo que antes era la pestaña de supervisión / rondín del encargado)
+function supervisar(e, ctx) {
+  const modal = abrirModal({ titulo: `Supervisar a ${primerNombre(e.nombre)}`,
+    cuerpo: `<form class="form" id="sv"><p class="nota">¿La encontraste trabajando en lo suyo?</p>
+      <label class="archivo">Foto <small>(opcional)</small><input type="file" name="foto" accept="image/*" capture="environment"></label></form>`,
+    pie: `<button class="btn btn-ghost" data-sv="no_hecho">✕ No la encontré</button><button class="btn btn-primary" data-sv="hecho">✓ Trabajando</button>` });
+  const f = modal.querySelector('#sv');
+  modal.querySelectorAll('[data-sv]').forEach((b) => b.addEventListener('click', async () => {
+    modal.querySelectorAll('[data-sv]').forEach((x) => { x.disabled = true; });
+    try {
+      const foto = f.foto.files[0] ? await subirArchivo(await comprimirImagen(f.foto.files[0], 1200, 0.7), 'rondin') : null;
+      const { error } = await db().from('tareas').insert({ org_id: estado.miembro.org_id, centro_id: ctx.centro, empleado_id: e.id, fecha: hoyISO(), tipo: 'rondin',
+        tarea: 'Verificación de rondín', categoria: 'Rondín', estado: b.dataset.sv, foto_path: foto, hora_registro: new Date().toISOString(), registrado_por: estado.miembro.nombre });
+      if (error) throw error;
+      cerrarModal(); toast(b.dataset.sv === 'hecho' ? 'Trabajando ✓' : 'Anotado: no la encontraste'); ctx.repintar();
+    } catch (err) { modal.querySelectorAll('[data-sv]').forEach((x) => { x.disabled = false; }); toast(err.message, true); }
+  }));
+}
+
+// El día de una persona: sus tareas (se marcan aquí), su entrada con foto y reportar algo de ella
+function fichaDia(e, s, tareas, ctx, fecha) {
+  const puede = puedeOperar() || tieneRol(['operacion']);
+  const modal = abrirModal({ titulo: e.nombre, ancho: true,
+    cuerpo: `<div class="eq-ficha">
+      <div class="eq-ficha-top">${avatar(e.nombre)}<div><b>${esc(e.puesto || '')}</b><small>${esc(s.linea)}${s.h && !s.h.descanso ? ` · horario ${hhmm(s.h.ini)}–${hhmm(s.h.fin)}` : ''}</small></div>
+        ${s.a?.foto_entrada ? `<button class="eq-foto grande" data-foto="${esc(s.a.foto_entrada)}" style="background-image:url('${esc(s.a.foto_entrada)}')" title="Foto de su entrada"></button>` : ''}</div>
+      <h4>Sus tareas de hoy</h4>
+      ${tareas.length ? tareas.map((f, i) => `<div class="tu-chk ${f.reg?.estado === 'hecho' ? 'hecho' : ''}"><button class="tu-box ${f.reg?.estado === 'hecho' ? 'y' : ''}" data-t="${i}" ${puede ? '' : 'disabled'} aria-label="Hecha"></button>
+        <span>${esc(f.tarea)}${f.reg?.hora_registro && f.reg.estado === 'hecho' ? `<small>${hora(f.reg.hora_registro)}${f.reg.foto_path ? ' · con foto' : ''}</small>` : ''}</span>
+        ${f.reg?.foto_path ? `<button class="eq-foto" data-foto="${esc(f.reg.foto_path)}" style="background-image:url('${esc(f.reg.foto_path)}')"></button>` : ''}</div>`).join('')
+        : '<p class="nota">No tiene tareas fijas. Se configuran en ⚙ Configurar → Tareas de cada día.</p>'}
+      ${puede ? `<div class="eq-acc" style="margin-top:12px"><button class="btn btn-sm btn-ghost" id="fd-extra">＋ Darle otra tarea hoy</button><button class="btn btn-sm btn-ghost" id="fd-inc">⚠ Reportar algo de ${esc(primerNombre(e.nombre))}</button>
+        ${s.k !== 'descanso' && fecha === hoyISO() ? '<button class="btn btn-sm btn-ghost" id="fd-permiso">Darle permiso hoy</button>' : ''}</div>` : ''}
+    </div>` });
+  modal.querySelectorAll('[data-foto]').forEach((b) => b.addEventListener('click', () => verFoto(b.dataset.foto)));
+  modal.querySelectorAll('[data-t]').forEach((b) => b.addEventListener('click', async () => {
+    const f = tareas[+b.dataset.t]; b.disabled = true;
+    try { const r = await marcarTarea(f, ctx.centro, fecha, { estado: f.reg?.estado === 'hecho' ? 'pendiente' : 'hecho' }); f.reg = r;
+      b.classList.toggle('y', r.estado === 'hecho'); b.closest('.tu-chk').classList.toggle('hecho', r.estado === 'hecho'); b.disabled = false; ctx.repintarLuego = true; }
+    catch (err) { b.disabled = false; toast(err.message, true); }
+  }));
+  const obs = new MutationObserver(() => { if (!document.body.contains(modal)) { obs.disconnect(); if (ctx.repintarLuego) { ctx.repintarLuego = false; ctx.repintar(); } } });
+  obs.observe(document.getElementById('modal-root'), { childList: true });
+  modal.querySelector('#fd-extra')?.addEventListener('click', () => {
+    const m2 = abrirModal({ titulo: `Tarea para ${primerNombre(e.nombre)} (solo hoy)`, cuerpo: '<form class="form" id="tx"><label>¿Qué tiene que hacer?<input name="t" maxlength="200" placeholder="Limpiar vidrios del lobby"></label></form>',
+      pie: '<button class="btn btn-ghost" data-cerrar>Cancelar</button><button class="btn btn-primary" id="tx-si">Agregar</button>' });
+    m2.querySelector('[data-cerrar]').addEventListener('click', cerrarModal);
+    m2.querySelector('#tx-si').addEventListener('click', async () => {
+      const t = m2.querySelector('[name=t]').value.trim(); if (!t) return toast('Escribe la tarea', true);
+      const { error } = await db().from('tareas').insert({ org_id: estado.miembro.org_id, centro_id: ctx.centro, empleado_id: e.id, fecha, tipo: 'tarea', tarea: t, categoria: 'Otro', estado: 'pendiente', registrado_por: estado.miembro.nombre });
+      if (error) return toast(error.message, true);
+      cerrarModal(); toast('Tarea agregada ✓ · le aparece en su celular'); ctx.repintar();
+    });
+  });
+  modal.querySelector('#fd-permiso')?.addEventListener('click', async () => {
+    const { error } = await db().rpc('asistencia_marcar', { p_empleado: e.id, p_fecha: fecha, p_accion: 'permiso' });
+    if (error) return toast(error.message, true);
+    cerrarModal(); toast('Permiso registrado (sin descuento)'); ctx.repintar();
+  });
+  modal.querySelector('#fd-inc')?.addEventListener('click', () => incidencia(e, ctx));
+}
+function incidencia(e, ctx) {
+  const CATS = ['Falla de mantenimiento', 'Uso indebido de horario', 'Trabajo particular en el edificio', 'Ausencia / impuntualidad', 'Mal servicio', 'Otro'];
+  const modal = abrirModal({ titulo: `Reportar algo de ${primerNombre(e.nombre)}`,
+    cuerpo: `<form class="form" id="ic"><label>¿Qué pasó?<input name="t" maxlength="200" required></label>
+      <div class="form-2"><label>Tipo<select name="c">${CATS.map((c) => `<option>${c}</option>`).join('')}</select></label>
+        <label>Gravedad<select name="g"><option value="leve">Leve</option><option value="grave">Grave</option></select></label></div>
+      <label class="archivo">Foto <small>(opcional)</small><input type="file" name="foto" accept="image/*" capture="environment"></label></form>`,
+    pie: `<button class="btn btn-ghost" data-cerrar>Cancelar</button><button class="btn btn-primary" id="ic-si">Guardar</button>` });
+  const f = modal.querySelector('#ic');
+  modal.querySelector('[data-cerrar]').addEventListener('click', cerrarModal);
+  modal.querySelector('#ic-si').addEventListener('click', async (ev) => {
+    if (!f.t.value.trim()) return toast('Escribe qué pasó', true);
+    ev.currentTarget.disabled = true;
+    try {
+      const foto = f.foto.files[0] ? await subirArchivo(await comprimirImagen(f.foto.files[0], 1200, 0.7), 'incidencias') : null;
+      const { error } = await db().from('tareas').insert({ org_id: estado.miembro.org_id, centro_id: ctx.centro, empleado_id: e.id, fecha: hoyISO(), tipo: 'incidencia',
+        tarea: f.t.value.trim(), categoria: f.c.value, severidad: f.g.value, foto_path: foto, estado: 'pendiente', hora_registro: new Date().toISOString(), registrado_por: estado.miembro.nombre });
+      if (error) throw error;
+      cerrarModal(); toast('Guardado ✓'); ctx.repintar();
+    } catch (err) { ev.currentTarget.disabled = false; toast(err.message, true); }
+  });
+}
+
+// ================= SEMANA: turnos (+ nómina, la pone personal.js) =================
+// ================= CONFIGURAR (lo que se hace una sola vez) =================
+export function configurar(ctx) {
+  const admin = tieneRol(['administracion']);
+  const modal = abrirModal({ titulo: '⚙ Configurar el edificio',
+    cuerpo: `<div class="eq-conf">
+      <button data-c="rondin"><b>Puntos del rondín y placas QR</b><small>Los lugares que el vigilante debe escanear en cada vuelta.</small></button>
+      ${admin ? '<button data-c="plantillas"><b>Tareas de cada día</b><small>Lo que le toca a cada quien todos los días: lobby, basura, bombas…</small></button>' : ''}
+      <button data-c="qr"><b>QR para el elevador</b><small>Para que los residentes reporten algo desde su celular, sin cuenta.</small></button>
+      <button data-c="turnos"><b>Turnos</b><small>Quién trabaja y a qué hora cada día de la semana.</small></button></div>` });
+  modal.querySelectorAll('[data-c]').forEach((b) => b.addEventListener('click', () => {
+    cerrarModal();
+    ({ rondin: () => ctx.irA('rondines'), plantillas: () => ctx.irA('plantillas'), qr: () => qrReportes(ctx), turnos: () => ctx.irA('semana') })[b.dataset.c]();
+  }));
+}
+
+// Tareas de cada día (plantillas): por puesto o por persona, diarias o un día de la semana
+export async function plantillas(el, ctx) {
+  const { data, error } = await db().from('tareas_plantilla').select('*').eq('centro_id', ctx.centro).eq('activo', true).order('tarea');
+  if (error) throw error;
+  const puestos = [...new Set(ctx.equipo.map((e) => e.puesto).filter(Boolean))].sort();
+  const para = (p) => p.empleado_id ? (ctx.equipo.find((e) => e.id === p.empleado_id)?.nombre || '—') : p.puesto ? `Todos los de ${p.puesto}` : 'Todos';
+  const cuando = (p) => p.frecuencia === 'semanal' ? `Cada ${DIAS_CORTO[DIAS.indexOf(p.dia_semana)] || ''}` : 'Diario';
+  const grupos = {}; data.filter((p) => p.categoria !== 'Rondín').forEach((p) => (grupos[para(p)] ||= []).push(p));
+  document.getElementById('page-actions').innerHTML = '<button class="btn btn-primary" id="pl-nueva">＋ Tarea de cada día</button>';
+  document.getElementById('pl-nueva').addEventListener('click', () => editarPlantilla(null));
+  el.innerHTML = `<p class="nota" style="margin-bottom:12px">Estas tareas le salen solas a cada quien todos los días en su celular, y tú ves en Hoy cuánto lleva cada uno.</p>
+    ${Object.keys(grupos).length ? Object.entries(grupos).map(([q, l]) => `<section class="panel"><div class="panel-head"><h3>${esc(q)}</h3><span class="sub-meta">${l.length}</span></div>
+      ${l.map((p) => `<div class="eq-chk"><span>${esc(p.tarea)}</span><span class="who">${cuando(p)}</span><button class="link-btn" data-ed="${p.id}">Editar</button></div>`).join('')}</section>`).join('')
+      : '<div class="vacio">Todavía no hay tareas de cada día. Agrega la primera: por ejemplo “Limpiar lobby y elevadores” para Limpieza.</div>'}`;
+  el.querySelectorAll('[data-ed]').forEach((b) => b.addEventListener('click', () => editarPlantilla(data.find((p) => p.id === b.dataset.ed))));
+  function editarPlantilla(p) {
+    const val = p ? (p.empleado_id ? 'e:' + p.empleado_id : 'p:' + (p.puesto || '')) : '';
+    const modal = abrirModal({ titulo: p ? 'Editar tarea' : 'Tarea de cada día',
+      cuerpo: `<form class="form" id="pl"><label>Tarea<input name="t" maxlength="120" value="${esc(p?.tarea || '')}" placeholder="Limpiar lobby y elevadores" required></label>
+        <label>¿A quién le toca?<select name="q">${puestos.map((x) => `<option value="p:${esc(x)}" ${val === 'p:' + x ? 'selected' : ''}>Todos los de ${esc(x)}</option>`).join('')}
+          ${ctx.equipo.map((e) => `<option value="e:${e.id}" ${val === 'e:' + e.id ? 'selected' : ''}>${esc(e.nombre)}</option>`).join('')}</select></label>
+        <label>¿Cuándo?<select name="f"><option value="diaria">Todos los días</option>${DIAS.map((d, i) => `<option value="${d}" ${p?.dia_semana === d ? 'selected' : ''}>Solo los ${DIAS_CORTO[i]}</option>`).join('')}</select></label></form>`,
+      pie: `${p ? '<button class="btn btn-ghost" id="pl-quitar">Quitar</button>' : ''}<button class="btn btn-ghost" data-cerrar>Cancelar</button><button class="btn btn-primary" id="pl-si">Guardar</button>` });
+    const f = modal.querySelector('#pl');
+    if (p?.frecuencia === 'diaria') f.f.value = 'diaria';
+    modal.querySelector('[data-cerrar]').addEventListener('click', cerrarModal);
+    modal.querySelector('#pl-quitar')?.addEventListener('click', async () => { await db().from('tareas_plantilla').update({ activo: false }).eq('id', p.id); cerrarModal(); ctx.repintar(); });
+    modal.querySelector('#pl-si').addEventListener('click', async () => {
+      if (!f.t.value.trim()) return toast('Escribe la tarea', true);
+      if (!f.q.value) return toast('Primero da de alta a tu personal', true);
+      const [tipo, v] = [f.q.value.slice(0, 1), f.q.value.slice(2)];
+      const datos = { tarea: f.t.value.trim(), empleado_id: tipo === 'e' ? v : null, puesto: tipo === 'p' ? v : null,
+        frecuencia: f.f.value === 'diaria' ? 'diaria' : 'semanal', dia_semana: f.f.value === 'diaria' ? null : f.f.value,
+        categoria: /limp/i.test(datos0(v)) ? 'Limpieza' : /vigil|segur/i.test(datos0(v)) ? 'Seguridad' : 'Mantenimiento' };
+      const { error } = p ? await db().from('tareas_plantilla').update(datos).eq('id', p.id)
+        : await db().from('tareas_plantilla').insert({ ...datos, org_id: estado.miembro.org_id, centro_id: ctx.centro, activo: true });
+      if (error) return toast(error.message, true);
+      cerrarModal(); toast('Guardada ✓'); ctx.repintar();
+    });
+    const datos0 = (v) => ctx.equipo.find((e) => e.id === v)?.puesto || v;
+  }
 }
 
 const anillo = (pct) => `<svg width="64" height="64" viewBox="0 0 36 36" aria-label="${pct}%"><circle cx="18" cy="18" r="15.5" fill="none" stroke="#ececec" stroke-width="4"/>
@@ -340,7 +521,7 @@ export async function reportes(el, ctx) {
   enlazarReportes(el, ctx, data);
 }
 // Hoja con el QR para pegar en el elevador: abre la página pública para reportar (sin cuenta)
-function qrReportes(ctx) {
+export function qrReportes(ctx) {
   const w = window.open('', '_blank'); if (!w) return toast('Permite ventanas emergentes', true);
   const centro = estado.centros.find((c) => c.id === ctx.centro)?.nombre || '';
   const url = new URL(`reportar.html?cliente=${encodeURIComponent(CLIENTE?.id || '')}&c=${ctx.centro}`, document.baseURI).href;
@@ -423,7 +604,7 @@ export function entregarPaquete(p, despues) {
 // ================= TURNOS =================
 // Semana por persona: cada celda es su horario de ese día (el normal, o el que se le asignó). Toca una celda para cambiarla.
 export async function turnos(el, ctx) {
-  const lun = ctx.st.semanaTurnos || lunesDe(ctx.fecha);
+  const lun = ctx.st.semana || lunesDe(ctx.fecha);
   const { data, error } = await db().from('turnos').select('*').eq('centro_id', ctx.centro).gte('fecha', sumarDias(lun, -1)).lte('fecha', sumarDias(lun, 6));
   if (error) throw error;
   await pintarTurnos(el, { ...ctx, turnos: data }, lun, false);
@@ -444,7 +625,7 @@ async function pintarTurnos(el, ctx, lun, compacto) {
       <div class="eq-ley"><span><i class="m1"></i>Mañana</span><span><i class="m2"></i>Tarde</span><span><i class="m3"></i>Noche</span><span><i class="de"></i>Descanso</span>
         ${cobertura == null ? '' : cobertura.length ? `<span class="neg">Caseta sin vigilante: ${cobertura.slice(0, 3).map(esc).join(' · ')}${cobertura.length > 3 ? '…' : ''}</span>` : '<span class="pos">Caseta cubierta las 24 h ✓</span>'}</div>`
       : '<p class="nota">Sin personal.</p>'}`;
-  el.querySelectorAll('[data-sem]').forEach((b) => b.addEventListener('click', () => { ctx.st.semanaTurnos = sumarDias(lun, +b.dataset.sem); ctx.repintar(); }));
+  el.querySelectorAll('[data-sem]').forEach((b) => b.addEventListener('click', () => { ctx.st.semana = sumarDias(lun, +b.dataset.sem); ctx.repintar(); }));
   if (puede) el.querySelectorAll('[data-e]').forEach((b) => b.addEventListener('click', () => editarTurno(ctx.equipo.find((e) => e.id === b.dataset.e), b.dataset.d, ctx)));
 }
 // Huecos de vigilancia: horas del día sin ningún vigilante en turno (contando el turno de noche del día anterior)

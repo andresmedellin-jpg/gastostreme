@@ -681,3 +681,36 @@ h4.grupo:first-of-type { margin-top: 4px; }
 .tu-quien { width: 100%; display: flex; gap: 12px; align-items: center; padding: 10px 4px; border: 0; border-bottom: 1px solid var(--surface-2); background: none; text-align: left; font: inherit; cursor: pointer; }
 .tu-quien small { display: block; color: var(--text-3); }
 .tu-res { padding: 8px 0; border-bottom: 1px solid var(--surface-2); } .tu-res small { display: block; color: var(--text-3); }
+/* Equipo: tarjetas que se tocan, atención, configurar */
+.p-der { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+.p-volver { display: flex; gap: 12px; align-items: center; margin: 4px 0 12px; font-size: 15px; }
+.p-volver .link-btn { font-weight: 600; }
+.p-atajos { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.eq-pers { padding: 0; overflow: hidden; }
+.eq-pers-top { display: grid; gap: 8px; padding: 14px; border: 0; background: none; text-align: left; font: inherit; color: inherit; cursor: pointer; width: 100%; position: relative; align-content: start; }
+.eq-pers-top:hover { background: var(--surface-2); }
+.eq-bot { display: flex; gap: 6px; padding: 0 14px 12px; flex-wrap: wrap; }
+.eq-bot .btn { height: 30px; flex: 1; }
+.eq-barra { height: 5px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+.eq-barra i { display: block; height: 100%; background: var(--primary); }
+.eq-atencion .panel-head .sub-meta { background: var(--neg); color: #fff; border-radius: 999px; padding: 0 8px; font-weight: 700; }
+.eq-atencion .panel-head .sub-meta:empty { display: none; }
+.eq-at { display: grid; grid-template-columns: 10px 1fr; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--surface-2); font-size: 13px; }
+.eq-at:last-child { border: 0; }
+.eq-at .ic { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; }
+.eq-at .ic.no { background: var(--neg); } .eq-at .ic.lat { background: var(--warn); } .eq-at .ic.az { background: #4a6fa5; } .eq-at .ic.gr { background: #9a9a96; }
+.eq-at small { display: block; color: var(--text-3); font-size: 12px; }
+.eq-ok { padding: 18px 4px; color: var(--ok); font-weight: 700; text-align: center; }
+.eq-otros { font-size: 13px; color: var(--text-3); margin: 0; }
+.eq-ficha h4 { margin: 16px 0 4px; font-size: 14px; }
+.eq-ficha-top { display: flex; gap: 12px; align-items: center; }
+.eq-ficha-top small { display: block; color: var(--text-3); }
+.eq-foto.grande { width: 56px; height: 56px; border-radius: 10px; margin-left: auto; }
+.eq-conf { display: grid; gap: 8px; }
+.eq-conf button { display: grid; gap: 2px; text-align: left; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font: inherit; cursor: pointer; }
+.eq-conf button:hover { border-color: var(--primary); }
+.eq-conf small { color: var(--text-3); }
+@media (max-width: 760px) { .p-der { width: 100%; } .p-der select { flex: 1; } .eq-pers-top { padding: 12px; } .eq-bot { padding: 0 12px 10px; } }
+#s-nomina .periodo { display: none; }   /* en Semana la semana se cambia arriba, en los turnos */
+.p-sec { margin: 22px 0 10px; font-size: 16px; }
+.eq-ley { margin-top: 12px; }

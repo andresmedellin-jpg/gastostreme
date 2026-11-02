@@ -15,7 +15,7 @@ const METODOS = ['Efectivo', 'Transferencia SPEI', 'Depósito', 'Cheque'];
 const admin = () => tieneRol(['administracion']);
 const st = { tab: null, centro: null, fecha: hoyISO(), semana: lunesDe(hoyISO()), filtroInc: 'abiertas' };
 let raiz, equipo = [], unidadesC = [], contratosC = [];
-const EQUIPO = ['hoy', 'turnos', 'rondines', 'reportes', 'paquetes'];   // pestañas que viven en equipo.js
+const EQUIPO = ['hoy', 'turnos', 'rondines', 'reportes', 'paquetes', 'plantillas'];   // vistas que viven en equipo.js
 
 // ---------- fechas ----------
 function lunesDe(iso) {
@@ -33,60 +33,91 @@ const etiquetaSemana = (lunes) => {
 const iniciales = (n) => (n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join('').toUpperCase();
 
 // ---------- entrada ----------
-// Con la marca "personalEnMenu", cada pestaña es su propia opción del menú (mod.tab) y no se muestran pestañas.
+// Tres pestañas, por momento: Hoy (lo que pasa y lo que hay que hacer), Semana (turnos y nómina) y Personas
+// (empleados, vacaciones, préstamos). Lo demás son vistas de detalle a las que se llega desde ahí, con "← Volver".
+// El encargado ve solo Hoy y Semana. Con la marca "personalEnMenu", cada vista es su propia opción del menú (mod.tab).
+const PRINCIPALES = [['hoy', 'Hoy'], ['semana', 'Semana'], ['personas', 'Personas']];
+const PADRE = { asistencia: 'hoy', tareas: 'hoy', rondin: 'hoy', incidencias: 'hoy', rondines: 'hoy', reportes: 'hoy', paquetes: 'hoy', plantillas: 'hoy',
+  turnos: 'semana', nomina: 'semana', empleados: 'personas', vacaciones: 'personas', prestamos: 'personas' };
+const TITULO = { asistencia: 'Asistencia por día', tareas: 'Tareas por día', rondin: 'Supervisión', incidencias: 'Incidencias', rondines: 'Rondines',
+  reportes: 'Reportes de residentes', paquetes: 'Paquetes', plantillas: 'Tareas de cada día', turnos: 'Turnos', nomina: 'Nómina',
+  empleados: 'Empleados', vacaciones: 'Vacaciones', prestamos: 'Préstamos' };
+let fijo = null;
 export async function render(view, mod) {
   raiz = view;
-  const fijo = mod?.tab;
+  fijo = mod?.tab || null;
   if (fijo) st.tab = fijo;
-  // La marca puede ocultar pestañas que no aplican a su giro (p. ej. rondín de un edificio)
-  const tabsDia = [['hoy', 'Hoy'], ['turnos', 'Turnos'], ['rondines', 'Rondines'], ['reportes', 'Reportes'], ['paquetes', 'Paquetes'],
-    ['asistencia', 'Asistencia'], ['tareas', 'Tareas'], ['rondin', 'Supervisión'], ['incidencias', 'Incidencias']]
-    .filter(([id]) => !(MARCA.ocultarPestanas || []).includes(id));
-  const tabsAdmin = [['nomina', 'Nómina'], ['empleados', 'Empleados'], ['vacaciones', 'Vacaciones'], ['prestamos', 'Préstamos']];
-  const tabs = admin() ? [...tabsDia.slice(0, 5), ...tabsAdmin, ...tabsDia.slice(5)] : tabsDia;
-  st.tab ||= tabs[0][0];
+  const tabs = admin() ? PRINCIPALES : PRINCIPALES.slice(0, 2);
+  if (!st.tab || (!PADRE[st.tab] && !tabs.some(([id]) => id === st.tab)) || (PADRE[st.tab] && !tabs.some(([id]) => id === PADRE[st.tab]))) st.tab = tabs[0][0];
 
-  // centros con personal (para el encargado: los de su empresa)
-  // (con la marca, solo los centros que tienen personal)
+  // centros con personal (para el encargado: los de su empresa); con la marca, solo los centros que tienen personal
   const visibles = estado.centros.filter((c) => (!['socio', 'personal'].includes(c.tipo) || admin()) && (!MARCA.centrosPersonal || MARCA.centrosPersonal.includes(c.nombre)));
   st.centro ||= (visibles.find((c) => c.nombre === (MARCA.centroPersonal || 'Torre Elysium')) || visibles[0])?.id;
 
   view.innerHTML = `
     <div class="sub-head">
       ${fijo ? '<span></span>' : `<div class="tabs" role="tablist">${tabs.map(([id, t]) => `<button role="tab" data-tab="${id}">${t}</button>`).join('')}</div>`}
-      <select id="p-centro" aria-label="Centro" class="${admin() ? '' : 'solo-dia'}">
-        ${visibles.map((c) => `<option value="${c.id}" ${c.id === st.centro ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select>
+      <div class="p-der">
+        <select id="p-centro" aria-label="Edificio" class="${admin() ? '' : 'solo-dia'}" ${visibles.length < 2 ? 'hidden' : ''}>
+          ${visibles.map((c) => `<option value="${c.id}" ${c.id === st.centro ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select>
+        ${tieneRol(['administracion', 'encargado']) && !fijo ? '<button class="btn btn-ghost" id="p-conf" title="Rondín, tareas de cada día, QR del elevador">⚙ Configurar</button>' : ''}
+      </div>
     </div>
+    <div id="p-volver"></div>
     <div id="p-cuerpo"><div class="cargando">Cargando…</div></div>`;
   view.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { st.tab = b.dataset.tab; pintar(); }));
   view.querySelector('#p-centro').addEventListener('change', (e) => { st.centro = e.target.value; pintar(); });
+  view.querySelector('#p-conf')?.addEventListener('click', async () => (await import('./equipo.js')).configurar(contexto()));
   await pintar();
 }
 
+const irA = (t) => { st.tab = t; pintar(); window.scrollTo({ top: 0 }); };
+const contexto = () => ({ centro: st.centro, equipo, fecha: st.fecha, st, unidades: unidadesC, contratos: contratosC, irA, repintar: pintar,
+  cambiarFecha: (f) => { st.fecha = f; pintar(); }, barraFecha, enlazarFecha });
+
 async function pintar() {
-  raiz.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', b.dataset.tab === st.tab));
-  const diario = ['asistencia', 'tareas', 'rondin', 'incidencias', ...EQUIPO].includes(st.tab);
-  raiz.querySelector('#p-centro').style.display = diario ? '' : 'none';
+  const padre = PADRE[st.tab] || st.tab;
+  raiz.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', b.dataset.tab === padre));
+  const conEquipo = padre === 'hoy' || padre === 'semana';
+  raiz.querySelector('#p-centro').style.display = conEquipo ? '' : 'none';
+  const conf = raiz.querySelector('#p-conf'); if (conf) conf.style.display = padre === 'personas' ? 'none' : '';
+  // vista de detalle: "← Volver" a su pestaña
+  const vol = raiz.querySelector('#p-volver');
+  vol.innerHTML = PADRE[st.tab] && !fijo ? `<div class="p-volver"><button class="link-btn" id="p-atras">← ${PRINCIPALES.find(([id]) => id === padre)[1]}</button><strong>${TITULO[st.tab]}</strong></div>` : '';
+  vol.querySelector('#p-atras')?.addEventListener('click', () => irA(padre));
   document.getElementById('page-actions').innerHTML = '';
   const el = raiz.querySelector('#p-cuerpo');
   el.innerHTML = '<div class="cargando">Cargando…</div>';
-  if (diario) {
+  if (conEquipo) {
     const { data, error } = await db().rpc('equipo_de', { p_centro: st.centro });
     if (error) { el.innerHTML = `<div class="vacio">No se pudo cargar el personal: ${esc(error.message)}</div>`; return; }
     equipo = data || [];
   }
   try {
+    if (['hoy', 'reportes', 'paquetes'].includes(st.tab)) {
+      const [u, k] = await Promise.all([
+        db().from('unidades').select('id, identificador').eq('centro_id', st.centro).eq('activo', true),
+        db().from('contratos').select('unidad_id, arrendatario, telefono').eq('centro_id', st.centro).eq('activo', true)]);
+      unidadesC = u.data || []; contratosC = k.data || [];
+    }
+    if (st.tab === 'semana') {
+      // Turnos arriba; la nómina de la misma semana abajo (solo dueño y administración)
+      const m = await import('./equipo.js');
+      el.innerHTML = `<section class="panel" id="s-turnos"></section>${admin() ? '<h3 class="p-sec">Nómina de esta semana</h3><div id="s-nomina"></div>' : ''}`;
+      await m.turnos(el.querySelector('#s-turnos'), contexto());
+      if (admin()) await nomina(el.querySelector('#s-nomina'));
+      return;
+    }
+    if (st.tab === 'personas') {
+      el.innerHTML = `<div class="p-atajos"><button class="btn btn-ghost" data-ir="vacaciones">🌴 Vacaciones</button><button class="btn btn-ghost" data-ir="prestamos">💵 Préstamos</button></div><div id="s-emp"></div>`;
+      el.querySelectorAll('[data-ir]').forEach((b) => b.addEventListener('click', () => irA(b.dataset.ir)));
+      await empleados(el.querySelector('#s-emp'));
+      return;
+    }
     if (EQUIPO.includes(st.tab)) {
       const m = await import('./equipo.js');
-      if (['reportes', 'paquetes', 'hoy'].includes(st.tab)) {
-        const [u, k] = await Promise.all([
-          db().from('unidades').select('id, identificador').eq('centro_id', st.centro).eq('activo', true),
-          db().from('contratos').select('unidad_id, arrendatario, telefono').eq('centro_id', st.centro).eq('activo', true)]);
-        unidadesC = u.data || []; contratosC = k.data || [];
-      }
-      const irA = (t) => { st.tab = t; pintar(); };
-      await m[st.tab](el, { centro: st.centro, equipo, fecha: st.fecha, st, unidades: unidadesC, contratos: contratosC, irA, repintar: pintar,
-        cambiarFecha: (f) => { st.fecha = f; pintar(); }, barraFecha, enlazarFecha });
+      if (st.tab === 'turnos') { el.innerHTML = '<section class="panel" id="s-turnos"></section>'; await m.turnos(el.querySelector('#s-turnos'), contexto()); return; }
+      await m[st.tab](el, contexto());
       return;
     }
     await ({ asistencia, tareas, rondin, incidencias, nomina, empleados, vacaciones, prestamos })[st.tab](el);
