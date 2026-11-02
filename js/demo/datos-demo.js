@@ -35,8 +35,9 @@
 
   window.__MARCA = MEDCO ? {
     demo: true, contacto: 'Monterrey, N.L.', rentaParcial: true, ocupacion: true,
-    modulos: ['inicio', 'prospectos', 'cotizaciones', 'inventario', 'obras', 'rentas', 'lecturas', 'servicios', 'gastos', 'patrimonio', 'nomina', 'asistencia',
-      'tareas', 'rondin', 'incidencias', 'empleados', 'vacaciones', 'prestamos', 'importar', 'usuarios'],
+    // Personal en una sola opción con pestañas (Hoy, Turnos, Rondines, Reportes, Paquetes, Nómina…), igual que la plataforma real
+    modulos: ['inicio', 'prospectos', 'cotizaciones', 'inventario', 'obras', 'rentas', 'lecturas', 'servicios', 'gastos', 'patrimonio', 'personal',
+      'importar', 'usuarios'],
   } : INM ? {
     ...comunes,
     nombre: 'Inmobiliaria Galcor · Administración',

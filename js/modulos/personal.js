@@ -1,4 +1,5 @@
-// Personal: el día a día del encargado (asistencia, tareas, rondín, incidencias) y,
+// Personal / Equipo: "Hoy" (quién está, lo que pasó en el día, pendientes, reportes, paquetes, turnos y nómina; ver equipo.js),
+// el día a día del encargado (turnos, rondines, reportes, paquetes, asistencia, tareas, incidencias) y,
 // para dueño y administración, nómina semanal, empleados, vacaciones y préstamos.
 // Reemplaza "Elysium · Mi día" y la Nómina del Centro de Control.
 import { MESES, MARCA } from '../config.js';
@@ -13,7 +14,8 @@ const METODOS = ['Efectivo', 'Transferencia SPEI', 'Depósito', 'Cheque'];
 
 const admin = () => tieneRol(['administracion']);
 const st = { tab: null, centro: null, fecha: hoyISO(), semana: lunesDe(hoyISO()), filtroInc: 'abiertas' };
-let raiz, equipo = [];
+let raiz, equipo = [], unidadesC = [], contratosC = [];
+const EQUIPO = ['hoy', 'turnos', 'rondines', 'reportes', 'paquetes'];   // pestañas que viven en equipo.js
 
 // ---------- fechas ----------
 function lunesDe(iso) {
@@ -37,10 +39,11 @@ export async function render(view, mod) {
   const fijo = mod?.tab;
   if (fijo) st.tab = fijo;
   // La marca puede ocultar pestañas que no aplican a su giro (p. ej. rondín de un edificio)
-  const tabsDia = [['asistencia', 'Asistencia'], ['tareas', 'Tareas'], ['rondin', 'Rondín'], ['incidencias', 'Incidencias']]
+  const tabsDia = [['hoy', 'Hoy'], ['turnos', 'Turnos'], ['rondines', 'Rondines'], ['reportes', 'Reportes'], ['paquetes', 'Paquetes'],
+    ['asistencia', 'Asistencia'], ['tareas', 'Tareas'], ['rondin', 'Supervisión'], ['incidencias', 'Incidencias']]
     .filter(([id]) => !(MARCA.ocultarPestanas || []).includes(id));
   const tabsAdmin = [['nomina', 'Nómina'], ['empleados', 'Empleados'], ['vacaciones', 'Vacaciones'], ['prestamos', 'Préstamos']];
-  const tabs = admin() ? [...tabsAdmin, ...tabsDia] : tabsDia;
+  const tabs = admin() ? [...tabsDia.slice(0, 5), ...tabsAdmin, ...tabsDia.slice(5)] : tabsDia;
   st.tab ||= tabs[0][0];
 
   // centros con personal (para el encargado: los de su empresa)
@@ -62,7 +65,7 @@ export async function render(view, mod) {
 
 async function pintar() {
   raiz.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', b.dataset.tab === st.tab));
-  const diario = ['asistencia', 'tareas', 'rondin', 'incidencias'].includes(st.tab);
+  const diario = ['asistencia', 'tareas', 'rondin', 'incidencias', ...EQUIPO].includes(st.tab);
   raiz.querySelector('#p-centro').style.display = diario ? '' : 'none';
   document.getElementById('page-actions').innerHTML = '';
   const el = raiz.querySelector('#p-cuerpo');
@@ -73,6 +76,19 @@ async function pintar() {
     equipo = data || [];
   }
   try {
+    if (EQUIPO.includes(st.tab)) {
+      const m = await import('./equipo.js');
+      if (['reportes', 'paquetes', 'hoy'].includes(st.tab)) {
+        const [u, k] = await Promise.all([
+          db().from('unidades').select('id, identificador').eq('centro_id', st.centro).eq('activo', true),
+          db().from('contratos').select('unidad_id, arrendatario, telefono').eq('centro_id', st.centro).eq('activo', true)]);
+        unidadesC = u.data || []; contratosC = k.data || [];
+      }
+      const irA = (t) => { st.tab = t; pintar(); };
+      await m[st.tab](el, { centro: st.centro, equipo, fecha: st.fecha, st, unidades: unidadesC, contratos: contratosC, irA, repintar: pintar,
+        cambiarFecha: (f) => { st.fecha = f; pintar(); }, barraFecha, enlazarFecha });
+      return;
+    }
     await ({ asistencia, tareas, rondin, incidencias, nomina, empleados, vacaciones, prestamos })[st.tab](el);
   } catch (e) {
     console.error(e);
@@ -518,8 +534,12 @@ function pagarModal(e, monto, alPagar) {
 async function empleados(el) {
   document.getElementById('page-actions').innerHTML = `<button class="btn btn-primary" id="e-nuevo">＋ Empleado</button>`;
   document.getElementById('e-nuevo').addEventListener('click', () => editarEmpleado(null));
-  const { data: todos, error } = await db().from('empleados').select('*').order('activo', { ascending: false }).order('nombre');
+  const [{ data: todos, error }, { data: mbs }] = await Promise.all([
+    db().from('empleados').select('*').order('activo', { ascending: false }).order('nombre'),
+    db().from('miembros').select('empleado_id, usuario, activo')]);
   if (error) throw error;
+  const acceso = (e) => (mbs || []).find((m) => m.empleado_id === e.id && m.activo);
+  const esDueno = estado.miembro.rol === 'dueno';
   // Los dados de baja se guardan por su historial de nómina, pero no se muestran salvo que se pidan
   const bajas = todos.filter((e) => !e.activo).length;
   const data = verBajas ? todos : todos.filter((e) => e.activo);
@@ -536,10 +556,14 @@ async function empleados(el) {
       <td class="mut" data-l="Centro">${esc(nombreCentro(e.centro_id))}</td>
       <td class="num fuerte" data-l="Sueldo">${fmt(e.salario_semanal)}</td>
       <td class="mut nowrap" data-l="Horario">${String(e.hora_entrada || '').slice(0, 5)}–${String(e.hora_salida || '').slice(0, 5)} · ${e.dias_semana} días</td>
-      <td class="acciones"><button class="btn btn-sm btn-ghost" data-editar="${e.id}">Editar</button></td></tr>`).join('')}</tbody>
+      <td class="acciones nowrap">${!e.activo ? '' : acceso(e) ? `<span class="tag tag-ok" title="Entra desde su celular">📱 ${esc(acceso(e).usuario || '')}</span>`
+        : esDueno ? `<button class="btn btn-sm btn-ghost" data-acceso="${e.id}" title="Crearle usuario para su celular">📱 Dar acceso</button>` : ''}
+        <button class="btn btn-sm btn-ghost" data-editar="${e.id}">Editar</button></td></tr>`).join('')}</tbody>
   </table></div></section>`;
   el.querySelectorAll('[data-editar]').forEach((b) => b.addEventListener('click', () => editarEmpleado(data.find((x) => x.id === b.dataset.editar))));
   el.querySelector('#e-bajas')?.addEventListener('click', () => { verBajas = !verBajas; empleados(el); });
+  el.querySelectorAll('[data-acceso]').forEach((b) => b.addEventListener('click', async () =>
+    (await import('./equipo.js')).darAcceso(data.find((x) => x.id === b.dataset.acceso), () => empleados(el))));
 }
 let verBajas = false;
 
@@ -549,6 +573,7 @@ function editarEmpleado(e) {
     titulo: e ? `Editar · ${e.nombre}` : 'Nuevo empleado',
     cuerpo: `<form class="form" id="ef">
       <label>Nombre<input name="nombre" maxlength="100" value="${esc(e?.nombre || '')}" required></label>
+      <label>Celular <small>(para escribirle por WhatsApp)</small><input name="tel" maxlength="20" inputmode="tel" value="${esc(e?.telefono || '')}"></label>
       <div class="form-2"><label>Puesto<input name="puesto" maxlength="60" value="${esc(e?.puesto || '')}"></label>
         <label>Centro<select name="centro">${estado.centros.map((c) => `<option value="${c.id}" ${e?.centro_id === c.id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select></label></div>
       <div class="form-2"><label>Sueldo semanal<input type="number" name="sueldo" min="0" step="0.01" value="${e ? Number(e.salario_semanal) : ''}"></label>
@@ -577,7 +602,7 @@ function editarEmpleado(e) {
     if (!f.nombre.value.trim()) return toast('Escribe el nombre', true);
     const centro = estado.centros.find((c) => c.id === f.centro.value);
     btn.disabled = true;
-    const datos = { nombre: f.nombre.value.trim(), puesto: f.puesto.value.trim() || null, centro_id: centro.id, empresa_id: centro.empresa_id,
+    const datos = { nombre: f.nombre.value.trim(), telefono: f.tel.value.trim() || null, puesto: f.puesto.value.trim() || null, centro_id: centro.id, empresa_id: centro.empresa_id,
       salario_semanal: Number(f.sueldo.value) || 0, dias_semana: +f.dias.value, hora_entrada: f.entrada.value || '08:00',
       hora_salida: f.salida.value || '17:00', tolerancia_min: +f.tol.value || 0, fecha_ingreso: f.ingreso.value || null,
       dias_laborales: [...f.querySelectorAll('[name=dl]:checked')].map((c) => c.value).join(',') || 'LUN,MAR,MIE,JUE,VIE,SAB',

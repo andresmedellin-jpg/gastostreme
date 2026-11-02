@@ -20,7 +20,7 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 2. Consultas grandes: la base entrega máximo 1,000 filas. Usa `todo(() => db().from(...)...)` de `lib.js`.
 3. Permisos: la regla real vive en la base (RLS con `app.tiene_rol`, `puede_ver_empresa`, `puede_ver_centro`).
    En pantalla, `tieneRol(lista)`. Roles: dueno, socio (todo menos usuarios), administracion, cobranza,
-   operacion, encargado, lectura. Casa y Socios (centros tipo `personal`/`socio`) solo dueño/socio/administración.
+   operacion, encargado, lectura, equipo (personal de piso: solo "Mi turno" desde su celular; `soloRoles` en MODULOS). Casa y Socios (centros tipo `personal`/`socio`) solo dueño/socio/administración.
 4. Migraciones: guárdalas en `supabase/migrations/NNNN_nombre.sql`. Las que llevan DROP o DELETE se cancelan
    solas en este entorno: usa ALTER POLICY, REVOKE, columnas-bandera (`activo`, `en_padron`) o borra desde la app.
 5. Estilo: opción "Treme" — Arial, blanco, rojo Treme `#a21d21` solo como acento, tablas con encabezado en
@@ -116,6 +116,20 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   (`MARCA`, `CLIENTE` en `js/config.js`) que no se usa aquí. La app de Unaria partió de una copia de este código.
 - Restos inactivos en el proyecto de Treme: función `asistente` (sin llave, nadie la llama) y tabla `app.asistente_preguntas`
   (migración 0026, vacía). No conectar Anthropic a este proyecto.
+
+## Equipo (Personal → Hoy) — igual que en Unaria (02/11/2026)
+- `js/modulos/equipo.js`: pestaña **Hoy** (quién está ahorita, "Hoy en <centro>" con entradas con foto, rondines, tareas,
+  reportes, paquetes y cambios de turno; pendientes; reportes de residentes; paquetes; turnos de la semana con huecos de caseta;
+  nómina estimada), y pestañas Turnos, Rondines (puntos con placa QR "PTO:<id>"), Reportes, Paquetes.
+  La pestaña vieja "Rondín" (Víctor verifica a cada persona) ahora se llama **Supervisión** y sigue igual.
+- `js/modulos/turno.js` = **Mi turno**, la pantalla del celular del personal (rol `equipo`): checar entrada/salida con selfie,
+  rondín por QR, pendientes con foto, reportes asignados, paquetes, buscar placa, reportar, entregar turno con nota.
+  Acceso: Personal → Empleados → "📱 Dar acceso" (solo el dueño; queda ligado con `miembros.empleado_id`).
+- QR del elevador: Reportes → "QR para el elevador" → `reportar.html?c=<centro>` (público; solo la función `reporte_residente`).
+- Tablas (0028): turnos, puntos_rondin, rondin_marcas, solicitudes, paquetes, bitacora_turno; `asistencia.foto_entrada/foto_salida`,
+  `empleados.telefono`. Funciones (0029): puede_checar, asistencia_foto, mi_empleado, reporte_residente, centro_publico;
+  `asistencia_marcar` usa el turno del día si hay y deja al personal checar solo su entrada/salida.
+- Turnos: "volver a su horario normal" deja el renglón sin horas (no se borra).
 
 ## Personas
 - Andrés: dueño. Miguel (hermano): socio. Victoria: captura gastos y cobranza. Víctor: encargado de Torre Elysium.

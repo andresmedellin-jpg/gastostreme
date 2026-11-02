@@ -6,7 +6,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // usuarios.unaria.mx. El secreto DOMINIO_INTERNO lo cambia si algún cliente quiere el suyo.
 const DOMINIO_INTERNO = Deno.env.get("DOMINIO_INTERNO") ??
   ((Deno.env.get("SUPABASE_URL") ?? "").includes("mqzuaxxnidaokhdqcurm") ? "usuarios.medco.mx" : "usuarios.unaria.mx");
-const ROLES = ["dueno", "socio", "administracion", "cobranza", "operacion", "encargado", "lectura"];
+// "equipo": personal de piso (vigilancia, limpieza, mantenimiento) que usa la app desde su celular
+const ROLES = ["dueno", "socio", "administracion", "cobranza", "operacion", "encargado", "lectura", "equipo"];
 const ORIGENES = ["https://app.medco.mx", "https://unaria.mx", "https://www.unaria.mx", "https://andresmedellin-jpg.github.io", "http://localhost:8000", "http://127.0.0.1:8000"];
 
 function cors(req: Request) {
@@ -77,6 +78,13 @@ Deno.serve(async (req) => {
       const e1 = validarRoles(body.rol, body.roles ?? []) ?? validarPassword(body.password) ?? await validarEmpresas(body.empresas ?? null);
       if (e1) return falla(req, e1);
 
+      // Personal del equipo: su usuario se liga a su ficha de empleado (para checar, su rondín y sus pendientes)
+      let empleadoId: string | null = null;
+      if (body.empleado_id) {
+        const { data: emp } = await admin.from("empleados").select("id").eq("org_id", orgId).eq("id", body.empleado_id as string).maybeSingle();
+        if (!emp) return falla(req, "Empleado no encontrado");
+        empleadoId = emp.id;
+      }
       const { data: existe } = await admin.from("miembros").select("user_id").eq("usuario", usuario).maybeSingle();
       if (existe) return falla(req, `El usuario "${usuario}" ya existe`);
 
@@ -91,7 +99,9 @@ Deno.serve(async (req) => {
       const { error: e2 } = await admin.from("miembros").insert({
         org_id: orgId, user_id: creado.user.id, nombre, usuario,
         rol: body.rol, roles: body.roles ?? [], empresas: body.empresas ?? null,
-        activo: true, debe_cambiar_password: true,
+        activo: true, empleado_id: empleadoId,
+        // al personal de piso no se le obliga a cambiarla: el administrador le da una fácil de recordar
+        debe_cambiar_password: body.rol !== "equipo",
       });
       if (e2) {
         await admin.auth.admin.deleteUser(creado.user.id); // no dejar cuentas a medias
@@ -107,7 +117,7 @@ Deno.serve(async (req) => {
       if (e) return falla(req, e);
       const { error } = await admin.auth.admin.updateUserById(m.user_id, { password: body.password as string });
       if (error) return falla(req, error.message);
-      if (m.user_id !== miId) {
+      if (m.user_id !== miId && m.rol !== "equipo") {
         await admin.from("miembros").update({ debe_cambiar_password: true }).eq("user_id", m.user_id);
       }
       return json(req, { ok: true });

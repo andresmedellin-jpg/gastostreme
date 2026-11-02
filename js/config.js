@@ -28,6 +28,7 @@ const ICONOS = {
   vacaciones: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
   medidor:    svg('<circle cx="12" cy="13" r="8"/><path d="M12 13l4-4M8 21h8"/>'),
   lecturaqr:  svg('<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/>'),
+  turno:      svg('<rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10 18.5h4M9 8.5l2 2 4-4"/>'),
   importar:   svg('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v3h16v-3"/>'),
   prestamos:  svg('<path d="M3 10h18M5 10V20M19 10V20M9.5 10V20M14.5 10V20M2 21h20M12 3l9 5H3z"/>'),
   empleados:  svg('<rect x="3" y="4" width="18" height="16" rx="1"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 17a3.5 3.5 0 0 1 7 0M15 10h3M15 14h3"/>'),
@@ -94,6 +95,8 @@ export const MODULOS = [
   // Luz, gas y agua por medidor (opcionales: solo para edificios que reparten un recibo entre sus unidades)
   { id: 'lecturas',  grupo: 'Servicios', titulo: 'Toma de lecturas', icono: ICONOS.lecturaqr, roles: ['dueno','administracion','operacion','encargado'], listo: true, opcional: true, vista: 'lecturas', tab: 'recorrido' },
   { id: 'servicios', grupo: 'Servicios', titulo: 'Luz, gas y agua',  icono: ICONOS.medidor,   roles: ['dueno','administracion','cobranza'], listo: true, opcional: true, vista: 'lecturas' },
+  // La pantalla del celular del personal de piso (vigilancia, limpieza): solo la ve quien tiene el rol "equipo"
+  { id: 'turno', grupo: 'Operación', titulo: 'Mi turno', icono: ICONOS.turno, roles: ['equipo'], soloRoles: ['equipo'], listo: true },
   { id: 'importar',   grupo: 'Operación', titulo: 'Importar datos',  icono: ICONOS.importar,  roles: ['dueno','administracion'], listo: true, opcional: true },
   { id: 'usuarios',   grupo: 'Operación', titulo: 'Usuarios',         icono: ICONOS.usuarios,   roles: ['dueno'], listo: true },
 ];
@@ -110,6 +113,8 @@ export const PERFILES = [
     desc: 'Captura y consulta gastos de obra y oficina.' },
   { id: 'encargado', titulo: 'Encargado de sitio',         rol: 'encargado', roles: [],
     desc: 'Tareas, rondines, incidencias y asistencia de su personal. No ve dinero.' },
+  { id: 'equipo',    titulo: 'Equipo (vigilancia, limpieza)', rol: 'equipo', roles: [],
+    desc: 'Desde su celular: checa con foto, hace su rondín, marca sus pendientes, recibe paquetes y busca placas. No ve dinero. Mejor dale acceso desde Personal → Empleados para ligarlo a su ficha.' },
   { id: 'admin',     titulo: 'Administración',             rol: 'administracion', roles: [],
     desc: 'Todo, incluidos Casa, Socios y nómina, menos Patrimonio y Usuarios.' },
 ];

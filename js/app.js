@@ -1,5 +1,5 @@
 import { MODULOS_ACTIVOS as MODULOS, MARCA, CLIENTE } from './config.js';
-import { sb, db, estado, esc, toast, abrirModal, cerrarModal, tieneRol } from './lib.js';
+import { sb, db, estado, esc, toast, abrirModal, cerrarModal, tieneRol, misRoles } from './lib.js';
 
 const vistas = {
   inicio: () => import('./modulos/inicio.js'),
@@ -16,6 +16,7 @@ const vistas = {
   prospectos: () => import('./modulos/prospectos.js'),
   lecturas: () => import('./modulos/lecturas.js'),
   importar: () => import('./modulos/importar.js'),
+  turno: () => import('./modulos/turno.js'),
 };
 
 // ================= MARCA =================
@@ -151,7 +152,7 @@ async function entrar(user) {
   entrando = (async () => {
     estado.user = user;
     const { data: miembro, error } = await db().from('miembros')
-      .select('org_id, nombre, rol, roles, empresas, debe_cambiar_password').eq('user_id', user.id).eq('activo', true).maybeSingle();
+      .select('org_id, nombre, rol, roles, empresas, debe_cambiar_password, empleado_id').eq('user_id', user.id).eq('activo', true).maybeSingle();
 
     if (error || !miembro) {
       $('login').hidden = false; $('shell').hidden = true;
@@ -183,10 +184,11 @@ async function entrar(user) {
 }
 
 const rolLegible = (r) => ({ dueno: 'Dueño', socio: 'Socio', administracion: 'Administración', cobranza: 'Cobranza',
-  operacion: 'Gastos', encargado: 'Encargado', lectura: 'Solo lectura' }[r] || r);
+  operacion: 'Gastos', encargado: 'Encargado', lectura: 'Solo lectura', equipo: 'Equipo' }[r] || r);
 
 // ================= NAVEGACIÓN =================
-const modulosDelUsuario = () => MODULOS.filter((m) => tieneRol(m.roles));
+// soloRoles: módulos que solo ve quien tiene ese rol (el dueño no los ve en su menú, p. ej. "Mi turno" del personal)
+const modulosDelUsuario = () => MODULOS.filter((m) => (m.soloRoles ? misRoles().some((r) => m.soloRoles.includes(r)) : tieneRol(m.roles)));
 
 function pintarNav() {
   const mios = modulosDelUsuario();
