@@ -714,3 +714,9 @@ h4.grupo:first-of-type { margin-top: 4px; }
 #s-nomina .periodo { display: none; }   /* en Semana la semana se cambia arriba, en los turnos */
 .p-sec { margin: 22px 0 10px; font-size: 16px; }
 .eq-ley { margin-top: 12px; }
+/* Logos de Treme y MEDCO en el menú */
+.brand-logos { display: flex; align-items: center; gap: 12px; width: 100%; }
+.brand-logos img { display: block; min-width: 0; height: auto; }
+.brand-logos .logo-treme { width: 52%; }
+.brand-logos .logo-medco { width: 46%; }
+.brand-logos-sep { flex: none; width: 1px; height: 30px; background: var(--border); }

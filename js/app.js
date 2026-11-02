@@ -28,7 +28,10 @@ const vistas = {
     r.setProperty('--primary-2', MARCA.color2 || MARCA.color);
     if (MARCA.colorSuave) r.setProperty('--primary-soft', MARCA.colorSuave);
   }
-  document.querySelector('.sidebar .brand').innerHTML = MARCA.marca.map(esc).join(' <span class="brand-sep">/</span> ');
+  // Menú: los logos de Treme y MEDCO (si la marca los tiene); si no, el nombre
+  document.querySelector('.sidebar .brand').innerHTML = MARCA.logos.length
+    ? `<span class="brand-logos">${MARCA.logos.map((l) => `<img src="${l.src}" alt="${esc(l.alt)}" class="${l.clase || ''}">`).join('<span class="brand-logos-sep" aria-hidden="true"></span>')}</span>`
+    : MARCA.marca.map(esc).join(' <span class="brand-sep">/</span> ');
   document.querySelector('.login-logos').innerHTML = MARCA.logos.length ? MARCA.logos.map((l) =>
     `<picture><img src="${l.src}" alt="${esc(l.alt)}" class="${l.clase || ''}"></picture>`).join('<span class="login-logos-sep" aria-hidden="true"></span>')
     : `<strong class="login-nombre">${esc(MARCA.marca.join(' / '))}</strong>`;   // cliente sin logo todavía: su nombre
