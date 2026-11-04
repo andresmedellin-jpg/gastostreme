@@ -185,6 +185,16 @@ function pintarConcepto(el, concepto) {
   el.querySelectorAll('[data-ver]').forEach((b) => b.addEventListener('click', () => verPagos(fila(b.dataset.ver), concepto, m)));
   el.querySelectorAll('[data-editar]').forEach((b) => b.addEventListener('click', () => editarUnidad(fila(b.dataset.editar), concepto)));
   el.querySelectorAll('[data-recibo]').forEach((b) => b.addEventListener('click', () => pedirRecibo(fila(b.dataset.recibo).u, m, concepto)));
+  // ✕ Eliminar pago: con un solo pago en el mes se borra aquí (con confirmación); con varios se abre la lista para elegir cuál
+  el.querySelectorAll('[data-quitar]').forEach((b) => b.addEventListener('click', async () => {
+    const r = fila(b.dataset.quitar), pagos = r.porMes[m] || [];
+    if (pagos.length !== 1) return verPagos(r, concepto, m);
+    const p = pagos[0];
+    if (!confirm(`¿Eliminar el pago de ${fmt(p.monto)} de ${etiquetaUnidad(r.u)} (${MESES[m].toLowerCase()})?\nQueda registrado en la bitácora.`)) return;
+    const { error } = await db().from('pagos').delete().eq('id', p.id);
+    if (error) return toast('No se pudo eliminar: ' + error.message, true);
+    toast('Pago eliminado'); cargar();
+  }));
 }
 
 function filaConcepto(r, m, puedeCapturar) {
@@ -208,6 +218,7 @@ function filaConcepto(r, m, puedeCapturar) {
       ${!r.exento && puedeCapturar && !pagado ? `<button class="btn btn-sm btn-primary" data-pagar="${r.cuota.id}">＋ Registrar pago</button>` : ''}
       ${pagos.length ? `<button class="btn btn-sm btn-ghost" data-ver="${r.cuota.id}">${pagos.length > 1 ? pagos.length + ' pagos' : 'Ver'}</button>` : ''}
       ${pagos.length ? `<button class="btn btn-sm btn-ghost" data-recibo="${r.cuota.id}" title="Recibo de mantenimiento y luz de este mes">Recibo</button>` : ''}
+      ${puedeCapturar && pagos.length ? `<button class="icon-btn peligro" data-quitar="${r.cuota.id}" title="Eliminar pago" aria-label="Eliminar pago">✕</button>` : ''}
       ${puedeCapturar ? `<button class="icon-btn" data-editar="${r.cuota.id}" title="Editar unidad" aria-label="Editar unidad">✎</button>` : ''}
     </td></tr>`;
 }
