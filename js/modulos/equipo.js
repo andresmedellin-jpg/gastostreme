@@ -366,7 +366,7 @@ export function configurar(ctx) {
       <button data-c="turnos"><b>Turnos</b><small>Quién trabaja y a qué hora cada día de la semana.</small></button></div>` });
   modal.querySelectorAll('[data-c]').forEach((b) => b.addEventListener('click', () => {
     cerrarModal();
-    ({ rondin: () => ctx.irA('rondines'), plantillas: () => ctx.irA('plantillas'), qr: () => qrReportes(ctx), turnos: () => ctx.irA('semana') })[b.dataset.c]();
+    ({ rondin: () => ctx.irA('rondines'), plantillas: () => ctx.irA('plantillas'), qr: () => qrReportes(ctx), turnos: () => ctx.irA('turnos') })[b.dataset.c]();
   }));
 }
 

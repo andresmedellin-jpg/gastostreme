@@ -119,78 +119,111 @@ function enlazarNav(el) {
   }));
 }
 
+// Rentas del mes: una hoja de cobranza (una fila por renta, con su historial de 6 meses) y a un lado
+// el avance por desarrollo y los contratos vencidos o por vencer.
 function pintarRentas(el) {
   const y = st.anio, m = st.mes, per = periodo(y, m);
   const activas = contratos.filter((r) => r.activo && Number(r.monto) > 0);
-  let esperado = 0, cobrado = 0, cobradoUsd = 0, atrasados = 0, pagadas = 0;
+  let esperado = 0, cobrado = 0, esperadoUsd = 0, cobradoUsd = 0;
+  const cuenta = {};
   activas.forEach((r) => {
-    if (r.moneda !== 'USD') esperado += Number(r.monto);
-    const ps = pagos.filter((p) => p.contrato_id === r.id && p.periodo === per);
-    ps.forEach((p) => (r.moneda === 'USD' ? (cobradoUsd += Number(p.monto)) : (cobrado += Number(p.monto))));
-    const e = estadoDe(r, y, m);
-    if (e === 'pagado') pagadas++;
-    else if (e === 'atrasado' || e === 'parcial') atrasados++;
+    const ps = pagos.filter((p) => p.contrato_id === r.id && p.periodo === per).reduce((s2, p) => s2 + Number(p.monto), 0);
+    if (r.moneda === 'USD') { esperadoUsd += Number(r.monto); cobradoUsd += ps; } else { esperado += Number(r.monto); cobrado += ps; }
+    const e = estadoDe(r, y, m); cuenta[e] = (cuenta[e] || 0) + 1;
   });
+  const atrasadoMx = activas.filter((r) => r.moneda !== 'USD' && ['atrasado', 'parcial'].includes(estadoDe(r, y, m)))
+    .reduce((s2, r) => s2 + Number(r.monto) - abonado(r, y, m), 0);
+  const pctC = esperado ? Math.min(100, cobrado / esperado * 100) : 0;
 
-  // Esta semana (solo en el mes actual)
-  const hoy = new Date();
-  let semana = '';
-  if (hoy.getFullYear() === y && hoy.getMonth() === m) {
-    const ini = hoy.getDate(), fin = Math.min(ini + 6, new Date(y, m + 1, 0).getDate());
-    const cuenta = {};
-    activas.filter((r) => r.dia_pago >= ini && r.dia_pago <= fin).forEach((r) => {
-      const e = estadoDe(r, y, m); cuenta[e] = (cuenta[e] || 0) + 1;
-    });
-    semana = `<div class="semana"><div><strong>Esta semana</strong> <span class="mut">· días ${ini}–${fin}</span></div>
-      <div class="chips">${Object.keys(cuenta).length ? Object.entries(cuenta).map(([e, n]) =>
-        `<button class="badge ${BADGE[e]}" data-filtro="${e}">${n} ${ETQ[e].toLowerCase()}</button>`).join('')
-        : '<span class="mut">Sin cobros esta semana</span>'}</div></div>`;
-  }
-
-  const centros = [...new Set(contratos.map((r) => r.centro_id))].sort((a, b) => nombreCentro(a).localeCompare(nombreCentro(b)));
+  const centros = [...new Set(activas.map((r) => r.centro_id))].sort((a2, b2) => nombreCentro(a2).localeCompare(nombreCentro(b2), 'es'));
+  if (st.centro && !centros.includes(st.centro)) st.centro = '';
   const lista = contratos.filter((r) => {
-    if (!r.activo && st.filtro !== 'todos') return false;
+    if (!r.activo) return false;
     if (st.centro && r.centro_id !== st.centro) return false;
-    if (st.q && !`${r.arrendatario} ${nombreCentro(r.centro_id)}`.toLowerCase().includes(st.q)) return false;
-    if (st.filtro !== 'todos' && estadoDe(r, y, m) !== st.filtro) return false;
-    return st.filtro !== 'todos' || r.activo;
-  }).sort((a, b) => (ORDEN[estadoDe(a, y, m)] - ORDEN[estadoDe(b, y, m)]) || (a.dia_pago - b.dia_pago));
-  const grupos = {};
-  lista.forEach((r) => (grupos[r.centro_id] ||= []).push(r));
+    if (st.q && !`${r.arrendatario} ${nombreCentro(r.centro_id)} ${unidadDe(r)?.identificador || ''}`.toLowerCase().includes(st.q)) return false;
+    return st.filtro === 'todos' || estadoDe(r, y, m) === st.filtro;
+  }).sort((a2, b2) => (ORDEN[estadoDe(a2, y, m)] - ORDEN[estadoDe(b2, y, m)]) || ((a2.dia_pago || 99) - (b2.dia_pago || 99)));
+
+  // últimos 6 meses de cada renta (el actual al final)
+  const meses6 = Array.from({ length: 6 }, (_, i) => { const f = new Date(y, m - 5 + i, 1); return [f.getFullYear(), f.getMonth()]; });
+  const historial = (r) => meses6.map(([yy, mm]) => {
+    const ini = r.fecha_inicio && r.fecha_inicio > periodo(yy, mm).slice(0, 7) + '-31';
+    const e = ini ? 'na' : estadoDe(r, yy, mm);
+    return `<i class="rt-h ${e}" title="${MESES[mm]} ${yy}: ${ini ? 'antes del contrato' : ETQ[e] || ''}"></i>`;
+  }).join('');
+  const porCentro = centros.map((c) => {
+    const rs = activas.filter((r) => r.centro_id === c && r.moneda !== 'USD');
+    const esp = rs.reduce((s2, r) => s2 + Number(r.monto), 0), cob = rs.reduce((s2, r) => s2 + Math.min(Number(r.monto), abonado(r, y, m)), 0);
+    const usd = activas.filter((r) => r.centro_id === c && r.moneda === 'USD');
+    return { c, esp, cob, n: rs.length + usd.length, usd };
+  }).sort((a2, b2) => b2.esp - a2.esp);
+  const contratosAviso = contratos.filter((r) => r.activo && r.fecha_fin && (new Date(r.fecha_fin + 'T12:00:00') - new Date()) / 864e5 < 90)
+    .sort((a2, b2) => a2.fecha_fin.localeCompare(b2.fecha_fin));
+  const sinFecha = contratos.filter((r) => r.activo && Number(r.monto) && !r.fecha_fin).length;
 
   el.innerHTML = `
-    <div class="periodo">${navMes()}</div>
-    <div class="kpis">
-      <div class="kpi"><span>Esperado (MXN)</span><strong>${money(esperado)}</strong><small>${activas.length} rentas activas</small></div>
-      <div class="kpi"><span>Cobrado</span><strong class="pos">${money(cobrado)}</strong><small>${cobradoUsd ? '+ ' + money(cobradoUsd, 'USD') : '&nbsp;'}</small></div>
-      <div class="kpi"><span>Pendiente (MXN)</span><strong class="neg">${money(Math.max(0, esperado - cobrado))}</strong><small>&nbsp;</small></div>
-      <div class="kpi"><span>${atrasados ? 'Atrasadas' : 'Al corriente'}</span><strong class="${atrasados ? 'neg' : 'pos'}">${atrasados || `${pagadas}/${activas.length}`}</strong><small>${atrasados ? (PARCIAL ? 'sin pago o incompletas' : 'rentas sin pago') : 'rentas pagadas'}</small></div>
-    </div>
-    ${semana}
-    <section class="panel">
-      <div class="panel-head">
-        <div class="segmento">${[['todos','Todas'],['atrasado','Atrasadas'], ...(PARCIAL ? [['parcial','Abonadas']] : []),['porv','Por vencer'],['pendiente','Pendientes'],['pagado','Pagadas']]
-          .map(([id, t]) => `<button data-filtro="${id}" class="${st.filtro === id ? 'activo' : ''}">${t}</button>`).join('')}</div>
-        <div class="filtros filtros-sm">
-          <select id="r-centro" aria-label="Desarrollo"><option value="">Todos los desarrollos</option>
-            ${centros.map((c) => `<option value="${c}" ${st.centro === c ? 'selected' : ''}>${esc(nombreCentro(c))}</option>`).join('')}</select>
-          <input type="search" id="r-q" placeholder="Buscar arrendatario" value="${esc(st.q)}" aria-label="Buscar">
-        </div>
-      </div>
-      ${lista.length ? Object.entries(grupos).map(([cid, rs]) => `
-        <h4 class="grupo">${esc(nombreCentro(cid))}</h4>
-        <div class="rentas">${rs.map((r) => tarjeta(r, y, m)).join('')}</div>`).join('')
-        : '<div class="vacio">No hay rentas que coincidan</div>'}
-    </section>`;
+    <div class="rt-top">${navMes()}
+      <div class="rt-filtros"><div class="segmento">${[['todos', 'Todas'], ['atrasado', 'Atrasadas'], ...(PARCIAL ? [['parcial', 'Abonadas']] : []), ['porv', 'Por vencer'], ['pendiente', 'Pendientes'], ['pagado', 'Pagadas']]
+        .map(([id, t]) => `<button data-filtro="${id}" class="${st.filtro === id ? 'activo' : ''}">${t}${id !== 'todos' && cuenta[id] ? ` <b>${cuenta[id]}</b>` : ''}</button>`).join('')}</div>
+        <input type="search" id="r-q" placeholder="Buscar inquilino o unidad" value="${esc(st.q)}" aria-label="Buscar"></div></div>
+    <section class="rt-resumen">
+      <div class="rt-c"><span>Rentas de ${MESES[m].toLowerCase()}</span><strong>${money(esperado)}</strong><small>${activas.length} rentas${esperadoUsd ? ` · + ${money(esperadoUsd, 'USD')}` : ''}</small></div>
+      <div class="rt-c"><span>Cobrado</span><strong class="pos">${money(cobrado)}</strong><small>${cuenta.pagado || 0} pagadas${cobradoUsd ? ` · + ${money(cobradoUsd, 'USD')}` : ''}</small></div>
+      <div class="rt-c"><span>Atrasado</span><strong class="${atrasadoMx ? 'neg' : ''}">${money(atrasadoMx)}</strong><small>${(cuenta.atrasado || 0) + (cuenta.parcial || 0)} rentas ya pasaron su día</small></div>
+      <div class="rt-c"><span>Por cobrar</span><strong>${money(Math.max(0, esperado - cobrado - atrasadoMx))}</strong><small>${(cuenta.pendiente || 0) + (cuenta.porv || 0)} aún no llegan a su día</small></div>
+      <div class="rt-av"><div class="ry-pista"><span style="width:${pctC}%"></span></div><small>${Math.round(pctC)} % cobrado del mes</small></div>
+    </section>
+    <div class="rt-grid">
+      <section class="panel rt-hoja">
+        <div class="tabla-wrap"><table class="tabla rt-tabla">
+          <thead><tr><th class="num">Día</th><th>Inquilino</th><th>Desarrollo</th><th class="num">Renta</th><th>Estado</th><th>Últimos 6 meses</th><th></th></tr></thead>
+          <tbody>${lista.length ? lista.map((r) => {
+            const e = estadoDe(r, y, m), ps = pagos.filter((p) => p.contrato_id === r.id && p.periodo === per), tot = ps.reduce((s2, p) => s2 + Number(p.monto), 0);
+            const v = vigencia(r.fecha_fin);
+            return `<tr class="clic rt-${e}" data-detalle="${r.id}" tabindex="0">
+              <td class="num rt-dia" data-l="Día">${r.dia_pago || '—'}</td>
+              <td data-l="Inquilino"><strong>${esc(r.arrendatario)}</strong><small class="sub">${esc(unidadDe(r)?.identificador || '')}${v && v.cls !== 'ok' ? `${unidadDe(r) ? ' · ' : ''}<span class="${v.cls === 'bajo' ? 'neg' : 'aviso'}">${v.cls === 'bajo' ? 'contrato vencido' : 'contrato por vencer'}</span>` : ''}</small></td>
+              <td class="mut" data-l="Desarrollo">${esc(nombreCentro(r.centro_id))}</td>
+              <td class="num fuerte" data-l="Renta">${Number(r.monto) ? money(r.monto, r.moneda) : '—'}</td>
+              <td data-l="Estado"><span class="rt-est ${e}">${ETQ[e]}</span>${e === 'pagado' && ps[0] ? `<small class="sub">${fmtFecha(ps[0].fecha)}${ps[0].forma_pago ? ' · ' + esc(ps[0].forma_pago) : ''}</small>`
+                : e === 'parcial' ? `<small class="sub">faltan ${money(Number(r.monto) - tot, r.moneda)}</small>` : e === 'atrasado' ? `<small class="sub">${diasAtraso(r, y, m)}</small>` : ''}</td>
+              <td data-l="6 meses"><span class="rt-hist">${historial(r)}</span></td>
+              <td class="acciones">${e !== 'pagado' && e !== 'sinm' && puedeCobrar() ? `<button class="btn btn-sm btn-primary" data-cobrar="${r.id}">Cobrar</button>` : ''}</td></tr>`; }).join('')
+            : '<tr><td colspan="7" class="vacio">No hay rentas que coincidan</td></tr>'}</tbody></table></div>
+      </section>
+      <aside class="rt-lado">
+        <section class="panel"><h3>Por desarrollo</h3>
+          <ul class="rt-des">
+            <li class="${!st.centro ? 'activo' : ''}" data-centro=""><span>Todos</span><b>${activas.length}</b></li>
+            ${porCentro.map((x) => `<li class="${st.centro === x.c ? 'activo' : ''}" data-centro="${x.c}"><span>${esc(nombreCentro(x.c))}</span>
+              <b>${x.esp ? `${Math.round(x.cob / x.esp * 100)} %` : x.usd.length ? 'USD' : '—'}</b>
+              <div class="ry-pista"><span style="width:${x.esp ? x.cob / x.esp * 100 : 0}%"></span></div>
+              <small>${x.esp ? `${money(x.cob)} de ${money(x.esp)}` : ''}${x.usd.length ? `${x.esp ? ' · ' : ''}${x.usd.length} en dólares` : ''}</small></li>`).join('')}
+          </ul></section>
+        <section class="panel"><h3>Contratos que atender</h3>
+          ${contratosAviso.length ? `<ul class="rt-con">${contratosAviso.slice(0, 8).map((r) => { const v = vigencia(r.fecha_fin);
+            return `<li data-editarc="${r.id}"><div><strong>${esc(r.arrendatario)}</strong><small>${esc(nombreCentro(r.centro_id))}</small></div>
+              <span class="rt-est ${v.cls === 'bajo' ? 'atrasado' : 'porv'}">${v.cls === 'bajo' ? 'Vencido' : 'Por vencer'}</span><small class="rt-f">${fmtFecha(r.fecha_fin)}</small></li>`; }).join('')}</ul>${contratosAviso.length > 8 ? `<button class="link-btn" data-ir-contratos>Ver los ${contratosAviso.length} en Contratos</button>` : ''}`
+            : '<p class="sub-meta">Ningún contrato vencido ni por vencer en 90 días.</p>'}
+          ${sinFecha ? `<p class="sub-meta" style="margin-top:10px">${sinFecha} contrato${sinFecha === 1 ? '' : 's'} sin fecha de término.</p>` : ''}
+        </section>
+      </aside>
+    </div>`;
 
   enlazarNav(el);
   el.querySelectorAll('[data-filtro]').forEach((b) => b.addEventListener('click', () => { st.filtro = b.dataset.filtro; pintar(); }));
-  el.querySelector('#r-centro').addEventListener('change', (e) => { st.centro = e.target.value; pintar(); });
+  el.querySelectorAll('[data-centro]').forEach((b) => b.addEventListener('click', () => { st.centro = b.dataset.centro; pintar(); }));
+  el.querySelector('[data-ir-contratos]')?.addEventListener('click', () => { st.tab = 'contratos'; pintar(); });
+  el.querySelectorAll('[data-editarc]').forEach((b) => b.addEventListener('click', () => editarContrato(contratos.find((r) => r.id === b.dataset.editarc))));
   const q = el.querySelector('#r-q');
   q.addEventListener('input', () => { st.q = q.value.toLowerCase(); pintar(); const n = raiz.querySelector('#r-q'); n.focus(); n.setSelectionRange(99, 99); });
   el.querySelectorAll('[data-detalle]').forEach((b) => b.addEventListener('click', () => detalle(contratos.find((r) => r.id === b.dataset.detalle))));
   el.querySelectorAll('[data-cobrar]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); cobrar(contratos.find((r) => r.id === b.dataset.cobrar)); }));
 }
+const diasAtraso = (r, y, m) => {
+  const d = Math.floor((new Date() - new Date(y, m, r.dia_pago || 1)) / 864e5);
+  return d > 0 ? `${d} día${d === 1 ? '' : 's'} de atraso` : '';
+};
 
 function tarjeta(r, y, m) {
   const e = estadoDe(r, y, m);
