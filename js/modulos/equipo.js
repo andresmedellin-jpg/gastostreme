@@ -22,6 +22,8 @@ const aMin = (t) => { const [h, m] = String(t || '0:0').split(':').map(Number); 
 export const iniciales = (n) => (n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join('').toUpperCase();
 export const colorDe = (n) => COLORES[[...String(n || '')].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORES.length];
 export const avatar = (n, cls = '') => `<span class="eq-av ${cls}" style="background:${colorDe(n)}">${esc(iniciales(n))}</span>`;
+// La asistencia de hoy se ve y se marca solo en la lista de arriba (no se repite en Actividad ni en Atención)
+const SOLO_LISTA = true;
 const esVigilancia = (e) => /vigil|seguridad|guardia|caseta/.test(normalizar(e?.puesto));
 const primerNombre = (n) => String(n || '').split(' ')[0];
 // Fecha local (no la de Greenwich) de una marca de tiempo
@@ -140,10 +142,10 @@ export async function hoy(el, ctx) {
   const ev = [];
   D.asistencia.filter((a) => a.fecha === fecha).forEach((a) => {
     const n = nombre(a.empleado_id);
-    if (a.hora_entrada) ev.push({ t: a.hora_entrada, ic: a.minutos_tarde ? 'lat' : 'ok', s: a.minutos_tarde ? '⏱' : '✓', txt: `<b>${esc(n)}</b> llegó${a.minutos_tarde ? ` ${a.minutos_tarde} min tarde` : ''}`,
+    if (a.hora_entrada && !SOLO_LISTA) ev.push({ t: a.hora_entrada, ic: a.minutos_tarde ? 'lat' : 'ok', s: a.minutos_tarde ? '⏱' : '✓', txt: `<b>${esc(n)}</b> llegó${a.minutos_tarde ? ` ${a.minutos_tarde} min tarde` : ''}`,
       sub: a.foto_entrada ? 'checó con foto' : a.registrado_por && a.registrado_por !== n ? `lo marcó ${a.registrado_por}` : '', foto: a.foto_entrada });
-    if (a.hora_salida) ev.push({ t: a.hora_salida, ic: 'gr', s: '→', txt: `<b>${esc(n)}</b> salió`, foto: a.foto_salida });
-    if (a.estado === 'falta') ev.push({ t: a.creado_en, ic: 'no', s: '✕', txt: `<b>${esc(n)}</b> faltó` });
+    if (a.hora_salida && !SOLO_LISTA) ev.push({ t: a.hora_salida, ic: 'gr', s: '→', txt: `<b>${esc(n)}</b> salió`, foto: a.foto_salida });
+    if (a.estado === 'falta' && !SOLO_LISTA) ev.push({ t: a.creado_en, ic: 'no', s: '✕', txt: `<b>${esc(n)}</b> faltó` });
     if (a.estado === 'permiso') ev.push({ t: a.creado_en, ic: 'gr', s: 'P', txt: `<b>${esc(n)}</b> con permiso` });
   });
   rondas(D.marcas, D.puntos).forEach((r) => {
@@ -171,7 +173,7 @@ export async function hoy(el, ctx) {
 
   // ---- lo que necesita atención (solo lo que hay que hacer algo) ----
   const at = [];
-  if (esHoy) est.filter(({ s }) => s.k === 'nollego').forEach(({ e, s }) => at.push({ n: 3, ic: 'no', txt: `<b>${esc(e.nombre)}</b> no ha llegado`, sub: `debía entrar a las ${hhmm(s.h.ini)}`,
+  if (esHoy && !SOLO_LISTA) est.filter(({ s }) => s.k === 'nollego').forEach(({ e, s }) => at.push({ n: 3, ic: 'no', txt: `<b>${esc(e.nombre)}</b> no ha llegado`, sub: `debía entrar a las ${hhmm(s.h.ini)}`,
     acc: `${e.telefono ? `<a class="btn btn-sm btn-wa" target="_blank" rel="noopener" href="https://wa.me/52${String(e.telefono).replace(/\D/g, '').slice(-10)}?text=${encodeURIComponent(`Hola ${primerNombre(e.nombre)}, ¿todo bien? Tu turno empezaba a las ${hhmm(s.h.ini)}.`)}">Escribirle</a>` : ''}
       ${puedeOperar() ? `<button class="btn btn-sm btn-ghost" data-marca="falta" data-e="${e.id}">Marcar falta</button><button class="btn btn-sm btn-ghost" data-marca="entrada" data-e="${e.id}">Ya llegó</button>` : ''}` }));
   est.filter(({ s }) => s.k === 'falta').forEach(({ e }) => { const sin = tareasDe(e).filter((f) => f.reg?.estado !== 'hecho');
@@ -185,7 +187,7 @@ export async function hoy(el, ctx) {
   if (ult && ult.faltan.length && ult.faltan.length < D.puntos.length) at.push({ n: 1, ic: 'lat', txt: `Último rondín incompleto: faltó ${ult.faltan.slice(0, 3).map((p) => `<b>${esc(p.nombre)}</b>`).join(', ')}`, sub: `${esc(nombre(ult.empleado_id))} · ${hora(ult.fin)}` });
   porEntregar.filter((p) => Date.now() - new Date(p.recibido_en) > 864e5).forEach((p) => at.push({ n: 1, ic: 'gr', txt: `Paquete de <b>${esc(unidadTxt(p, ctx))}</b> lleva ${haceCuanto(p.recibido_en).replace('hace ', '')} en caseta`, acc: avisoPaquete(p, ctx) }));
   const hueco = esHoy ? coberturaCaseta(equipo, D.turnos, [fecha]) : null;
-  if (hueco?.length) at.push({ n: 2, ic: 'no', txt: `<b>Caseta sin vigilante hoy</b> de ${esc(hueco[0].replace(/^\S+ /, ''))}`, acc: '<button class="btn btn-sm btn-ghost" data-ir="semana">Arreglar turnos</button>' });
+  if (hueco?.length) at.push({ n: 2, ic: 'no', txt: `<b>Caseta sin vigilante hoy</b> de ${esc(hueco[0].replace(/^\S+ /, ''))}`, acc: '<button class="btn btn-sm btn-ghost" data-ir="turnos">Arreglar turnos</button>' });
   at.sort((a, b) => b.n - a.n);
 
   const acc = document.getElementById('page-actions');
@@ -201,7 +203,10 @@ export async function hoy(el, ctx) {
   };
   el.innerHTML = `
     ${!esHoy ? `<div class="panel rs-aviso">Estás viendo el ${fmtFecha(fecha)}. <button class="btn btn-sm btn-ghost" id="eq-hoy">Volver a hoy</button></div>` : ''}
-    ${equipo.length ? `<div class="eq-ahora">${est.map(({ e, s }) => { const ts = tareasDe(e), h = ts.filter((f) => f.reg?.estado === 'hecho').length;
+    ${equipo.length ? `<section class="panel eq-hoy-lista"><div class="panel-head"><h3>Asistencia de hoy</h3><span class="sub-meta">${(() => {
+        const n = (k) => est.filter(({ s }) => k.includes(s.k)).length;
+        return [`${est.length} personas`, `${n(['turno', 'salio', 'tarde', 'llego'])} en turno o salieron`, n(['falta']) ? `${n(['falta'])} faltaron` : '', n(['nollego']) ? `${n(['nollego'])} sin llegar` : ''].filter(Boolean).join(' · ');
+      })()}</span></div><div class="eq-ahora">${est.map(({ e, s }) => { const ts = tareasDe(e), h = ts.filter((f) => f.reg?.estado === 'hecho').length;
       return `<div class="eq-pers ${s.k === 'descanso' ? 'apagada' : ''}">
         <button class="eq-pers-top" data-ficha="${e.id}" title="Ver su día">
           <span class="eq-dot ${s.cls}">${esc(s.t)}</span>${avatar(e.nombre)}
@@ -210,8 +215,8 @@ export async function hoy(el, ctx) {
           ${ts.length && !['descanso', 'falta', 'permiso'].includes(s.k) ? `<div class="eq-barra" title="${h} de ${ts.length} tareas"><i style="width:${h / ts.length * 100}%"></i></div><div class="eq-r">${h} de ${ts.length} tareas</div>` : ''}
         </button>
         ${botones(e, s) ? `<div class="eq-bot">${botones(e, s)}</div>` : ''}
-      </div>`; }).join('')}</div>`
-      : `<div class="vacio">No hay personal registrado en este centro. Puede darlo de alta en <button class="link-btn" data-ir="personas">Personas</button>.</div>`}
+      </div>`; }).join('')}</div></section>`
+      : `<div class="vacio">No hay personal registrado en este centro. Puede darlo de alta en <button class="link-btn" data-ir="empleados">Plantilla</button>.</div>`}
     <div class="eq-grid">
       <div>
         <section class="panel"><div class="panel-head"><h3>Actividad de hoy · ${esc(estado.centros.find((c) => c.id === centro)?.nombre || 'la torre')}</h3><span class="sub-meta">Actividad del día registrada por el equipo</span></div>
@@ -618,9 +623,9 @@ async function pintarTurnos(el, ctx, lun, compacto) {
   el.innerHTML = `<div class="panel-head"><h3>Turnos de la semana</h3>
       <div class="eq-acc">${compacto ? '' : `<button class="icon-btn" data-sem="-7" aria-label="Semana anterior">‹</button><strong class="sub-meta">${fmtFecha(lun)} – ${fmtFecha(dias[6])}</strong><button class="icon-btn" data-sem="7" aria-label="Semana siguiente">›</button>`}
         <span class="sub-meta">${puede ? 'toca un día para cambiarlo' : ''}</span></div></div>
-    ${ctx.equipo.length ? `<div class="tabla-wrap"><table class="eq-turnos"><tr><th></th>${dias.map((d, i) => `<th class="${d === hoyISO() ? 'hoy-th' : ''}">${DIAS_CORTO[i]} ${+d.slice(8)}</th>`).join('')}</tr>
-      ${ctx.equipo.map((e) => `<tr><td class="n">${avatar(e.nombre, 'sm')}<span>${esc(e.nombre)}</span></td>${dias.map((d) => { const h = horarioDe(e, d, ctx.turnos);
-        return `<td><button class="eq-celda ${clase(h)} ${d === hoyISO() ? 'hoy' : ''} ${h.turno ? 'asignado' : ''}" data-e="${e.id}" data-d="${d}" ${puede ? '' : 'disabled'}
+    ${ctx.equipo.length ? `<div class="tabla-wrap"><table class="eq-turnos"><colgroup><col class="c-n">${dias.map(() => '<col>').join('')}</colgroup><tr><th></th>${dias.map((d, i) => `<th class="${d === hoyISO() ? 'hoy-th' : ''}"><small>${DIAS_CORTO[i]}</small>${+d.slice(8)}</th>`).join('')}</tr>
+      ${ctx.equipo.map((e) => `<tr><td class="n">${avatar(e.nombre, 'sm')}<span>${esc(e.nombre)}${e.puesto ? `<small>${esc(e.puesto)}</small>` : ''}</span></td>${dias.map((d) => { const h = horarioDe(e, d, ctx.turnos);
+        return `<td class="${d === hoyISO() ? 'hoy-td' : ''}"><button class="eq-celda ${clase(h)} ${d === hoyISO() ? 'hoy' : ''} ${h.turno ? 'asignado' : ''}" data-e="${e.id}" data-d="${d}" ${puede ? '' : 'disabled'}
           title="${h.descanso ? 'Descanso' : `${hhmm(h.ini)} a ${hhmm(h.fin)}${h.lugar ? ' · ' + h.lugar : ''}`}">${h.descanso ? 'Descanso' : `${corto(h.ini)}–${corto(h.fin)}`}</button></td>`; }).join('')}</tr>`).join('')}</table></div>
       <div class="eq-ley"><span><i class="m1"></i>Mañana</span><span><i class="m2"></i>Tarde</span><span><i class="m3"></i>Noche</span><span><i class="de"></i>Descanso</span>
         ${cobertura == null ? '' : cobertura.length ? `<span class="neg">Caseta sin vigilante: ${cobertura.slice(0, 3).map(esc).join(' · ')}${cobertura.length > 3 ? '…' : ''}</span>` : '<span class="pos">Caseta cubierta las 24 h ✓</span>'}</div>`

@@ -383,3 +383,109 @@ tr.ry-pagado .ry-neto { color: var(--ok); }
   .pz-rb { grid-column: 1 / -1; grid-row: 2; }
   .pz-res { grid-template-columns: 1fr 1fr; } .pz-res > div:first-child { grid-column: 1 / -1; }
 }
+
+/* ---------- encabezado claro (05/11/2026: sin barra negra) ---------- */
+.mx-top { background: #FFFFFF; color: var(--text); border-bottom: 1px solid var(--border); box-shadow: 0 1px 0 rgba(16,18,22,.02); }
+.mx-marca { color: var(--text-3); }
+.mx-mundos { background: var(--surface-2); border: 1px solid var(--border); }
+.mx-mundo { color: var(--text-2); }
+.mx-mundo:hover { background: rgba(16,18,22,.04); color: var(--text); }
+.mx-mundo.activo { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(16,18,22,.08), 0 0 0 1px var(--border); }
+.mx-mundo.activo::after { bottom: -4px; }
+.mx-mundo-logo { background: transparent; padding: 0; width: 34px; border-radius: 0; }
+.mx-mundo:not(.activo) .mx-mundo-logo { filter: grayscale(1); opacity: .6; }
+.mx-mundo-ico { width: 22px; height: 22px; border-radius: 6px; }
+.mx-der .top-fecha { color: var(--text-3); }
+.mx-der .user-avatar { background: var(--ink); color: #fff; }
+.mx-der .user-txt span { color: var(--text-3); }
+.mx-der .btn-ghost { background: var(--surface); color: var(--text); border-color: var(--border); }
+.mx-der .btn-ghost:hover { background: var(--surface-2); color: var(--text); }
+.mx-tabs { border-top: 1px solid #EFEDE7; }
+.mx-tabs a { color: var(--text-2); }
+.mx-tabs a:hover { color: var(--text); }
+.mx-tabs a.active { color: var(--ink); }
+.mx-tabs a.active::after { background: var(--primary); }
+
+/* raya: resumen claro y encabezado de la tabla completo */
+.ry-hoja > .tabla-wrap { margin: 0 !important; }
+.ry-resumen { background: var(--surface); color: var(--text); border: 1px solid var(--border); box-shadow: var(--shadow); }
+.ry-cifra { border-right-color: var(--border); }
+.ry-cifra span, .ry-cifra small, .ry-avance small { color: var(--text-3); }
+.ry-cifra strong.pos { color: var(--ok); }
+.ry-pista { background: #EFEDE7; } .ry-pista span { background: var(--ok); }
+.ry-todos select { background-color: var(--surface); color: var(--text); border-color: var(--border); }
+.ry-todos .btn-primary { background: var(--ink); color: #fff; }
+.ry-listo { color: var(--ok); }
+.ry-tabla th.num, .ry-tabla td.num { text-align: right; }
+.ry-tabla th, .ry-tabla td { white-space: nowrap; }
+.ry-tabla td[data-l="Colaborador"] { white-space: normal; }
+tr.ry-pagado td { color: var(--text-2); }
+tr.ry-pagado .avatar { opacity: .7; }
+.ry-ok { min-width: 250px; }
+.mx-mundo-logo { width: auto !important; height: 22px !important; max-width: 92px; object-fit: contain; }
+.mx-mundo { padding: 7px 14px 7px 10px; }
+@media (max-width: 760px) { .mx-mundo-logo { height: 16px !important; max-width: 60px; } .mx-mundo-logo + .mx-mundo-txt { display: none; } }
+.mx-mundo-logo + .mx-mundo-txt { display: none; }
+.mx-mundo-logo { height: 26px !important; max-width: 110px; }
+.mx-mundo { min-width: 120px; justify-content: center; min-height: 40px; }
+
+/* ---------- Nómina y equipo: una sola línea visual ---------- */
+.eq-av { background: var(--surface-2) !important; color: var(--text-2) !important; border: 1px solid var(--border); font-weight: 600; }
+.p-der { gap: 10px; }
+.p-der .ry-centros .pill { cursor: pointer; }
+.eq-turnos { table-layout: fixed; border-spacing: 0; min-width: 760px; font-size: 12.5px; }
+.eq-turnos col.c-n { width: 230px; }
+.eq-turnos th { font-size: 15px; font-weight: 600; color: var(--text); padding: 4px 0 12px; border-bottom: 1px solid var(--border); }
+.eq-turnos th small { display: block; font-size: 10.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--text-3); }
+.eq-turnos th.hoy-th { color: var(--primary); } .eq-turnos th.hoy-th small { color: var(--primary); }
+.eq-turnos td { padding: 6px 4px; border-bottom: 1px solid #EFEDE7; }
+.eq-turnos tr:last-child td { border-bottom: 0; }
+.eq-turnos td.hoy-td, .eq-turnos th.hoy-th { background: color-mix(in srgb, var(--primary) 5%, transparent); }
+.eq-turnos td.n { display: flex; gap: 10px; align-items: center; font-weight: 600; font-size: 13px; padding: 8px 12px 8px 0; white-space: normal; }
+.eq-turnos td.n span { display: grid; line-height: 1.25; }
+.eq-turnos td.n small { font-weight: 400; font-size: 11.5px; color: var(--text-3); }
+.eq-celda { height: 34px; border-radius: 8px; font: 600 12px var(--f-texto); font-variant-numeric: tabular-nums; background: var(--surface); border: 1px solid var(--border); color: var(--text); position: relative; }
+.eq-celda::before { content: ""; position: absolute; left: 7px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--c, transparent); }
+.eq-celda.m1 { --c: #0F7A4F; } .eq-celda.m2 { --c: #23408E; } .eq-celda.m3 { --c: #101216; background: #F1F0EC; }
+.eq-celda.de { background: transparent; border-style: dashed; color: var(--text-3); font-weight: 500; }
+.eq-celda.hoy { outline: 0; }
+.eq-celda.asignado { box-shadow: none; border-color: var(--text-2); }
+.eq-celda:not(:disabled):hover { border-color: var(--ink); }
+.eq-ley { margin-top: 16px !important; padding-top: 12px; border-top: 1px solid var(--border); gap: 18px; font-size: 12px; }
+.eq-ley i { width: 7px !important; height: 7px !important; border-radius: 50% !important; }
+.eq-ley i.m1 { background: #0F7A4F; } .eq-ley i.m2 { background: #23408E; } .eq-ley i.m3 { background: #101216; }
+.eq-ley i.de { background: transparent; border: 1px dashed var(--text-3); }
+.eq-ley .neg { margin-left: auto; }
+
+/* Hoy: una lista (una fila por persona) en lugar de tarjetas */
+.eq-hoy-lista { padding: 0; overflow: hidden; margin-bottom: 16px; }
+.eq-hoy-lista > .panel-head { padding: 16px 20px 12px; margin: 0; border-bottom: 1px solid var(--border); }
+.eq-hoy-lista .eq-ahora { display: block; margin: 0; }
+.eq-hoy-lista .eq-pers { display: flex; align-items: center; border: 0; border-bottom: 1px solid #EFEDE7; border-radius: 0; box-shadow: none; padding: 0; background: none; }
+.eq-hoy-lista .eq-pers:last-child { border-bottom: 0; }
+.eq-hoy-lista .eq-pers-top { flex: 1; display: grid; grid-template-columns: 34px minmax(170px, 1.2fr) minmax(170px, 1.4fr) 130px 120px; gap: 14px; align-items: center; padding: 11px 20px; }
+.eq-hoy-lista .eq-pers-top > .eq-av { grid-column: 1; width: 34px; height: 34px; font-size: 12px; }
+.eq-hoy-lista .eq-pers-top > div:not(.eq-ln):not(.eq-barra):not(.eq-r) { grid-column: 2; }
+.eq-hoy-lista .eq-nm { font-weight: 600; font-size: 13.5px; }
+.eq-hoy-lista .eq-ln { grid-column: 3; font-size: 12.5px; color: var(--text-2); }
+.eq-hoy-lista .eq-ln.neg { color: var(--neg); }
+.eq-hoy-lista .eq-barra { display: none; }
+.eq-hoy-lista .eq-pers-top > .eq-r { grid-column: 4; font-size: 12px; color: var(--text-3); }
+.eq-hoy-lista .eq-dot { position: static; grid-column: 5; grid-row: 1; justify-self: start; }
+.eq-hoy-lista .eq-bot { width: 230px; padding: 0 20px 0 0; justify-content: flex-end; flex-wrap: nowrap; }
+.eq-hoy-lista .eq-bot .btn { flex: none; }
+.eq-hoy-lista .eq-pers.apagada { opacity: .6; }
+.ry-faltas { display: inline-grid; text-align: right; border: 0; background: none; font: inherit; color: var(--text-3); cursor: pointer; padding: 2px 0; }
+.ry-faltas.con { color: var(--neg); font-weight: 600; }
+.ry-faltas small { font-size: 11px !important; color: var(--text-3) !important; text-decoration: underline; text-underline-offset: 2px; font-weight: 400; }
+.ry-faltas:hover small { color: var(--text) !important; }
+.ry-fdias { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+@media (max-width: 760px) {
+  .eq-hoy-lista .eq-pers { flex-wrap: wrap; }
+  .eq-hoy-lista .eq-pers-top { grid-template-columns: 34px 1fr auto; padding: 11px 14px 6px; gap: 4px 10px; }
+  .eq-hoy-lista .eq-pers-top > div:not(.eq-ln):not(.eq-barra):not(.eq-r) { grid-column: 2; grid-row: 1; }
+  .eq-hoy-lista .eq-dot { grid-column: 3; grid-row: 1; }
+  .eq-hoy-lista .eq-ln, .eq-hoy-lista .eq-pers-top > .eq-r { grid-column: 2 / -1; }
+  .eq-hoy-lista .eq-bot { width: 100%; padding: 0 14px 11px 58px; justify-content: flex-start; }
+  .ry-tabla td[data-l="Faltas"] { text-align: left; } .ry-faltas { text-align: left; }
+}

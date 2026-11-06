@@ -54,7 +54,13 @@ export async function render(view, mod) {
   if (!st.tab || (!PADRE[st.tab] && !tabs.some(([id]) => id === st.tab)) || (PADRE[st.tab] && !tabs.some(([id]) => id === PADRE[st.tab]))) st.tab = tabs[0][0];
 
   // centros con personal (para el encargado: los de su empresa); con la marca, solo los centros que tienen personal
-  const visibles = estado.centros.filter((c) => (!['socio', 'personal'].includes(c.tipo) || admin()) && (!MARCA.centrosPersonal || MARCA.centrosPersonal.includes(c.nombre)));
+  let visibles = estado.centros.filter((c) => (!['socio', 'personal'].includes(c.tipo) || admin()) && (!MARCA.centrosPersonal || MARCA.centrosPersonal.includes(c.nombre)));
+  // Solo los centros que tienen gente (no los 18 centros de la empresa)
+  if (admin()) {
+    const { data: conGente } = await db().from('empleados').select('centro_id').eq('activo', true);
+    const ids = new Set((conGente || []).map((x) => x.centro_id));
+    if (ids.size) visibles = visibles.filter((c) => ids.has(c.id));
+  }
   if (st.centro && !visibles.some((c) => c.id === st.centro)) st.centro = null;   // se cambió de empresa arriba
   st.centro ||= (visibles.find((c) => c.nombre === (MARCA.centroPersonal || 'Torre Elysium')) || visibles[0])?.id;
 
@@ -62,15 +68,16 @@ export async function render(view, mod) {
     <div class="sub-head">
       ${fijo ? '<span></span>' : `<div class="tabs" role="tablist">${tabs.map(([id, t]) => `<button role="tab" data-tab="${id}">${t}</button>`).join('')}</div>`}
       <div class="p-der">
-        <select id="p-centro" aria-label="Edificio" class="${admin() ? '' : 'solo-dia'}" ${visibles.length < 2 ? 'hidden' : ''}>
-          ${visibles.map((c) => `<option value="${c.id}" ${c.id === st.centro ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select>
+        <div id="p-centro" class="ry-centros" role="tablist" aria-label="Centro" ${visibles.length < 2 ? 'hidden' : ''}>
+          ${visibles.map((c) => `<button class="pill ${c.id === st.centro ? 'activa' : ''}" data-pc="${c.id}">${esc(c.nombre)}</button>`).join('')}</div>
         ${tieneRol(['administracion', 'encargado']) && !fijo ? '<button class="btn btn-ghost" id="p-conf" title="Rondín, tareas de cada día, QR del elevador">Configurar</button>' : ''}
       </div>
     </div>
     <div id="p-volver"></div>
     <div id="p-cuerpo"><div class="cargando">Cargando…</div></div>`;
   view.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { st.tab = b.dataset.tab; pintar(); }));
-  view.querySelector('#p-centro').addEventListener('change', (e) => { st.centro = e.target.value; pintar(); });
+  view.querySelector('#p-centro').addEventListener('click', (e) => { const b = e.target.closest('[data-pc]'); if (!b) return; st.centro = b.dataset.pc;
+    view.querySelectorAll('[data-pc]').forEach((x) => x.classList.toggle('activa', x === b)); pintar(); });
   view.querySelector('#p-conf')?.addEventListener('click', async () => (await import('./equipo.js')).configurar(contexto()));
   await pintar();
 }
@@ -444,7 +451,7 @@ async function nomina(el) {
     </div>
     <section class="ry-resumen" id="ry-resumen"></section>
     <section class="panel ry-hoja"><div class="tabla-wrap"><table class="tabla ry-tabla">
-      <thead><tr><th>Colaborador</th><th class="ry-dias-h">Asistencia <small>(toca un día para marcar falta)</small></th><th class="num">Sueldo</th>
+      <thead><tr><th>Colaborador</th><th class="num">Sueldo</th>
         <th class="num">Faltas</th><th class="num">Préstamo</th><th class="num">A pagar</th><th class="ry-acc"></th></tr></thead>
       <tbody id="ry-filas"></tbody></table></div></section>
     <p class="nota">Cada pago se registra como gasto de Nómina en el centro de la persona (por el sueldo de la semana). El abono a préstamo se descuenta de lo que se le entrega y se anota en su préstamo. Los retardos se muestran como referencia; no se descuentan solos.</p>
@@ -459,13 +466,9 @@ async function nomina(el) {
     return `<tr class="${p ? 'ry-pagado' : ''}" data-emp="${e.id}">
       <td data-l="Colaborador"><div class="ry-quien"><span class="avatar">${iniciales(e.nombre)}</span><div><strong>${esc(e.nombre)}</strong>
         <small>${esc(e.puesto || '—')}${st.rayaCentro ? '' : ` · ${esc(nombreCentro(e.centro_id))}`}</small></div></div></td>
-      <td data-l="Asistencia"><div class="ry-dias">${dias.map((d) => {
-        const lab = trabaja.includes(codigoDia(d)), f = faltas.includes(d), fut = d > hoy;
-        return `<button class="ry-dia ${f ? 'falta' : !lab ? 'libre' : fut ? 'fut' : 'ok'}" ${p || (!lab && !f) ? 'disabled' : ''} data-falta="${e.id}|${d}"
-          title="${f ? 'Faltó — tocar para quitar' : lab ? (fut ? 'Programado' : 'Asistió — tocar para marcar falta') : 'Descanso'}">${DIAS_CORTO[(new Date(d + 'T12:00:00').getDay() + 6) % 7].charAt(0)}</button>`;
-      }).join('')}</div>${ret ? `<small class="ry-ret">Retardos: ${fmt(ret)}</small>` : ''}</td>
       <td class="num" data-l="Sueldo">${fmt(e.salario_semanal)}</td>
-      <td class="num ${faltas.length ? 'neg' : 'mut'}" data-l="Faltas">${faltas.length ? `−${fmt(fDesc)}<small>${faltas.length} día${faltas.length === 1 ? '' : 's'}</small>` : '—'}</td>
+      <td class="num" data-l="Faltas">${p ? (faltas.length ? `<span class="neg">−${fmt(fDesc)}</span><small>${faltas.length} día${faltas.length === 1 ? '' : 's'}</small>` : '<span class="mut">—</span>')
+        : `<button class="ry-faltas ${faltas.length ? 'con' : ''}" data-faltas="${e.id}" title="Ajustar faltas de la semana">${faltas.length ? `−${fmt(fDesc)}<small>${faltas.length} día${faltas.length === 1 ? '' : 's'} · ajustar</small>` : 'Sin faltas<small>ajustar</small>'}</button>`}${ret ? `<small class="ry-ret">retardos ${fmt(ret)}</small>` : ''}</td>
       <td class="num" data-l="Préstamo">${p ? (Number(p.abono_prestamo) ? `<span class="neg">−${fmt(p.abono_prestamo)}</span>` : '<span class="mut">—</span>')
         : pr ? `<label class="ry-abono" title="Saldo del préstamo: ${fmt(saldoP(pr))}"><span>−</span><input type="number" min="0" step="50" max="${saldoP(pr).toFixed(2)}" data-abono="${e.id}" value="${descuento[e.id] || 0}"></label><small>debe ${fmt(saldoP(pr))}</small>`
         : '<span class="mut">—</span>'}</td>
@@ -494,7 +497,7 @@ async function nomina(el) {
     const lista = visibles();
     // orden: pendientes primero, por centro y nombre; los pagados al final
     lista.sort((a, b) => (!!pagoDe(a.id) - !!pagoDe(b.id)) || nombreCentro(a.centro_id).localeCompare(nombreCentro(b.centro_id), 'es') || a.nombre.localeCompare(b.nombre, 'es'));
-    el.querySelector('#ry-filas').innerHTML = lista.map(fila).join('') || '<tr><td colspan="7" class="vacio">Sin colaboradores activos.</td></tr>';
+    el.querySelector('#ry-filas').innerHTML = lista.map(fila).join('') || '<tr><td colspan="6" class="vacio">Sin colaboradores activos.</td></tr>';
     pintarResumen();
   };
   const repintarFila = (e) => {
@@ -559,25 +562,38 @@ async function nomina(el) {
       cerrarModal(); toast(`Pago a ${e.nombre} registrado`); pintarFilas();
     });
   });
-  el.addEventListener('click', async (ev) => {
-    const b = ev.target.closest('[data-falta]');
-    if (!b || b.disabled || b.dataset.ocupado) return;
+  // Las faltas se marcan en "Hoy"; aquí solo se corrigen antes de pagar
+  el.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-faltas]'); if (!b) return;
+    const e = porId(b.dataset.faltas);
+    const trabaja = (e.dias_laborales || 'LUN,MAR,MIE,JUE,VIE,SAB').split(',');
+    const dias = Array.from({ length: 7 }, (_, i) => sumarDias(sem, i)).filter((d) => trabaja.includes(codigoDia(d)) || faltasDe(e.id).includes(d));
+    const modal = abrirModal({ titulo: `Faltas de la semana · ${e.nombre}`,
+      cuerpo: `<p class="nota">Las faltas se marcan en Hoy. Aquí puedes corregirlas antes de pagar. Cada falta descuenta ${fmt(diario(e))}.</p>
+        <div class="ry-fdias">${dias.map((d) => `<label class="opcion opcion-linea"><input type="checkbox" data-falta="${e.id}|${d}" ${faltasDe(e.id).includes(d) ? 'checked' : ''}> ${DIAS_CORTO[(new Date(d + 'T12:00:00').getDay() + 6) % 7]} ${fmtFecha(d)}</label>`).join('')}</div>`,
+      pie: '<button class="btn btn-primary" id="rf-ok">Listo</button>' });
+    modal.querySelector('#rf-ok').addEventListener('click', cerrarModal);
+    modal.addEventListener('change', (x) => { const c = x.target.closest('[data-falta]'); if (c) cambiarFalta(c); });
+  });
+  async function cambiarFalta(b) {
+    if (b.dataset.ocupado) return;
+    b.dataset.ocupado = '1';
     const [id, fecha] = b.dataset.falta.split('|');
     const e = porId(id);
     const ya = asis.data.find((a) => a.empleado_id === id && a.fecha === fecha && a.estado === 'falta');
     if (ya) asis.data.splice(asis.data.indexOf(ya), 1);
     else asis.data.push({ empleado_id: id, fecha, estado: 'falta', monto_descuento: 0 });
     repintarFila(e);
-    const nuevo = el.querySelector(`[data-falta="${id}|${fecha}"]`);
-    if (nuevo) nuevo.dataset.ocupado = '1';
     const { error } = ya ? await db().from('asistencia').delete().eq('empleado_id', id).eq('fecha', fecha).eq('estado', 'falta')
       : await db().rpc('asistencia_marcar', { p_empleado: id, p_fecha: fecha, p_accion: 'falta' });
     if (error) {
       if (ya) asis.data.push(ya); else asis.data.splice(asis.data.findIndex((a) => a.empleado_id === id && a.fecha === fecha && a.estado === 'falta'), 1);
       toast('No se pudo guardar la falta: ' + error.message, true);
+      b.checked = !b.checked;
     }
+    delete b.dataset.ocupado;
     repintarFila(e);
-  });
+  }
   el.addEventListener('click', async (ev) => {
     const b = ev.target.closest('[data-borrarpago]');
     if (!b) return;
