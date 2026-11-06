@@ -203,10 +203,7 @@ export async function hoy(el, ctx) {
   };
   el.innerHTML = `
     ${!esHoy ? `<div class="panel rs-aviso">Estás viendo el ${fmtFecha(fecha)}. <button class="btn btn-sm btn-ghost" id="eq-hoy">Volver a hoy</button></div>` : ''}
-    ${equipo.length ? `<section class="panel eq-hoy-lista"><div class="panel-head"><h3>Asistencia de hoy</h3><span class="sub-meta">${(() => {
-        const n = (k) => est.filter(({ s }) => k.includes(s.k)).length;
-        return [`${est.length} personas`, `${n(['turno', 'salio', 'tarde', 'llego'])} en turno o salieron`, n(['falta']) ? `${n(['falta'])} faltaron` : '', n(['nollego']) ? `${n(['nollego'])} sin llegar` : ''].filter(Boolean).join(' · ');
-      })()}</span></div><div class="eq-ahora">${est.map(({ e, s }) => { const ts = tareasDe(e), h = ts.filter((f) => f.reg?.estado === 'hecho').length;
+    ${equipo.length ? `<div class="eq-ahora">${est.map(({ e, s }) => { const ts = tareasDe(e), h = ts.filter((f) => f.reg?.estado === 'hecho').length;
       return `<div class="eq-pers ${s.k === 'descanso' ? 'apagada' : ''}">
         <button class="eq-pers-top" data-ficha="${e.id}" title="Ver su día">
           <span class="eq-dot ${s.cls}">${esc(s.t)}</span>${avatar(e.nombre)}
@@ -215,7 +212,7 @@ export async function hoy(el, ctx) {
           ${ts.length && !['descanso', 'falta', 'permiso'].includes(s.k) ? `<div class="eq-barra" title="${h} de ${ts.length} tareas"><i style="width:${h / ts.length * 100}%"></i></div><div class="eq-r">${h} de ${ts.length} tareas</div>` : ''}
         </button>
         ${botones(e, s) ? `<div class="eq-bot">${botones(e, s)}</div>` : ''}
-      </div>`; }).join('')}</div></section>`
+      </div>`; }).join('')}</div>`
       : `<div class="vacio">No hay personal registrado en este centro. Puede darlo de alta en <button class="link-btn" data-ir="empleados">Plantilla</button>.</div>`}
     <div class="eq-grid">
       <div>

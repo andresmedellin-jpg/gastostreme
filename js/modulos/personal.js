@@ -37,9 +37,10 @@ const iniciales = (n) => (n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map
 // (empleados, vacaciones, préstamos). Lo demás son vistas de detalle a las que se llega desde ahí, con "← Volver".
 // El encargado ve solo Hoy y Semana. Con la marca "personalEnMenu", cada vista es su propia opción del menú (mod.tab).
 // Seis pestañas: Hoy y Turnos (día a día, también para el encargado); Raya, Plantilla, Vacaciones y Préstamos (dueño y administración).
-const PRINCIPALES = [['hoy', 'Hoy'], ['turnos', 'Turnos'], ['nomina', 'Raya semanal'], ['empleados', 'Plantilla'], ['vacaciones', 'Vacaciones'], ['prestamos', 'Préstamos']];
+// Turnos ya no es pestaña: se cambian desde Configurar → Turnos o desde el aviso de "Necesita tu atención".
+const PRINCIPALES = [['hoy', 'Hoy'], ['nomina', 'Raya semanal'], ['empleados', 'Plantilla'], ['vacaciones', 'Vacaciones'], ['prestamos', 'Préstamos']];
 const PADRE = { asistencia: 'hoy', tareas: 'hoy', rondin: 'hoy', incidencias: 'hoy', rondines: 'hoy', reportes: 'hoy', paquetes: 'hoy', plantillas: 'hoy',
-  semana: 'turnos', personas: 'empleados' };
+  turnos: 'hoy', semana: 'hoy', personas: 'empleados' };
 const TITULO = { semana: 'Turnos', personas: 'Plantilla', asistencia: 'Asistencia por día', tareas: 'Tareas por día', rondin: 'Supervisión', incidencias: 'Incidencias', rondines: 'Rondines',
   reportes: 'Reportes de residentes', paquetes: 'Paquetes', plantillas: 'Tareas de cada día', turnos: 'Turnos', nomina: 'Nómina',
   empleados: 'Empleados', vacaciones: 'Vacaciones', prestamos: 'Préstamos' };
@@ -48,7 +49,7 @@ export async function render(view, mod) {
   raiz = view;
   fijo = mod?.tab || null;
   if (fijo) st.tab = fijo;
-  const tabs = admin() ? PRINCIPALES : PRINCIPALES.slice(0, 2);
+  const tabs = admin() ? PRINCIPALES : PRINCIPALES.slice(0, 1);
   if (st.tab === 'semana') st.tab = 'turnos';
   if (st.tab === 'personas') st.tab = 'empleados';
   if (!st.tab || (!PADRE[st.tab] && !tabs.some(([id]) => id === st.tab)) || (PADRE[st.tab] && !tabs.some(([id]) => id === PADRE[st.tab]))) st.tab = tabs[0][0];
@@ -89,7 +90,7 @@ const contexto = () => ({ centro: st.centro, equipo, fecha: st.fecha, st, unidad
 async function pintar() {
   const padre = PADRE[st.tab] || st.tab;
   raiz.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', b.dataset.tab === padre));
-  const conEquipo = padre === 'hoy' || padre === 'turnos';
+  const conEquipo = padre === 'hoy';
   raiz.querySelector('#p-centro').style.display = conEquipo ? '' : 'none';
   const conf = raiz.querySelector('#p-conf'); if (conf) conf.style.display = conEquipo ? '' : 'none';
   // vista de detalle: "← Volver" a su pestaña
