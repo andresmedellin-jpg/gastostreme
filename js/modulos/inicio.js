@@ -46,7 +46,6 @@ export async function render(view) {
         <select id="i-mes" aria-label="Mes">${MESES.map((m, i) => `<option value="${i}">${m}</option>`).join('')}</select>
         <select id="i-anio" aria-label="Año">${anios.map((a) => `<option>${a}</option>`).join('')}</select>
       </div>
-      <span class="ex-meta">Estado de resultados</span>
     </div>
     <div id="i-cuerpo"><div class="cargando">Cargando…</div></div>`;
   if (estado.mundo) st.empresa = '';   // la empresa se escoge arriba (Grupo / Treme / MEDCO)

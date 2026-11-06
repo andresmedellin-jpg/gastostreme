@@ -455,7 +455,7 @@ async function nomina(el) {
       <thead><tr><th>Colaborador</th><th class="num">Sueldo</th>
         <th class="num">Faltas</th><th class="num">Préstamo</th><th class="num">A pagar</th><th class="ry-acc"></th></tr></thead>
       <tbody id="ry-filas"></tbody></table></div></section>
-    <p class="nota">Cada pago se registra como gasto de Nómina en el centro de la persona (por el sueldo de la semana). El abono a préstamo se descuenta de lo que se le entrega y se anota en su préstamo. Los retardos se muestran como referencia; no se descuentan solos.</p>
+    <p class="nota">Cada pago se registra como gasto de Nómina en el centro de la persona (por el sueldo de la semana). El abono a préstamo se descuenta de lo que se le entrega y se anota en su préstamo. Para corregir una falta, toca la cantidad en la columna Faltas.</p>
   </div>`;
   el = el.querySelector('.ry');
 
@@ -469,7 +469,7 @@ async function nomina(el) {
         <small>${esc(e.puesto || '—')}${st.rayaCentro ? '' : ` · ${esc(nombreCentro(e.centro_id))}`}</small></div></div></td>
       <td class="num" data-l="Sueldo">${fmt(e.salario_semanal)}</td>
       <td class="num" data-l="Faltas">${p ? (faltas.length ? `<span class="neg">−${fmt(fDesc)}</span><small>${faltas.length} día${faltas.length === 1 ? '' : 's'}</small>` : '<span class="mut">—</span>')
-        : `<button class="ry-faltas ${faltas.length ? 'con' : ''}" data-faltas="${e.id}" title="Ajustar faltas de la semana">${faltas.length ? `−${fmt(fDesc)}<small>${faltas.length} día${faltas.length === 1 ? '' : 's'} · ajustar</small>` : 'Sin faltas<small>ajustar</small>'}</button>`}${ret ? `<small class="ry-ret">retardos ${fmt(ret)}</small>` : ''}</td>
+        : `<button class="ry-faltas ${faltas.length ? 'con' : ''}" data-faltas="${e.id}" title="Corregir faltas de la semana">${faltas.length ? `−${fmt(fDesc)}<small>${faltas.length} día${faltas.length === 1 ? '' : 's'}</small>` : '—'}</button>`}</td>
       <td class="num" data-l="Préstamo">${p ? (Number(p.abono_prestamo) ? `<span class="neg">−${fmt(p.abono_prestamo)}</span>` : '<span class="mut">—</span>')
         : pr ? `<label class="ry-abono" title="Saldo del préstamo: ${fmt(saldoP(pr))}"><span>−</span><input type="number" min="0" step="50" max="${saldoP(pr).toFixed(2)}" data-abono="${e.id}" value="${descuento[e.id] || 0}"></label><small>debe ${fmt(saldoP(pr))}</small>`
         : '<span class="mut">—</span>'}</td>
@@ -987,7 +987,7 @@ async function prestamos(el) {
     <div class="vc-barra"><div class="segmento">
       <button class="${st.preFiltro === 'vigentes' ? 'activo' : ''}" data-pf="vigentes">Vigentes · ${vivosS.length}</button>
       <button class="${st.preFiltro === 'liquidados' ? 'activo' : ''}" data-pf="liquidados">Liquidados · ${liquidados.length}</button></div></div>
-    ${lista.length ? `<section class="panel"><div class="tabla-wrap"><table class="tabla pr-tabla">
+    ${lista.length ? `<section class="panel"><div class="tabla-wrap"><table class="tabla pr-tabla tm">
       <thead><tr><th>Colaborador</th><th class="num">Prestado</th><th>Avance</th><th class="num">Saldo</th><th class="num">Abono semanal</th><th>Termina</th><th></th></tr></thead>
       <tbody>${lista.map((p) => {
         const sal = saldo(p), pct = Math.round(((Number(p.monto) - sal) / Number(p.monto)) * 100), ab = Number(p.abono_semanal) || 0;

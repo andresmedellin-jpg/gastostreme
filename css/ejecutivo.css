@@ -650,3 +650,28 @@ tr.rt-pagado td { color: var(--text-2); }
 .mx-mundo.activo::after { left: 10px !important; right: 10px !important; }
 @media (max-width: 760px) { .mx-mundo { width: auto; } .mx-mundo-logo.logo-treme { height: 18px !important; } .mx-mundo-logo.logo-medco { height: 22px !important; } }
 .ex-lista li > span { flex-wrap: wrap; } .ex-nota { flex-basis: 100%; padding-left: 14px; font-size: 12px; color: var(--text-3); text-decoration: none; margin-top: 2px; }
+.cb-conc { display: inline-flex !important; width: auto !important; }
+.ry-faltas small { text-decoration: none !important; }
+.panel > .tabla-wrap:not(:last-child) { margin-bottom: 0 !important; } .panel > .tabla-wrap + .nota { margin-top: 14px; }
+
+/* celular: tablas como lista (nombre y monto arriba, datos en una línea abajo) */
+@media (max-width: 760px) {
+  .tabla.tm thead { display: none; }
+  .tabla.tm tbody tr { display: flex !important; flex-wrap: wrap; align-items: baseline; gap: 3px 0; padding: 12px 16px !important; grid-template-columns: none !important; }
+  .tabla.tm td { display: block !important; padding: 0 !important; border: 0 !important; text-align: left !important; order: 2; font-size: 12px; color: var(--text-3); white-space: normal; }
+  .tabla.tm td::before { display: none !important; }
+  .tabla.tm td:first-child { order: 0; flex: 1 0 55%; font-size: 13.5px; color: var(--text); }
+  .tabla.tm td:is([data-l="Monto"], [data-l="Adeudo"], [data-l="Saldo"], [data-l="Valor"]) { order: 1; margin-left: auto; font-size: 14px; color: var(--text); font-weight: 600; }
+  .tabla.tm td.neg:is([data-l="Adeudo"]) { color: var(--neg); }
+  .tabla.tm td { width: auto !important; margin-right: 12px; }
+  .tabla.tm td:first-child { margin-right: 8px; }
+  .tabla.tm td[data-l="Cuota"]::before { content: "Cuota " !important; display: inline !important; }
+  .tabla.tm td[data-l="Valor"] { display: block !important; }
+  .tabla.tm td .sub { display: inline; margin-left: 4px; }
+  .tabla.tm td.acciones { order: 3; flex-basis: 100%; margin-top: 8px; display: flex !important; gap: 6px; }
+  /* encabezado en una sola fila */
+  .mx-fila { flex-wrap: nowrap !important; padding: 0 10px !important; gap: 6px !important; }
+  .mx-mundos { order: 0 !important; flex: 1 1 auto !important; }
+  .mx-der .user { display: none; }
+  .mx-der .btn-ghost { height: 30px; padding: 0 10px; }
+}

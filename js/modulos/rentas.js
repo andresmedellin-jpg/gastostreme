@@ -421,24 +421,29 @@ function pintarAdeudos(el) {
   const hoy = new Date();
   const atrasoAuto = (r) => [0, 1, 2].filter((i) => { const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
     return estadoDe(r, d.getFullYear(), d.getMonth()) === 'atrasado'; }).length;
+  // Primero quien ya debe (registrado); abajo, solo quien tiene meses sin pago y aún no tiene adeudo registrado
+  const sugeridos = sin.map((r) => ({ r, n: atrasoAuto(r) })).filter((x) => x.n).sort((x, y) => y.n - x.n);
   el.innerHTML = `
     <section class="panel">
-      <div class="panel-head"><div><h3>Adeudos registrados</h3><p class="nota">Lo que te deben, registrado a mano; el monto es editable.</p></div>
-        ${con.length ? `<div class="num"><small class="mut">Total adeudado</small><br><strong class="neg">${money(total)}</strong></div>` : ''}</div>
-      ${con.length ? `<div class="deudores">${con.map(({ a, r }) => `
-        <button class="deudor clic" data-adeudo="${r.id}">
-          <div class="deudor-top"><strong>${esc(r.arrendatario)}</strong><strong class="neg">${money(a.monto_original, r.moneda)}</strong></div>
-          <div class="mut">${esc(nombreCentro(r.centro_id))} · ${a.meses ?? '?'} mes${a.meses === 1 ? '' : 'es'}</div>
-          ${a.notas ? `<small class="mut">${esc(a.notas)}</small>` : ''}
-        </button>`).join('')}</div>` : '<div class="vacio">Sin adeudos registrados. Todos los arrendatarios están al corriente.</div>'}
+      <div class="panel-head"><h3>Adeudos registrados <small class="sub-meta">· ${con.length} · ${money(total)}</small></h3>
+        ${puedeCobrar() && sin.length ? `<div class="filtros filtros-sm"><select id="ad-nuevo" aria-label="Agregar adeudo"><option value="">Agregar adeudo a…</option>
+          ${sin.map((r) => `<option value="${r.id}">${esc(r.arrendatario)} · ${esc(nombreCentro(r.centro_id))}</option>`).join('')}</select></div>` : ''}</div>
+      ${con.length ? `<div class="tabla-wrap"><table class="tabla tm">
+        <thead><tr><th>Inquilino</th><th>Desarrollo</th><th class="num">Meses</th><th>Nota</th><th class="num">Adeudo</th></tr></thead>
+        <tbody>${con.map(({ a, r }) => `<tr class="clic" data-adeudo="${r.id}" tabindex="0">
+          <td data-l="Inquilino"><strong>${esc(r.arrendatario)}</strong></td>
+          <td class="mut" data-l="Desarrollo">${esc(nombreCentro(r.centro_id))}</td>
+          <td class="num" data-l="Meses">${a.meses ?? '—'}</td>
+          <td class="mut" data-l="Nota">${esc(a.notas || '')}</td>
+          <td class="num neg fuerte" data-l="Adeudo">${money(a.monto_original, r.moneda)}</td></tr>`).join('')}</tbody></table></div>`
+        : '<div class="vacio">Sin adeudos registrados.</div>'}
     </section>
-    ${puedeCobrar() && sin.length ? `<section class="panel"><h3>Agregar adeudo</h3>
-      <div class="tabla-wrap"><table class="tabla"><tbody>${sin.map((r) => {
-        const auto = atrasoAuto(r);
-        return `<tr><td data-l="Renta"><strong>${esc(r.arrendatario)}</strong> <span class="mut">· ${esc(nombreCentro(r.centro_id))}</span></td>
-          <td class="mut" data-l="Atraso">${auto ? `<span class="badge rojo">${auto} mes${auto === 1 ? '' : 'es'} sin pago</span>` : ''}</td>
-          <td class="acciones"><button class="btn btn-sm btn-ghost" data-adeudo="${r.id}">＋ Registrar adeudo</button></td></tr>`;
-      }).join('')}</tbody></table></div></section>` : ''}`;
+    ${puedeCobrar() && sugeridos.length ? `<section class="panel"><div class="panel-head"><h3>Con meses sin pago y sin adeudo registrado <small class="sub-meta">· ${sugeridos.length}</small></h3></div>
+      <div class="tabla-wrap"><table class="tabla"><tbody>${sugeridos.map(({ r, n }) => `<tr>
+        <td data-l="Inquilino"><strong>${esc(r.arrendatario)}</strong> <span class="mut">· ${esc(nombreCentro(r.centro_id))}</span></td>
+        <td data-l="Atraso"><span class="rt-est atrasado">${n} mes${n === 1 ? '' : 'es'} sin pago</span></td>
+        <td class="acciones"><button class="btn btn-sm btn-ghost" data-adeudo="${r.id}">Registrar adeudo</button></td></tr>`).join('')}</tbody></table></div></section>` : ''}`;
+  el.querySelector('#ad-nuevo')?.addEventListener('change', (e) => { const r = contratos.find((x) => x.id === e.target.value); if (r) editarAdeudo(r, atrasoAuto); e.target.value = ''; });
   el.querySelectorAll('[data-adeudo]').forEach((b) => b.addEventListener('click', () => {
     if (puedeCobrar()) editarAdeudo(contratos.find((r) => r.id === b.dataset.adeudo), atrasoAuto);
   }));
@@ -495,10 +500,17 @@ function pintarHistorial(el) {
         </div>
         <span class="mut">${lista.length} pagos · <strong>${money(tot('MXN'))}</strong>${tot('USD') ? ' + <strong>' + money(tot('USD'), 'USD') + '</strong>' : ''}</span>
       </div>
-      ${lista.length ? `<ul class="lista-pagos">${lista.slice(0, 300).map((p) => {
-        const r = contratos.find((x) => x.id === p.contrato_id);
-        return filaPago(p, r).replace('<div><strong>', `<div><span class="fuerte">${esc(r?.arrendatario || '—')}</span> <span class="mut">· ${esc(nombreCentro(r?.centro_id))}</span><strong>`);
-      }).join('')}</ul>` : '<div class="vacio">Sin pagos</div>'}
+      ${lista.length ? `<div class="tabla-wrap"><table class="tabla tm">
+        <thead><tr><th>Pagado el</th><th>Inquilino</th><th>Desarrollo</th><th>Mes que paga</th><th>Folio</th><th>Forma</th><th class="num">Monto</th><th></th></tr></thead>
+        <tbody>${lista.slice(0, 300).map((p) => { const r = contratos.find((x) => x.id === p.contrato_id);
+          return `<tr><td class="mut nowrap" data-l="Pagado el">${fmtFecha(p.fecha)}</td>
+            <td data-l="Inquilino"><strong>${esc(r?.arrendatario || '—')}</strong>${p.notas ? `<small class="sub">${esc(p.notas)}</small>` : ''}</td>
+            <td class="mut" data-l="Desarrollo">${esc(nombreCentro(r?.centro_id))}</td>
+            <td class="nowrap" data-l="Mes">${MESES[+p.periodo.slice(5, 7) - 1]} ${p.periodo.slice(0, 4)}</td>
+            <td class="mut nowrap" data-l="Folio">${esc(p.folio || '—')}</td>
+            <td class="mut" data-l="Forma">${esc(p.forma_pago || '—')}</td>
+            <td class="num fuerte" data-l="Monto">${money(p.monto, r?.moneda || p.moneda)}</td>
+            <td class="acciones nowrap"><button class="btn btn-sm btn-ghost" data-recibo="${p.id}">Recibo</button>${puedeCobrar() ? `<button class="icon-btn peligro" data-borrar="${p.id}" aria-label="Eliminar pago">✕</button>` : ''}</td></tr>`; }).join('')}</tbody></table></div>` : '<div class="vacio">Sin pagos</div>'}
     </section>`;
   el.querySelector('#h-mes').addEventListener('change', (e) => { st.hMes = e.target.value; pintar(); });
   el.querySelector('#h-centro').addEventListener('change', (e) => { st.hCentro = e.target.value; pintar(); });

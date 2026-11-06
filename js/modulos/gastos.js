@@ -151,9 +151,11 @@ function pintarKPIs() {
   raiz.querySelector('#g-kpis').innerHTML = `
     <div class="kpi"><span>Total del mes</span><strong class="neg">${fmt(total)}</strong><small>${d.length} gasto${d.length === 1 ? '' : 's'}${
       d.some((g) => g.estado === 'por_pagar') ? ` · incluye ${fmt(suma(d.filter((g) => g.estado === 'por_pagar')))} por pagar` : ''}</small></div>
-    <div class="kpi"><span>Promedio por gasto</span><strong>${d.length ? fmt(total / d.length) : '—'}</strong><small>${MESES[f.mes]} ${f.anio}</small></div>
-    <div class="kpi"><span>Por empresa</span>${porEmpresa.map(({ e, t }) =>
-      `<div class="kpi-linea"><i style="background:${e.color || '#888'}"></i>${esc(e.nombre_corto)}<b>${fmt(t)}</b></div>`).join('')}</div>
+    <div class="kpi"><span>Ya pagado</span><strong>${fmt(total - suma(d.filter((g) => g.estado === 'por_pagar')))}</strong><small>${MESES[f.mes]} ${f.anio}</small></div>
+    ${estado.empresas.length > 1 ? `<div class="kpi"><span>Por empresa</span>${porEmpresa.map(({ e, t }) =>
+      `<div class="kpi-linea"><i style="background:${e.color || '#888'}"></i>${esc(e.nombre_corto)}<b>${fmt(t)}</b></div>`).join('')}</div>`
+      : (() => { const pv = agrupar(d.filter((g) => !['Nómina', 'Seguro social e ISN'].includes(g.categoria)), (g) => g.proveedor || 'Sin proveedor')[0];
+        return `<div class="kpi"><span>Proveedor principal</span><strong class="sm">${pv ? esc(pv.k) : '—'}</strong><small>${pv ? fmt(pv.t) + ' este mes' : ''}</small></div>`; })()}
     <div class="kpi"><span>Mayor categoría</span><strong class="sm">${top ? `${catIco(top.k)}${esc(top.k)}` : '—'}</strong><small>${top ? fmt(top.t) : ''}</small></div>`;
 }
 
@@ -186,7 +188,7 @@ function pintarCentros() {
   const cont = raiz.querySelector('#g-centros');
   cont.innerHTML = barras(filas, (r) => {
     const c = centro(r.k);
-    return `${esc(c?.nombre || '—')} <em>${esc(nombreEmpresa(c?.empresa_id))}</em>`;
+    return `${esc(c?.nombre || '—')}${estado.empresas.length > 1 ? ` <em>${esc(nombreEmpresa(c?.empresa_id))}</em>` : ''}`;
   }, true);
   cont.querySelectorAll('li.clic').forEach((li) => li.addEventListener('click', () => {
     f.centro = li.dataset.k;

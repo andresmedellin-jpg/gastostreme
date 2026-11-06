@@ -211,7 +211,7 @@ function pintarActivos(el) {
       <div class="panel-head"><h3>${filas.length} inmueble${filas.length !== 1 ? 's' : ''}</h3>
         <div class="filtros filtros-sm"><input type="search" id="pt-q" placeholder="Buscar código, unidad, inquilino…" value="${esc(st.q)}" aria-label="Buscar inmueble">
           <select id="pt-orden" aria-label="Ordenar"><option value="rend">Por rendimiento</option><option value="valor">Por valor</option><option value="codigo">Por código</option></select></div></div>
-      <div class="tabla-wrap"><table class="tabla">
+      <div class="tabla-wrap"><table class="tabla tm">
         <thead><tr><th>Código</th><th>Inmueble</th><th>Uso / inquilino</th><th class="num">m²</th><th class="num">Valor</th><th class="num">Renta/mes</th><th class="num">Rend. anual</th><th class="num">% del total</th></tr></thead>
         <tbody>${filas.length ? filas.map((a) => {
           const v = num(a.valor_comercial), ren = num(a.ingreso_mensual);
@@ -249,7 +249,7 @@ function pintarPasivos(el) {
     <section class="panel" style="margin-top:16px">
       <div class="panel-head"><h3>Orden sugerido para pagar <small class="sub-meta">· primero la más cara</small></h3>
         <input type="search" id="pt-q" placeholder="Buscar acreedor…" value="${esc(st.q)}" aria-label="Buscar deuda"></div>
-      <div class="tabla-wrap"><table class="tabla">
+      <div class="tabla-wrap"><table class="tabla tm">
         <thead><tr><th>#</th><th>Acreedor</th><th>Tipo</th><th class="num">Saldo</th><th>Peso</th><th class="num">Pago mensual</th><th class="num">Costo al mes</th><th>Vence</th></tr></thead>
         <tbody>${filas.length ? filas.map((p, i) => `<tr class="clic" data-editar="${p.id}" tabindex="0">
           <td class="mut" data-l="#">${i + 1}</td>

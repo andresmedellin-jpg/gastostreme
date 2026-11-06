@@ -33,7 +33,7 @@ export async function render(view) {
   view.innerHTML = `
     <div class="sub-head">
       <div class="tabs" role="tablist">
-        ${[['cuenta','Estado de cuenta'],['mes','Cobrar del mes'],['deudores','Deudores'], ...(tieneRol(['administracion']) ? [['reporte','Reporte mensual']] : [])]
+        ${[['cuenta','Estado de cuenta'],['mes','Pagos del mes'],['deudores','Deudores'], ...(tieneRol(['administracion']) ? [['reporte','Reporte mensual']] : [])]
           .map(([id, t]) => `<button role="tab" data-vista="${id}">${t}</button>`).join('')}
       </div>
 
@@ -300,6 +300,11 @@ function filaConcepto(r, m, puedeCapturar) {
     </td></tr>`;
 }
 
+// "ene–oct" o "ene, mar, jun–ago"
+const rangoMeses = (lst) => {
+  const g = []; lst.forEach((i) => { const u = g[g.length - 1]; if (u && u[1] === i - 1) u[1] = i; else g.push([i, i]); });
+  return g.map(([a, b]) => a === b ? CORTO[a].toLowerCase() : `${CORTO[a].toLowerCase()}–${CORTO[b].toLowerCase()}`).join(', ');
+};
 const formaLegible = (f) => ({ Transfer: 'Transferencia' }[f] || f || '');
 
 function pintarDeudores(el) {
@@ -315,13 +320,14 @@ function pintarDeudores(el) {
     return `<section class="panel">
       <div class="panel-head"><h3>${CONCEPTOS[k].icono} ${CONCEPTOS[k].titulo}</h3>
         ${deben.length ? `<span class="mut">${deben.length} unidad${deben.length === 1 ? '' : 'es'} · adeudo estimado <strong>${fmt(suma)}</strong></span>` : ''}</div>
-      ${deben.length ? `<div class="deudores">${deben.map(({ r, atrasados, total }) => `
-        <div class="deudor">
-          <div class="deudor-top"><strong>${esc(etiquetaUnidad(r.u))}</strong><span class="mut">${fmt(r.cuota.monto)}/mes</span></div>
-          <div class="mut corto">${esc(r.u.ocupante || 'Sin nombre')}</div>
-          <div class="chips">${atrasados.map((i) => `<span class="chip">${CORTO[i]}</span>`).join('')}</div>
-          <div class="deudor-total">Debe aprox. <strong>${fmt(total)}</strong></div>
-        </div>`).join('')}</div>`
+      ${deben.length ? `<div class="tabla-wrap"><table class="tabla tm">
+        <thead><tr><th>Unidad</th><th>Ocupante</th><th>Meses sin pago</th><th class="num">Cuota</th><th class="num">Adeudo</th></tr></thead>
+        <tbody>${deben.map(({ r, atrasados, total }) => `<tr>
+          <td data-l="Unidad"><strong>${esc(etiquetaUnidad(r.u))}</strong></td>
+          <td class="mut" data-l="Ocupante">${esc(r.u.ocupante || '—')}</td>
+          <td data-l="Meses"><strong>${atrasados.length}</strong> <span class="mut">${rangoMeses(atrasados)}</span></td>
+          <td class="num mut" data-l="Cuota">${fmt(r.cuota.monto)}</td>
+          <td class="num neg fuerte" data-l="Adeudo">${fmt(total)}</td></tr>`).join('')}</tbody></table></div>`
         : `<div class="vacio">Todas las unidades pagaron ${MESES[m].toLowerCase()}</div>`}
     </section>`;
   });
