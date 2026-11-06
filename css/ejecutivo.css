@@ -640,3 +640,12 @@ tr.rt-pagado td { color: var(--text-2); }
 .mx-mundo:not(.activo) .mx-mundo-txt { color: var(--text-3); }
 .mx-fila { padding-top: 0; padding-bottom: 0; }
 @media (max-width: 760px) { .mx-mundos { gap: 0; justify-content: space-around; } .mx-mundo { min-height: 46px; flex: 1; } .mx-mundo-logo + .mx-mundo-txt { display: none; } }
+/* tres opciones del mismo ancho, logos con el mismo peso visual */
+.mx-mundos { gap: 8px !important; }
+.mx-mundo { width: 116px; justify-content: center !important; }
+.mx-mundo-logo { max-width: none !important; }
+.mx-mundo-logo.logo-treme { height: 23px !important; }
+.mx-mundo-logo.logo-medco { height: 28px !important; }
+.mx-mundo-txt strong { font-size: 15px; letter-spacing: .01em; }
+.mx-mundo.activo::after { left: 10px !important; right: 10px !important; }
+@media (max-width: 760px) { .mx-mundo { width: auto; } .mx-mundo-logo.logo-treme { height: 18px !important; } .mx-mundo-logo.logo-medco { height: 22px !important; } }

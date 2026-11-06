@@ -22,8 +22,15 @@ const fuenteDeCategoria = (c) => ({ 'Obra / construcción': 'construccion', 'Ser
 const CATEGORIAS_INGRESO = ['Obra / construcción', 'Venta', 'Anticipo', 'Comisión', 'Intereses', 'Reembolso', 'Otro'];
 const CORTO = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
 
+// Junto a Rentas: cuánto se cobró de lo que toca en el mes (contratos activos en pesos de los centros a la vista)
+function notaFuente(k, v) {
+  if (k !== 'renta') return '';
+  const ids = new Set(estado.centros.filter((c) => !st.empresa || c.empresa_id === st.empresa).map((c) => c.id));
+  const esp = contratosAct.filter((r) => ids.has(r.centro_id)).reduce((s2, r) => s2 + Number(r.monto), 0);
+  return esp ? `de ${fmt(esp)} que tocan · ${Math.round(v / esp * 100)} % cobrado` : '';
+}
 const st = { anio: new Date().getFullYear(), mes: new Date().getMonth(), empresa: '', fuente: '', q: '', todos: false };
-let raiz, ingresos = [], gastos = [], porPagar = [];
+let raiz, ingresos = [], gastos = [], porPagar = [], contratosAct = [];
 
 export async function render(view) {
   raiz = view;
@@ -82,13 +89,14 @@ async function cargar() {
     // Los pedidos por pagar se muestran aparte y no restan todavía.
     todo(() => db().from('gastos').select('id, empresa_id, centro_id, fecha, fecha_pago, estado, monto, categoria')
       .or(`fecha.gte.${desde},fecha_pago.gte.${desde}`)),
-    db().from('contratos').select('id, arrendatario'),
+    db().from('contratos').select('id, arrendatario, monto, moneda, activo, centro_id'),
     db().from('unidades').select('id, identificador'),
     db().from('cuentas_por_cobrar').select('id, cliente'),
   ]);
   const err = p.error || i.error || g.error;
   if (err) { toast('No se pudo cargar: ' + err.message, true); return; }
   const contratos = new Map((c.data || []).map((r) => [r.id, r.arrendatario]));
+  contratosAct = (c.data || []).filter((r) => r.activo && Number(r.monto) > 0 && (r.moneda || 'MXN') !== 'USD');
   const unidades = new Map((u.data || []).map((r) => [r.id, r.identificador]));
   const clientes = new Map((x.data || []).map((r) => [r.id, r.cliente]));
   const centroDe = (id) => estado.centros.find((cc) => cc.id === id);
@@ -199,14 +207,14 @@ function pintar() {
     }).join('')}</section>` : ''}
 
     <div class="grid-2">
-      <section class="panel"><div class="panel-head"><div><h3>De dónde vino el ingreso</h3><span class="ex-sub">${fmt(tIng)} cobrados en ${esc(nomMes)} · el % es la parte de ese total</span></div></div>
+      <section class="panel"><div class="panel-head"><div><h3>De dónde vino el ingreso</h3><span class="ex-sub">${fmt(tIng)} cobrados en ${esc(nomMes)}</span></div></div>
         ${porFuente.length ? `<div class="ex-pila" role="img" aria-label="Composición de los ingresos">${porFuente.map(([k, v]) => `<span style="flex:${v};background:${FUENTES[k].c}" title="${FUENTES[k].t}: ${fmt(v)}"></span>`).join('')}</div>
           <ul class="ex-lista">${porFuente.map(([k, v]) => `<li class="clic ${st.fuente === k ? 'activa' : ''}" data-fuente="${k}" tabindex="0" role="button" title="Filtrar los movimientos">
-            <span><i style="background:${FUENTES[k].c}"></i>${FUENTES[k].t}</span><em>${Math.round(v / tIng * 100)}%</em><b>${fmt(v)}</b></li>`).join('')}</ul>`
+            <span><i style="background:${FUENTES[k].c}"></i>${FUENTES[k].t}</span><em>${notaFuente(k, v)}</em><b>${fmt(v)}</b></li>`).join('')}</ul>`
           : '<div class="vacio">Sin ingresos registrados en el periodo.</div>'}
       </section>
-      <section class="panel"><div class="panel-head"><div><h3>En qué centro se gastó</h3><span class="ex-sub">${fmt(tGas)} gastados en ${esc(nomMes)} · el % es la parte de ese total</span></div></div>
-        ${centros.length ? `<ul class="ex-lista ex-barras">${centros.map(([n, v]) => `<li><span>${esc(n)}</span><em>${tGas ? Math.round(v / tGas * 100) : 0}%</em><b>${fmt(v)}</b>
+      <section class="panel"><div class="panel-head"><div><h3>En qué centro se gastó</h3><span class="ex-sub">${fmt(tGas)} gastados en ${esc(nomMes)}</span></div></div>
+        ${centros.length ? `<ul class="ex-lista ex-barras">${centros.map(([n, v]) => `<li><span>${esc(n)}</span><em></em><b>${fmt(v)}</b>
           <span class="ex-pista"><span style="width:${Math.max(2, v / maxC * 100)}%"></span></span></li>`).join('')}</ul>`
           : '<div class="vacio">Sin egresos registrados en el periodo.</div>'}
       </section>
