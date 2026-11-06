@@ -8,8 +8,8 @@ import { pintarRecibo, abrirVentanaRecibo } from '../recibo.js';
 import { db, todo, estado, tieneRol, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal } from '../lib.js';
 
 const CONCEPTOS = {
-  mantenimiento: { titulo: 'Mantenimiento', icono: '🏠' },
-  luz:           { titulo: 'Luz (CFE)',     icono: '⚡' },
+  mantenimiento: { titulo: 'Mantenimiento', icono: '' },
+  luz:           { titulo: 'Luz (CFE)',     icono: '' },
 };
 const CORTO = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
 const TIPO_UNIDAD = { local: 'Local', loft: 'Loft', depto: 'Depto', oficina: 'Oficina', bodega: 'Bodega', casa: 'Casa', terreno: 'Terreno', otro: '' };
@@ -17,7 +17,8 @@ const TIPO_UNIDAD = { local: 'Local', loft: 'Loft', depto: 'Depto', oficina: 'Of
 const TIPO_RECIBO = { local: 'Local', loft: 'Loft', depto: 'Departamento', oficina: 'Oficina', bodega: 'Bodega', casa: 'Casa', terreno: 'Terreno', otro: 'Unidad' };
 
 const st = {
-  vista: 'resumen',                       // resumen | mantenimiento | luz | deudores
+  vista: 'cuenta',                        // cuenta (estado de cuenta anual) | mes (captura del mes) | deudores
+  concepto: 'mantenimiento',
   anio: new Date().getFullYear(),
   mes: new Date().getMonth(),
   filtro: 'todos',                        // todos | pagados | pendientes
@@ -32,10 +33,10 @@ export async function render(view) {
   view.innerHTML = `
     <div class="sub-head">
       <div class="tabs" role="tablist">
-        ${[['resumen','Resumen'],['mantenimiento','Mantenimiento'],['luz','Luz'],['deudores','Deudores']]
+        ${[['cuenta','Estado de cuenta'],['mes','Cobrar del mes'],['deudores','Deudores'], ...(tieneRol(['administracion']) ? [['reporte','Reporte mensual']] : [])]
           .map(([id, t]) => `<button role="tab" data-vista="${id}">${t}</button>`).join('')}
       </div>
-      <div class="sub-meta">${esc(CONDOMINIO)} · cuotas de condominio</div>
+
     </div>
     <div class="periodo">
       <div class="pills" id="c-meses"></div>
@@ -109,14 +110,17 @@ function pintar() {
   const fila = raiz.querySelector('#c-meses');
   if (activa && fila.scrollWidth > fila.clientWidth) fila.scrollLeft = activa.offsetLeft - fila.clientWidth / 2 + activa.clientWidth / 2;
 
-  document.getElementById('page-actions').innerHTML = CONCEPTOS[st.vista] && tieneRol(['administracion', 'cobranza'])
+  document.getElementById('page-actions').innerHTML = st.vista === 'mes' && tieneRol(['administracion', 'cobranza'])
     ? `<button class="btn btn-ghost" id="c-nueva">＋ Unidad</button>` : '';
-  document.getElementById('c-nueva')?.addEventListener('click', () => editarUnidad(null, st.vista));
+  document.getElementById('c-nueva')?.addEventListener('click', () => editarUnidad(null, st.concepto));
+  raiz.querySelector('.periodo').hidden = st.vista === 'cuenta' || st.vista === 'reporte';
 
   const cuerpo = raiz.querySelector('#c-cuerpo');
-  if (st.vista === 'resumen') return pintarResumen(cuerpo);
+  // El reporte mensual vive aquí mismo (antes era otra opción del menú)
+  if (st.vista === 'reporte') { cuerpo.innerHTML = '<div class="cargando">Cargando…</div>'; import('./reportes.js').then((m) => m.render(cuerpo, { mes: st.mes, anio: st.anio })); return; }
+  if (st.vista === 'cuenta') return pintarCuenta(cuerpo);
   if (st.vista === 'deudores') return pintarDeudores(cuerpo);
-  pintarConcepto(cuerpo, st.vista);
+  pintarConcepto(cuerpo, st.concepto);
 }
 
 function pintarResumen(el) {
@@ -142,7 +146,78 @@ function pintarResumen(el) {
         }).join('')}</div></section>`;
     }).join('')}`;
   el.querySelectorAll('[data-ir]').forEach((b) => b.addEventListener('click', () => {
-    const [k, i] = b.dataset.ir.split(':'); st.vista = k; st.mes = +i; st.q = ''; st.filtro = 'todos'; pintar();
+    const [k, i] = b.dataset.ir.split(':'); st.vista = 'mes'; st.concepto = k; st.mes = +i; st.q = ''; st.filtro = 'todos'; pintar();
+  }));
+}
+
+// Estado de cuenta del año: una fila por unidad y una columna por mes; cada mes con dos marcas
+// (arriba mantenimiento, abajo luz). Tocar un mes abre el pago de ese mes.
+function pintarCuenta(el) {
+  const fm = padron('mantenimiento'), fl = padron('luz');
+  const hoy = new Date(), mesHoy = st.anio < hoy.getFullYear() ? 11 : st.anio > hoy.getFullYear() ? -1 : hoy.getMonth();
+  const ids = [...new Set([...fm, ...fl].map((r) => r.u.id))];
+  const filas = ids.map((id) => ({ u: unidades.find((x) => x.id === id), m: fm.find((r) => r.u.id === id), l: fl.find((r) => r.u.id === id) }))
+    .filter((f) => f.u && (!st.q || `${f.u.identificador} ${f.u.ocupante || ''}`.toLowerCase().includes(st.q)))
+    .sort((a, b) => orden(a.u, b.u));
+  const marca = (r, i) => !r ? 'na' : r.exento ? 'na' : r.pagado(i) > 0 ? 'ok' : i > mesHoy ? 'fut' : 'no';
+  const adeudo = (r) => { if (!r || r.exento) return 0; let t = 0; for (let i = 0; i <= mesHoy; i++) if (debe(r, i)) t += Number(r.cuota.monto); return t; };
+  const conAdeudo = filas.filter((f) => adeudo(f.m) + adeudo(f.l) > 0);
+  if (st.soloDeben && !conAdeudo.length) st.soloDeben = false;
+  const lista = st.soloDeben ? conAdeudo : filas;
+  const sm = stats(fm, Math.max(0, mesHoy)), sl = stats(fl, Math.max(0, mesHoy));
+  const anual = (f) => f.reduce((s2, r) => s2 + r.porMes.flat().reduce((a, p) => a + Number(p.monto), 0), 0);
+  const totalAdeudo = filas.reduce((s2, f) => s2 + adeudo(f.m) + adeudo(f.l), 0);
+  const nomMes = mesHoy >= 0 ? MESES[mesHoy].toLowerCase() : '';
+  el.innerHTML = `
+    <section class="cb-resumen">
+      <div><span>Mantenimiento · ${nomMes}</span><strong>${sm.pct} %</strong><small>${sm.pagaron} de ${sm.n} unidades · ${fmt(sm.cobrado)}</small><div class="ry-pista"><span style="width:${sm.pct}%"></span></div></div>
+      <div><span>Luz · ${nomMes}</span><strong>${sl.pct} %</strong><small>${sl.pagaron} de ${sl.n} unidades · ${fmt(sl.cobrado)}</small><div class="ry-pista"><span style="width:${sl.pct}%"></span></div></div>
+      <div><span>Cobrado en ${st.anio}</span><strong>${fmt(anual(fm) + anual(fl))}</strong><small>${fmt(anual(fm))} mantenimiento · ${fmt(anual(fl))} luz</small></div>
+      <div><span>Adeudo del año</span><strong class="${totalAdeudo ? 'neg' : 'pos'}">${fmt(totalAdeudo)}</strong><small>${conAdeudo.length} unidad${conAdeudo.length === 1 ? '' : 'es'} con meses sin pago</small></div>
+    </section>
+    <section class="panel cb-hoja">
+      <div class="panel-head">
+        <div class="cb-ctl"><button class="icon-btn" data-anio="-1" aria-label="Año anterior">‹</button><strong>${st.anio}</strong><button class="icon-btn" data-anio="1" aria-label="Año siguiente">›</button>
+          <div class="segmento"><button data-sd="0" class="${!st.soloDeben ? 'activo' : ''}">Todas · ${filas.length}</button><button data-sd="1" class="${st.soloDeben ? 'activo' : ''}">Con adeudo · ${conAdeudo.length}</button></div></div>
+        <div class="cb-ctl"><span class="cb-ley"><i class="ok"></i>Pagado <i class="no"></i>Sin pago <i class="na"></i>No aplica · arriba mantenimiento, abajo luz</span>
+          <input type="search" id="c-q" placeholder="Buscar unidad u ocupante" value="${esc(st.q)}" aria-label="Buscar"></div>
+      </div>
+      <div class="tabla-wrap"><table class="tabla cb-tabla">
+        <thead><tr><th>Unidad</th>${CORTO.map((m, i) => `<th class="cb-m ${i === mesHoy ? 'hoy' : ''}">${m}</th>`).join('')}<th class="num">Cuota</th><th class="num">Adeudo</th></tr></thead>
+        <tbody>${lista.map((f) => { const ad = adeudo(f.m) + adeudo(f.l);
+          return `<tr>
+            <td data-l="Unidad"><strong>${esc(etiquetaUnidad(f.u))}</strong><small class="sub">${esc(f.u.ocupante || '—')}</small></td>
+            ${CORTO.map((nm, i) => `<td class="cb-m ${i === mesHoy ? 'hoy' : ''}"><button class="cb-cel" data-cel="${f.u.id}|${i}" title="${nm}: mantenimiento ${({ ok: 'pagado', no: 'sin pago', na: 'no aplica', fut: '—' })[marca(f.m, i)]} · luz ${({ ok: 'pagado', no: 'sin pago', na: 'no aplica', fut: '—' })[marca(f.l, i)]}">
+              <i class="${marca(f.m, i)}"></i><i class="${marca(f.l, i)}"></i></button></td>`).join('')}
+            <td class="num mut" data-l="Cuota">${f.m && !f.m.exento ? fmt(f.m.cuota.monto) : '—'}${f.l && !f.l.exento ? `<small class="sub">luz ${fmt(f.l.cuota.monto)}</small>` : ''}</td>
+            <td class="num ${ad ? 'neg fuerte' : 'mut'}" data-l="Adeudo">${ad ? fmt(ad) : 'Al corriente'}</td></tr>`; }).join('') || '<tr><td colspan="15" class="vacio">Sin unidades</td></tr>'}</tbody>
+      </table></div>
+    </section>
+    <p class="nota">Un mes cuenta como pagado si tiene al menos un pago. El adeudo se estima con la cuota de cada unidad, hasta el mes en curso. Toca un mes para registrar o ver su pago.</p>`;
+  el.querySelectorAll('[data-anio]').forEach((b) => b.addEventListener('click', () => { st.anio += +b.dataset.anio; const s2 = raiz.querySelector('#c-anio'); if (s2) s2.value = st.anio; cargar(); }));
+  el.querySelectorAll('[data-sd]').forEach((b) => b.addEventListener('click', () => { st.soloDeben = b.dataset.sd === '1'; pintar(); }));
+  const q = el.querySelector('#c-q');
+  q.addEventListener('input', () => { st.q = q.value.toLowerCase(); pintar(); const n = raiz.querySelector('#c-q'); n.focus(); n.setSelectionRange(99, 99); });
+  const puede = tieneRol(['administracion', 'cobranza']);
+  el.querySelectorAll('[data-cel]').forEach((b) => b.addEventListener('click', () => {
+    const [uid, i] = b.dataset.cel.split('|'); const m = +i;
+    const f = filas.find((x) => x.u.id === uid);
+    const opciones = [['mantenimiento', f.m], ['luz', f.l]].filter(([, r]) => r && !r.exento);
+    if (!opciones.length) return;
+    const pend = opciones.filter(([, r]) => debe(r, m));
+    // un solo concepto pendiente: se abre directo; si no, se elige
+    if (opciones.length === 1) { const [k, r] = opciones[0]; return debe(r, m) && puede ? registrarPago(r, k, m) : verPagos(r, k, m); }
+    const modal = abrirModal({ titulo: `${etiquetaUnidad(f.u)} · ${MESES[m]} ${st.anio}`,
+      cuerpo: `<ul class="cb-op">${opciones.map(([k, r]) => `<li><div><strong>${CONCEPTOS[k].titulo}</strong><small>${debe(r, m) ? `Sin pago · cuota ${fmt(r.cuota.monto)}` : `Pagado ${fmt(r.pagado(m))}`}</small></div>
+        ${debe(r, m) ? (puede ? `<button class="btn btn-sm btn-primary" data-op="pagar:${k}">Registrar pago</button>` : '') : `<button class="btn btn-sm btn-ghost" data-op="ver:${k}">Ver pago</button>`}</li>`).join('')}</ul>
+        ${opciones.some(([, r]) => !debe(r, m)) ? '<button class="btn btn-ghost" data-op="recibo:">Recibo de este mes</button>' : ''}`,
+      pie: `${pend.length === 2 && puede ? '' : ''}<button class="btn btn-ghost" id="cb-x">Cerrar</button>` });
+    modal.querySelector('#cb-x').addEventListener('click', cerrarModal);
+    modal.querySelectorAll('[data-op]').forEach((x) => x.addEventListener('click', () => {
+      const [acc, k] = x.dataset.op.split(':'); const r = k === 'luz' ? f.l : f.m;
+      cerrarModal();
+      if (acc === 'pagar') registrarPago(r, k, m); else if (acc === 'ver') verPagos(r, k, m); else pedirRecibo(f.u, m, 'mantenimiento');
+    }));
   }));
 }
 
@@ -158,6 +233,7 @@ function pintarConcepto(el, concepto) {
   });
   const puedeCapturar = tieneRol(['administracion', 'cobranza']);
   el.innerHTML = `
+    <div class="segmento cb-conc">${Object.entries(CONCEPTOS).map(([k, c]) => `<button data-conc="${k}" class="${k === concepto ? 'activo' : ''}">${c.titulo}</button>`).join('')}</div>
     <div class="kpis">
       <div class="kpi"><span>Unidades que pagan</span><strong>${s.n}</strong><small>${MESES[m]} ${st.anio}</small></div>
       <div class="kpi"><span>Pagaron</span><strong class="pos">${s.pagaron}</strong><small>${fmt(s.cobrado)} cobrado</small></div>
@@ -166,7 +242,7 @@ function pintarConcepto(el, concepto) {
     </div>
     <section class="panel">
       <div class="panel-head">
-        <div class="segmento">${[['todos','Todas'],['pagados','✓ Pagadas'],['pendientes','✗ Pendientes']]
+        <div class="segmento">${[['todos','Todas'],['pagados','Pagadas'],['pendientes','Pendientes']]
           .map(([id, t]) => `<button data-filtro="${id}" class="${st.filtro === id ? 'activo' : ''}">${t}</button>`).join('')}</div>
         <input type="search" id="c-q" placeholder="Buscar unidad u ocupante" value="${esc(st.q)}" aria-label="Buscar">
       </div>
@@ -178,6 +254,7 @@ function pintarConcepto(el, concepto) {
     </section>`;
 
   el.querySelectorAll('[data-filtro]').forEach((b) => b.addEventListener('click', () => { st.filtro = b.dataset.filtro; pintar(); }));
+  el.querySelectorAll('[data-conc]').forEach((b) => b.addEventListener('click', () => { st.concepto = b.dataset.conc; pintar(); }));
   const q = el.querySelector('#c-q');
   q.addEventListener('input', () => { st.q = q.value.toLowerCase(); pintar(); el.querySelector('#c-q').focus(); el.querySelector('#c-q').setSelectionRange(99, 99); });
   const fila = (id) => todas.find((r) => r.cuota.id === id);

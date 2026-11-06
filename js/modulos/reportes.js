@@ -9,8 +9,9 @@ import { db, todo, estado, fmtFecha, esc, toast, normalizar } from '../lib.js';
 const st = { anio: new Date().getFullYear(), mes: new Date().getMonth(), inversionistas: false };
 let centro, raiz;
 
-export async function render(view) {
+export async function render(view, desde) {
   raiz = view;
+  if (desde && typeof desde.mes === 'number') { st.mes = desde.mes; st.anio = desde.anio; }
   centro = estado.centros.find((c) => c.nombre === CONDOMINIO);
   if (!centro) { view.innerHTML = `<div class="vacio">No tienes acceso a ${esc(CONDOMINIO)}.</div>`; return; }
   const anios = [];

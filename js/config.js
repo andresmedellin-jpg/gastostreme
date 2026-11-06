@@ -170,8 +170,8 @@ export const MUNDOS = [
   { id: 'grupo', nombre: 'Grupo', sub: 'Treme · MEDCO', empresa: null, color: '#101216',
     modulos: ['inicio', 'patrimonio', 'gastos', 'importar', 'usuarios'], titulos: { inicio: 'Resumen del grupo', gastos: 'Gastos consolidados', patrimonio: 'Patrimonio' } },
   { id: 'treme', nombre: 'Treme', sub: 'Grupo Inmobiliario', empresa: /treme/i, color: '#8B1A1A', logo: 'logo-treme',
-    modulos: ['inicio', 'rentas', 'cobranza', 'reportes', 'servicios', 'lecturas', 'gastos', 'personal', 'patrimonio'],
-    titulos: { inicio: 'Resumen', reportes: 'Reporte Elysium', servicios: 'Luz, gas y agua', lecturas: 'Lecturas' } },
+    modulos: ['inicio', 'rentas', 'cobranza', 'servicios', 'lecturas', 'gastos', 'personal', 'patrimonio'],
+    titulos: { inicio: 'Resumen', cobranza: 'Torre Elysium', servicios: 'Luz, gas y agua', lecturas: 'Lecturas' } },
   { id: 'medco', nombre: 'MEDCO', sub: 'Desarrollos y Proyectos', empresa: /medco/i, color: '#23408E', logo: 'logo-medco',
     modulos: ['inicio', 'obras', 'prospectos', 'cotizaciones', 'inventario', 'gastos', 'personal', 'patrimonio'], titulos: { inicio: 'Resumen' } },
 ];

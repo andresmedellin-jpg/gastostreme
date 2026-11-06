@@ -586,3 +586,57 @@ tr.rt-pagado td { color: var(--text-2); }
   .ob-num { grid-template-columns: repeat(3, 1fr); } .ob-num dd { font-size: 14px; }
 }
 .mx-marca { display: none !important; }
+
+/* ---------- cobranza Elysium: estado de cuenta anual ---------- */
+.cb-resumen { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px 22px; box-shadow: var(--shadow); margin-bottom: 16px; }
+.cb-resumen > div { display: grid; gap: 3px; padding: 0 18px; border-left: 1px solid var(--border); align-content: start; }
+.cb-resumen > div:first-child { padding-left: 0; border-left: 0; }
+.cb-resumen span { font-size: 10.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--text-3); }
+.cb-resumen strong { font-size: 22px; font-weight: 600; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.cb-resumen strong.neg { color: var(--neg); } .cb-resumen strong.pos { color: var(--ok); }
+.cb-resumen small { font-size: 12px; color: var(--text-3); }
+.cb-resumen .ry-pista { margin-top: 6px; }
+.cb-hoja { padding: 0; overflow: hidden; }
+.cb-hoja > .panel-head { padding: 14px 20px; margin: 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 10px; }
+.cb-hoja > .tabla-wrap { margin: 0 !important; }
+.cb-ctl { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cb-ctl > strong { font-size: 16px; min-width: 44px; text-align: center; }
+.cb-ctl .icon-btn { width: 32px; height: 32px; border: 1px solid var(--border); background: var(--surface); }
+.cb-ctl input { width: 220px; }
+.cb-ley { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-3); }
+.cb-ley i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-left: 6px; }
+.cb-tabla th.cb-m, .cb-tabla td.cb-m { text-align: center; padding-left: 2px !important; padding-right: 2px !important; width: 46px; }
+.cb-tabla th.cb-m.hoy { color: var(--primary); }
+.cb-tabla td.cb-m.hoy, .cb-tabla th.cb-m.hoy { background: color-mix(in srgb, var(--primary) 5%, transparent); }
+.cb-cel { display: inline-grid; gap: 3px; padding: 4px; border: 1px solid transparent; border-radius: 7px; background: none; cursor: pointer; }
+.cb-cel:hover { border-color: var(--border-2); background: var(--surface); }
+.cb-cel i { display: block; width: 24px; height: 8px; border-radius: 3px; }
+.cb-cel i.ok, .cb-ley i.ok { background: var(--ok); }
+.cb-cel i.no, .cb-ley i.no { background: var(--neg); }
+.cb-cel i.fut { background: transparent; border: 1px solid var(--border-2); }
+.cb-cel i.na, .cb-ley i.na { background: #E6E3DB; }
+.cb-conc { margin-bottom: 14px; }
+.cb-op { list-style: none; margin: 0 0 12px; padding: 0; }
+.cb-op li { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #EFEDE7; }
+.cb-op small { display: block; color: var(--text-3); font-size: 12px; }
+@media (max-width: 900px) { .cb-resumen { grid-template-columns: 1fr 1fr; row-gap: 14px; } .cb-resumen > div:nth-child(3) { border-left: 0; padding-left: 0; } }
+@media (max-width: 760px) {
+  .cb-resumen > div { border: 0 !important; padding: 0 !important; }
+  .cb-tabla { min-width: 760px; } .cb-hoja .tabla-wrap { overflow-x: auto; }
+  .cb-tabla tbody tr { display: table-row !important; } .cb-tabla td { display: table-cell !important; }
+  .cb-tabla td::before { display: none !important; } .cb-tabla thead { display: table-header-group !important; }
+  .cb-ctl input { width: 100%; }
+}
+/* selector de empresa: sin burbujas, solo los logos y "Grupo"; la activa con línea abajo */
+.mx-mundos { background: none !important; border: 0 !important; padding: 0; gap: 28px; align-self: stretch; }
+.mx-mundo { background: none !important; box-shadow: none !important; padding: 0 !important; min-width: 0; border-radius: 0; height: 100%; min-height: 62px; }
+.mx-mundo::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: transparent; border-radius: 2px; }
+.mx-mundo.activo::after { left: 0 !important; right: 0 !important; bottom: -1px !important; background: var(--w); }
+.mx-mundo-ico { display: none; }
+.mx-mundo:not(.activo) .mx-mundo-logo { filter: grayscale(1); opacity: .45; }
+.mx-mundo:not(.activo):hover .mx-mundo-logo { opacity: .8; }
+.mx-mundo-txt strong { font-size: 15px; font-weight: 600; }
+.mx-mundo-txt small { display: none; }
+.mx-mundo:not(.activo) .mx-mundo-txt { color: var(--text-3); }
+.mx-fila { padding-top: 0; padding-bottom: 0; }
+@media (max-width: 760px) { .mx-mundos { gap: 0; justify-content: space-around; } .mx-mundo { min-height: 46px; flex: 1; } .mx-mundo-logo + .mx-mundo-txt { display: none; } }

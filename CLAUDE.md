@@ -34,8 +34,11 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
    las secciones de ese mundo. Rutas `#/<mundo>/<módulo>` (las viejas `#/gastos` siguen sirviendo). En Treme o MEDCO,
    `estado.foco` = id de la empresa y `db()` (lib.js) agrega `.eq('empresa_id', foco)` a cada lectura de las tablas con empresa
    (`CON_EMPRESA`); `estado.empresas`/`estado.centros` quedan solo con esa empresa (las completas en `todasEmpresas`/`todosCentros`).
-   Grupo = Resumen del grupo, Patrimonio, Gastos consolidados, Importar, Usuarios. Treme = Resumen, Rentas, Cobranza, Reporte Elysium,
-   Gastos, Nómina y equipo, Patrimonio. MEDCO = Resumen, Obras, Prospectos, Gastos, Nómina y equipo, Patrimonio. Color de acento por mundo.
+   Grupo = Resumen del grupo, Patrimonio, Gastos consolidados, Importar, Usuarios. Treme = Resumen, Rentas, Torre Elysium (cobranza:
+   Estado de cuenta anual unidad × mes, Cobrar del mes, Deudores y Reporte mensual en la misma pantalla), Gastos, Nómina y equipo, Patrimonio.
+   Selector de empresa sin burbujas: "Grupo" en texto y los dos logos; la activa con línea de su color.
+   Rentas = hoja de cobranza del mes (historial de 6 meses por renta, avance por desarrollo, contratos por atender).
+   Obras = franja por obra: cobrado vs costo (pagado / por pagar), curva acumulada, utilidad esperada y caja de la obra. MEDCO = Resumen, Obras, Prospectos, Gastos, Nómina y equipo, Patrimonio. Color de acento por mundo.
    **Nómina y equipo** (antes "Personal"): Hoy · Turnos · Raya semanal · Plantilla · Vacaciones · Préstamos. Raya = hoja de la semana
    (‹ semana ›, filtro por centro, días L–D para marcar faltas, sueldo, faltas, abono a préstamo editable, a pagar, Pagar);
    al pagar con abono: gasto de Nómina por el sueldo, `nomina_lineas.abono_prestamo` y un `prestamo_abonos`.
