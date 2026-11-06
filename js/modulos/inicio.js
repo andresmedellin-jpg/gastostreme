@@ -27,7 +27,7 @@ function notaFuente(k, v) {
   if (k !== 'renta') return '';
   const ids = new Set(estado.centros.filter((c) => !st.empresa || c.empresa_id === st.empresa).map((c) => c.id));
   const esp = contratosAct.filter((r) => ids.has(r.centro_id)).reduce((s2, r) => s2 + Number(r.monto), 0);
-  return esp ? `de ${fmt(esp)} que tocan · ${Math.round(v / esp * 100)} % cobrado` : '';
+  return esp ? `${Math.round(v / esp * 100)} % de las rentas del mes (${fmt(esp)})` : '';
 }
 const st = { anio: new Date().getFullYear(), mes: new Date().getMonth(), empresa: '', fuente: '', q: '', todos: false };
 let raiz, ingresos = [], gastos = [], porPagar = [], contratosAct = [];
@@ -210,7 +210,7 @@ function pintar() {
       <section class="panel"><div class="panel-head"><div><h3>De dónde vino el ingreso</h3><span class="ex-sub">${fmt(tIng)} cobrados en ${esc(nomMes)}</span></div></div>
         ${porFuente.length ? `<div class="ex-pila" role="img" aria-label="Composición de los ingresos">${porFuente.map(([k, v]) => `<span style="flex:${v};background:${FUENTES[k].c}" title="${FUENTES[k].t}: ${fmt(v)}"></span>`).join('')}</div>
           <ul class="ex-lista">${porFuente.map(([k, v]) => `<li class="clic ${st.fuente === k ? 'activa' : ''}" data-fuente="${k}" tabindex="0" role="button" title="Filtrar los movimientos">
-            <span><i style="background:${FUENTES[k].c}"></i>${FUENTES[k].t}</span><em>${notaFuente(k, v)}</em><b>${fmt(v)}</b></li>`).join('')}</ul>`
+            <span><i style="background:${FUENTES[k].c}"></i>${FUENTES[k].t}${notaFuente(k, v) ? `<small class="ex-nota">${notaFuente(k, v)}</small>` : ''}</span><em></em><b>${fmt(v)}</b></li>`).join('')}</ul>`
           : '<div class="vacio">Sin ingresos registrados en el periodo.</div>'}
       </section>
       <section class="panel"><div class="panel-head"><div><h3>En qué centro se gastó</h3><span class="ex-sub">${fmt(tGas)} gastados en ${esc(nomMes)}</span></div></div>

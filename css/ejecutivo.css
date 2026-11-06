@@ -649,3 +649,4 @@ tr.rt-pagado td { color: var(--text-2); }
 .mx-mundo-txt strong { font-size: 15px; letter-spacing: .01em; }
 .mx-mundo.activo::after { left: 10px !important; right: 10px !important; }
 @media (max-width: 760px) { .mx-mundo { width: auto; } .mx-mundo-logo.logo-treme { height: 18px !important; } .mx-mundo-logo.logo-medco { height: 22px !important; } }
+.ex-lista li > span { flex-wrap: wrap; } .ex-nota { flex-basis: 100%; padding-left: 14px; font-size: 12px; color: var(--text-3); text-decoration: none; margin-top: 2px; }
