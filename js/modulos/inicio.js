@@ -199,13 +199,13 @@ function pintar() {
     }).join('')}</section>` : ''}
 
     <div class="grid-2">
-      <section class="panel"><div class="panel-head"><div><h3>Ingresos por fuente</h3><span class="ex-sub">${fmt(tIng)} en ${esc(nomMes)}</span></div></div>
+      <section class="panel"><div class="panel-head"><div><h3>De dónde vino el ingreso</h3><span class="ex-sub">${fmt(tIng)} cobrados en ${esc(nomMes)} · el % es la parte de ese total</span></div></div>
         ${porFuente.length ? `<div class="ex-pila" role="img" aria-label="Composición de los ingresos">${porFuente.map(([k, v]) => `<span style="flex:${v};background:${FUENTES[k].c}" title="${FUENTES[k].t}: ${fmt(v)}"></span>`).join('')}</div>
           <ul class="ex-lista">${porFuente.map(([k, v]) => `<li class="clic ${st.fuente === k ? 'activa' : ''}" data-fuente="${k}" tabindex="0" role="button" title="Filtrar los movimientos">
             <span><i style="background:${FUENTES[k].c}"></i>${FUENTES[k].t}</span><em>${Math.round(v / tIng * 100)}%</em><b>${fmt(v)}</b></li>`).join('')}</ul>`
           : '<div class="vacio">Sin ingresos registrados en el periodo.</div>'}
       </section>
-      <section class="panel"><div class="panel-head"><div><h3>Egresos por centro</h3><span class="ex-sub">${fmt(tGas)} en ${esc(nomMes)}</span></div></div>
+      <section class="panel"><div class="panel-head"><div><h3>En qué centro se gastó</h3><span class="ex-sub">${fmt(tGas)} gastados en ${esc(nomMes)} · el % es la parte de ese total</span></div></div>
         ${centros.length ? `<ul class="ex-lista ex-barras">${centros.map(([n, v]) => `<li><span>${esc(n)}</span><em>${tGas ? Math.round(v / tGas * 100) : 0}%</em><b>${fmt(v)}</b>
           <span class="ex-pista"><span style="width:${Math.max(2, v / maxC * 100)}%"></span></span></li>`).join('')}</ul>`
           : '<div class="vacio">Sin egresos registrados en el periodo.</div>'}
