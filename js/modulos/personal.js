@@ -36,10 +36,11 @@ const iniciales = (n) => (n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map
 // Tres pestañas, por momento: Hoy (lo que pasa y lo que hay que hacer), Semana (turnos y nómina) y Personas
 // (empleados, vacaciones, préstamos). Lo demás son vistas de detalle a las que se llega desde ahí, con "← Volver".
 // El encargado ve solo Hoy y Semana. Con la marca "personalEnMenu", cada vista es su propia opción del menú (mod.tab).
-const PRINCIPALES = [['hoy', 'Hoy'], ['semana', 'Semana'], ['personas', 'Personas']];
+// Seis pestañas: Hoy y Turnos (día a día, también para el encargado); Raya, Plantilla, Vacaciones y Préstamos (dueño y administración).
+const PRINCIPALES = [['hoy', 'Hoy'], ['turnos', 'Turnos'], ['nomina', 'Raya semanal'], ['empleados', 'Plantilla'], ['vacaciones', 'Vacaciones'], ['prestamos', 'Préstamos']];
 const PADRE = { asistencia: 'hoy', tareas: 'hoy', rondin: 'hoy', incidencias: 'hoy', rondines: 'hoy', reportes: 'hoy', paquetes: 'hoy', plantillas: 'hoy',
-  turnos: 'semana', nomina: 'semana', empleados: 'personas', vacaciones: 'personas', prestamos: 'personas' };
-const TITULO = { asistencia: 'Asistencia por día', tareas: 'Tareas por día', rondin: 'Supervisión', incidencias: 'Incidencias', rondines: 'Rondines',
+  semana: 'turnos', personas: 'empleados' };
+const TITULO = { semana: 'Turnos', personas: 'Plantilla', asistencia: 'Asistencia por día', tareas: 'Tareas por día', rondin: 'Supervisión', incidencias: 'Incidencias', rondines: 'Rondines',
   reportes: 'Reportes de residentes', paquetes: 'Paquetes', plantillas: 'Tareas de cada día', turnos: 'Turnos', nomina: 'Nómina',
   empleados: 'Empleados', vacaciones: 'Vacaciones', prestamos: 'Préstamos' };
 let fijo = null;
@@ -48,10 +49,13 @@ export async function render(view, mod) {
   fijo = mod?.tab || null;
   if (fijo) st.tab = fijo;
   const tabs = admin() ? PRINCIPALES : PRINCIPALES.slice(0, 2);
+  if (st.tab === 'semana') st.tab = 'turnos';
+  if (st.tab === 'personas') st.tab = 'empleados';
   if (!st.tab || (!PADRE[st.tab] && !tabs.some(([id]) => id === st.tab)) || (PADRE[st.tab] && !tabs.some(([id]) => id === PADRE[st.tab]))) st.tab = tabs[0][0];
 
   // centros con personal (para el encargado: los de su empresa); con la marca, solo los centros que tienen personal
   const visibles = estado.centros.filter((c) => (!['socio', 'personal'].includes(c.tipo) || admin()) && (!MARCA.centrosPersonal || MARCA.centrosPersonal.includes(c.nombre)));
+  if (st.centro && !visibles.some((c) => c.id === st.centro)) st.centro = null;   // se cambió de empresa arriba
   st.centro ||= (visibles.find((c) => c.nombre === (MARCA.centroPersonal || 'Torre Elysium')) || visibles[0])?.id;
 
   view.innerHTML = `
@@ -78,9 +82,9 @@ const contexto = () => ({ centro: st.centro, equipo, fecha: st.fecha, st, unidad
 async function pintar() {
   const padre = PADRE[st.tab] || st.tab;
   raiz.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', b.dataset.tab === padre));
-  const conEquipo = padre === 'hoy' || padre === 'semana';
+  const conEquipo = padre === 'hoy' || padre === 'turnos';
   raiz.querySelector('#p-centro').style.display = conEquipo ? '' : 'none';
-  const conf = raiz.querySelector('#p-conf'); if (conf) conf.style.display = padre === 'personas' ? 'none' : '';
+  const conf = raiz.querySelector('#p-conf'); if (conf) conf.style.display = conEquipo ? '' : 'none';
   // vista de detalle: "← Volver" a su pestaña
   const vol = raiz.querySelector('#p-volver');
   vol.innerHTML = PADRE[st.tab] && !fijo ? `<div class="p-volver"><button class="link-btn" id="p-atras">← ${PRINCIPALES.find(([id]) => id === padre)[1]}</button><strong>${TITULO[st.tab]}</strong></div>` : '';
@@ -99,20 +103,6 @@ async function pintar() {
         db().from('unidades').select('id, identificador').eq('centro_id', st.centro).eq('activo', true),
         db().from('contratos').select('unidad_id, arrendatario, telefono').eq('centro_id', st.centro).eq('activo', true)]);
       unidadesC = u.data || []; contratosC = k.data || [];
-    }
-    if (st.tab === 'semana') {
-      // Turnos arriba; la nómina de la misma semana abajo (solo dueño y administración)
-      const m = await import('./equipo.js');
-      el.innerHTML = `<section class="panel" id="s-turnos"></section>${admin() ? '<h3 class="p-sec">Nómina de esta semana</h3><div id="s-nomina"></div>' : ''}`;
-      await m.turnos(el.querySelector('#s-turnos'), contexto());
-      if (admin()) await nomina(el.querySelector('#s-nomina'));
-      return;
-    }
-    if (st.tab === 'personas') {
-      el.innerHTML = `<div class="p-atajos"><button class="btn btn-ghost" data-ir="vacaciones">Vacaciones</button><button class="btn btn-ghost" data-ir="prestamos">Préstamos</button></div><div id="s-emp"></div>`;
-      el.querySelectorAll('[data-ir]').forEach((b) => b.addEventListener('click', () => irA(b.dataset.ir)));
-      await empleados(el.querySelector('#s-emp'));
-      return;
     }
     if (EQUIPO.includes(st.tab)) {
       const m = await import('./equipo.js');
@@ -141,7 +131,7 @@ function enlazarFecha(el) {
     st.fecha = +b.dataset.dia === 0 ? hoyISO() : sumarDias(st.fecha, +b.dataset.dia); pintar();
   }));
 }
-const sinEquipo = '<div class="vacio">No hay personal activo en este centro. Se da de alta en Personal → Empleados.</div>';
+const sinEquipo = '<div class="vacio">No hay personal activo en este centro. Se da de alta en Nómina y equipo → Plantilla.</div>';
 
 // ================= ASISTENCIA =================
 async function asistencia(el) {
@@ -407,134 +397,208 @@ function reportar() {
 
 // ================= NÓMINA (dueño y administración) =================
 async function nomina(el) {
-  const sem = st.semana, fin = sumarDias(sem, 6);
-  const [emp, per, asis] = await Promise.all([
+  const sem = st.semana, fin = sumarDias(sem, 6), hoy = hoyISO();
+  const [emp, per, asis, pre, abo] = await Promise.all([
     db().from('empleados').select('*').eq('activo', true).order('nombre'),
     db().from('nomina_periodos').select('id, empresa_id, fecha_inicio, nomina_lineas(*)').eq('fecha_inicio', sem),
     db().from('asistencia').select('empleado_id, fecha, estado, monto_descuento').gte('fecha', sem).lte('fecha', fin),
+    db().from('prestamos').select('*'),
+    db().from('prestamo_abonos').select('*'),
   ]);
   if (emp.error || per.error || asis.error) throw emp.error || per.error || asis.error;
   const lineas = per.data.flatMap((p) => p.nomina_lineas);
   const pagoDe = (id) => lineas.find((l) => l.empleado_id === id);
   const faltasDe = (id) => asis.data.filter((a) => a.empleado_id === id && a.estado === 'falta').map((a) => a.fecha);
   const retardosDe = (id) => asis.data.filter((a) => a.empleado_id === id && a.estado !== 'falta').reduce((s, a) => s + Number(a.monto_descuento || 0), 0);
-  const montoDe = (e) => Math.max(0, Number(e.salario_semanal) - faltasDe(e.id).length * Number(e.salario_semanal) / (e.dias_semana || 6));
+  const diario = (e) => Number(e.salario_semanal) / (e.dias_semana || 6);
+  const sueldoDe = (e) => Math.max(0, Number(e.salario_semanal) - faltasDe(e.id).length * diario(e));
+  // Préstamo vigente de cada persona: se le descuenta su abono semanal (se puede cambiar o quitar antes de pagar)
+  const abonos = abo.data || [];
+  const saldoP = (p) => Number(p.monto) - abonos.filter((a) => a.prestamo_id === p.id).reduce((s, a) => s + Number(a.monto), 0);
+  const prestamoDe = (id) => (pre.data || []).filter((p) => p.empleado_id === id && saldoP(p) > 0.009).sort((a, b) => a.fecha.localeCompare(b.fecha))[0];
+  const descuento = {};                                 // empleado → abono a descontar esta semana
+  emp.data.forEach((e) => { const p = prestamoDe(e.id); if (p) descuento[e.id] = Math.min(saldoP(p), Number(p.abono_semanal) || 0); });
+  const netoDe = (e) => Math.max(0, sueldoDe(e) - (descuento[e.id] || 0));
+  const pagadoDe = (l) => Number(l.sueldo) - Number(l.abono_prestamo || 0);
 
-  const grupos = {};
-  emp.data.forEach((e) => (grupos[e.centro_id || ''] ||= []).push(e));
-  // Resumen de arriba: se recalcula al marcar faltas o pagos, sin recargar la pantalla
-  const pendientesDe = () => emp.data.filter((e) => !pagoDe(e.id));
-  const kpisHTML = () => {
-    const total = emp.data.reduce((s, e) => s + montoDe(e), 0);
-    const pagado = lineas.reduce((s, l) => s + Number(l.sueldo), 0);
-    const pend = pendientesDe();
-    return `<div class="kpi"><span>Total a pagar</span><strong id="n-total">${fmt(total)}</strong><small>${emp.data.length} personas</small></div>
-      <div class="kpi"><span>Ya pagado</span><strong class="pos">${fmt(pagado)}</strong><small>${lineas.length} personas</small></div>
-      <div class="kpi"><span>Por pagar</span><strong id="n-porpagar" class="${pend.length ? 'neg' : 'pos'}">${pend.length ? fmt(Math.max(0, total - pagado)) : '✓ Listo'}</strong><small>${pend.length} pendientes</small></div>`;
+  // Centros con gente, para filtrar la hoja
+  const centrosConGente = [...new Set(emp.data.map((e) => e.centro_id || ''))].sort((a, b) => nombreCentro(a).localeCompare(nombreCentro(b), 'es'));
+  if (st.rayaCentro && !centrosConGente.includes(st.rayaCentro)) st.rayaCentro = null;
+  const visibles = () => emp.data.filter((e) => !st.rayaCentro || (e.centro_id || '') === st.rayaCentro);
+  const pendientesDe = () => visibles().filter((e) => !pagoDe(e.id));
+  const actual = lunesDe(hoy);
+
+  el.innerHTML = `<div class="ry">
+    <div class="ry-barra">
+      <div class="ry-semana">
+        <button class="icon-btn" data-sem="-7" aria-label="Semana anterior">‹</button>
+        <div><span class="ry-eti">${sem === actual ? 'Esta semana' : sem < actual ? `Hace ${Math.round((new Date(actual) - new Date(sem)) / 6048e5)} sem.` : 'Próxima semana'}</span>
+          <strong>${etiquetaSemana(sem)}</strong></div>
+        <button class="icon-btn" data-sem="7" aria-label="Semana siguiente" ${sem >= actual ? 'disabled' : ''}>›</button>
+        ${sem !== actual ? '<button class="btn btn-sm btn-ghost" data-sem="0">Ir a esta semana</button>' : ''}
+      </div>
+      ${centrosConGente.length > 1 ? `<div class="ry-centros" role="tablist">
+        <button class="pill ${!st.rayaCentro ? 'activa' : ''}" data-rc="">Todos <span>${emp.data.length}</span></button>
+        ${centrosConGente.map((c) => `<button class="pill ${st.rayaCentro === c ? 'activa' : ''}" data-rc="${c}">${esc(nombreCentro(c))} <span>${emp.data.filter((e) => (e.centro_id || '') === c).length}</span></button>`).join('')}
+      </div>` : ''}
+    </div>
+    <section class="ry-resumen" id="ry-resumen"></section>
+    <section class="panel ry-hoja"><div class="tabla-wrap"><table class="tabla ry-tabla">
+      <thead><tr><th>Colaborador</th><th class="ry-dias-h">Asistencia <small>(toca un día para marcar falta)</small></th><th class="num">Sueldo</th>
+        <th class="num">Faltas</th><th class="num">Préstamo</th><th class="num">A pagar</th><th class="ry-acc"></th></tr></thead>
+      <tbody id="ry-filas"></tbody></table></div></section>
+    <p class="nota">Cada pago se registra como gasto de Nómina en el centro de la persona (por el sueldo de la semana). El abono a préstamo se descuenta de lo que se le entrega y se anota en su préstamo. Los retardos se muestran como referencia; no se descuentan solos.</p>
+  </div>`;
+  el = el.querySelector('.ry');
+
+  const fila = (e) => {
+    const p = pagoDe(e.id), faltas = faltasDe(e.id), ret = retardosDe(e.id), pr = prestamoDe(e.id);
+    const dias = Array.from({ length: 7 }, (_, i) => sumarDias(sem, i));
+    const trabaja = (e.dias_laborales || 'LUN,MAR,MIE,JUE,VIE,SAB').split(',');
+    const fDesc = faltas.length * diario(e);
+    return `<tr class="${p ? 'ry-pagado' : ''}" data-emp="${e.id}">
+      <td data-l="Colaborador"><div class="ry-quien"><span class="avatar">${iniciales(e.nombre)}</span><div><strong>${esc(e.nombre)}</strong>
+        <small>${esc(e.puesto || '—')}${st.rayaCentro ? '' : ` · ${esc(nombreCentro(e.centro_id))}`}</small></div></div></td>
+      <td data-l="Asistencia"><div class="ry-dias">${dias.map((d) => {
+        const lab = trabaja.includes(codigoDia(d)), f = faltas.includes(d), fut = d > hoy;
+        return `<button class="ry-dia ${f ? 'falta' : !lab ? 'libre' : fut ? 'fut' : 'ok'}" ${p || (!lab && !f) ? 'disabled' : ''} data-falta="${e.id}|${d}"
+          title="${f ? 'Faltó — tocar para quitar' : lab ? (fut ? 'Programado' : 'Asistió — tocar para marcar falta') : 'Descanso'}">${DIAS_CORTO[(new Date(d + 'T12:00:00').getDay() + 6) % 7].charAt(0)}</button>`;
+      }).join('')}</div>${ret ? `<small class="ry-ret">Retardos: ${fmt(ret)}</small>` : ''}</td>
+      <td class="num" data-l="Sueldo">${fmt(e.salario_semanal)}</td>
+      <td class="num ${faltas.length ? 'neg' : 'mut'}" data-l="Faltas">${faltas.length ? `−${fmt(fDesc)}<small>${faltas.length} día${faltas.length === 1 ? '' : 's'}</small>` : '—'}</td>
+      <td class="num" data-l="Préstamo">${p ? (Number(p.abono_prestamo) ? `<span class="neg">−${fmt(p.abono_prestamo)}</span>` : '<span class="mut">—</span>')
+        : pr ? `<label class="ry-abono" title="Saldo del préstamo: ${fmt(saldoP(pr))}"><span>−</span><input type="number" min="0" step="50" max="${saldoP(pr).toFixed(2)}" data-abono="${e.id}" value="${descuento[e.id] || 0}"></label><small>debe ${fmt(saldoP(pr))}</small>`
+        : '<span class="mut">—</span>'}</td>
+      <td class="num ry-neto" data-l="A pagar">${p ? fmt(pagadoDe(p)) : fmt(netoDe(e))}</td>
+      <td class="ry-acc">${p
+        ? `<div class="ry-ok"><span class="ry-check">Pagado</span><small>${esc(p.forma_pago || '')} · ${fmtFecha(p.fecha)}</small>
+            <button class="icon-btn peligro" data-borrarpago="${p.id}" aria-label="Deshacer pago" title="Deshacer pago">✕</button></div>`
+        : `<button class="btn btn-sm btn-primary" data-pagar="${e.id}">Pagar</button>`}</td></tr>`;
   };
-  const botonTodos = () => {
-    const pend = pendientesDe();
-    document.getElementById('page-actions').innerHTML = pend.length
-      ? `<button class="btn btn-primary" id="n-todos">Pagar a ${pend.length} pendiente${pend.length === 1 ? '' : 's'}</button>` : '';
-    document.getElementById('n-todos')?.addEventListener('click', pagarTodos);
+  const pintarResumen = () => {
+    const lista = visibles();
+    const total = lista.reduce((s, e) => { const p = pagoDe(e.id); return s + (p ? pagadoDe(p) : netoDe(e)); }, 0);
+    const pagado = lista.reduce((s, e) => s + (pagoDe(e.id) ? pagadoDe(pagoDe(e.id)) : 0), 0);
+    const pend = pendientesDe(), hechos = lista.length - pend.length;
+    const pct = lista.length ? Math.round((hechos / lista.length) * 100) : 0;
+    el.querySelector('#ry-resumen').innerHTML = `
+      <div class="ry-cifra"><span>Raya de la semana</span><strong>${fmt(total)}</strong><small>${lista.length} persona${lista.length === 1 ? '' : 's'}</small></div>
+      <div class="ry-cifra"><span>Entregado</span><strong class="pos">${fmt(pagado)}</strong><small>${hechos} de ${lista.length}</small></div>
+      <div class="ry-cifra"><span>Falta entregar</span><strong>${fmt(Math.max(0, total - pagado))}</strong><small>${pend.length} pendiente${pend.length === 1 ? '' : 's'}</small></div>
+      <div class="ry-avance"><div class="ry-pista"><span style="width:${pct}%"></span></div><small>${pct} % pagado</small></div>
+      <div class="ry-todos">${pend.length ? `<select id="ry-forma" aria-label="Forma de pago">${METODOS.map((m) => `<option>${m}</option>`).join('')}</select>
+        <button class="btn btn-primary" id="ry-todos">Pagar a ${pend.length} pendiente${pend.length === 1 ? '' : 's'}</button>` : lista.length ? '<span class="ry-listo">Semana pagada completa</span>' : ''}</div>`;
+    el.querySelector('#ry-todos')?.addEventListener('click', pagarTodos);
   };
-  const semanas = Array.from({ length: 16 }, (_, i) => sumarDias(lunesDe(hoyISO()), -7 * i));
-  if (!semanas.includes(sem)) semanas.push(sem);
+  const pintarFilas = () => {
+    const lista = visibles();
+    // orden: pendientes primero, por centro y nombre; los pagados al final
+    lista.sort((a, b) => (!!pagoDe(a.id) - !!pagoDe(b.id)) || nombreCentro(a.centro_id).localeCompare(nombreCentro(b.centro_id), 'es') || a.nombre.localeCompare(b.nombre, 'es'));
+    el.querySelector('#ry-filas').innerHTML = lista.map(fila).join('') || '<tr><td colspan="7" class="vacio">Sin colaboradores activos.</td></tr>';
+    pintarResumen();
+  };
+  const repintarFila = (e) => {
+    const tr = el.querySelector(`tr[data-emp="${e.id}"]`);
+    if (tr) tr.outerHTML = fila(e);
+    pintarResumen();
+  };
+  pintarFilas();
+  document.getElementById('page-actions').innerHTML = '';
 
-  el.innerHTML = `<div class="n-caja">
-    <div class="periodo"><select id="n-semana" aria-label="Semana">${semanas.map((s) =>
-      `<option value="${s}" ${s === sem ? 'selected' : ''}>${etiquetaSemana(s)}${s === lunesDe(hoyISO()) ? ' · esta semana' : ''}</option>`).join('')}</select></div>
-    <div class="kpis kpis-3" id="n-kpis">${kpisHTML()}</div>
-    ${Object.entries(grupos).sort((a, b) => nombreCentro(a[0]).localeCompare(nombreCentro(b[0]))).map(([cid, lista]) => {
-      const sub = lista.reduce((s, e) => s + montoDe(e), 0), pagadoC = lista.reduce((s, e) => s + Number(pagoDe(e.id)?.sueldo || 0), 0);
-      return `<section class="panel" data-centro="${cid}"><div class="panel-head"><h3>${esc(nombreCentro(cid))}</h3>
-        <span class="mut">${lista.length} · <strong class="n-sub ${pagadoC >= sub ? 'pos' : ''}">${fmt(pagadoC)} / ${fmt(sub)}</strong></span></div>
-        <ul class="nomina">${lista.map(tarjeta).join('')}</ul></section>`;
-    }).join('') || '<div class="vacio">Sin empleados activos.</div>'}
-    <p class="nota">Cada pago se registra también como gasto de "Nómina" en el centro de la persona. Los retardos se muestran como referencia y no se descuentan solos (igual que antes).</p></div>`;
-  el = el.querySelector('.n-caja');   // los clics se escuchan aquí: cada vez que se pinta, la caja es nueva
-  function tarjeta(e) {
-          const p = pagoDe(e.id), faltas = faltasDe(e.id), monto = montoDe(e), ret = retardosDe(e.id);
-          const dias = Array.from({ length: e.dias_semana || 6 }, (_, i) => sumarDias(sem, i));
-          return `<li class="${p ? 'pagado' : ''}" data-emp="${e.id}">
-            <div class="tarjeta-top"><span class="avatar">${iniciales(e.nombre)}</span>
-              <div><strong>${esc(e.nombre)}</strong><small class="mut">${esc(e.puesto || '—')} · ${fmt(e.salario_semanal)}/sem${faltas.length ? ` · <span class="neg">${faltas.length} falta${faltas.length === 1 ? '' : 's'}</span>` : ''}${ret ? ` · retardos ${fmt(ret)}` : ''}</small></div>
-              <div class="nomina-der">${p
-                ? `<span class="pos fuerte">✓ ${fmt(p.sueldo)}</span><small class="mut">${esc(p.forma_pago || '')} · ${fmtFecha(p.fecha)}</small>
-                   <button class="icon-btn peligro" data-borrarpago="${p.id}" aria-label="Eliminar pago">✕</button>`
-                : `<strong>${fmt(monto)}</strong><button class="btn btn-sm btn-primary" data-pagar="${e.id}">Pagar</button>`}</div></div>
-            ${p ? '' : `<div class="dias-falta">${dias.map((d) => {
-              const f = faltas.includes(d);
-              return `<button class="dia-falta ${f ? 'falta' : ''}" data-falta="${e.id}|${d}" title="${f ? 'Quitar falta' : 'Marcar falta'}">${DIAS_CORTO[(new Date(d + 'T12:00:00').getDay() + 6) % 7]}<br>${f ? '✗' : '✓'}</button>`;
-            }).join('')}</div>`}
-          </li>`;
-  }
-
-  el.querySelector('#n-semana').addEventListener('change', (e) => { st.semana = e.target.value; pintar(); });
+  el.querySelectorAll('[data-sem]').forEach((b) => b.addEventListener('click', () => {
+    st.semana = +b.dataset.sem === 0 ? actual : sumarDias(sem, +b.dataset.sem); pintar();
+  }));
+  el.querySelectorAll('[data-rc]').forEach((b) => b.addEventListener('click', () => { st.rayaCentro = b.dataset.rc || null; nomina(el.parentElement); }));
   const porId = (id) => emp.data.find((x) => x.id === id);
+  el.addEventListener('input', (ev) => {
+    const i = ev.target.closest('[data-abono]'); if (!i) return;
+    const e = porId(i.dataset.abono), pr = prestamoDe(e.id);
+    descuento[e.id] = Math.min(Math.max(0, Number(i.value) || 0), pr ? saldoP(pr) : 0, sueldoDe(e));
+    el.querySelector(`tr[data-emp="${e.id}"] .ry-neto`).textContent = fmt(netoDe(e));
+    pintarResumen();
+  });
+
+  // Registrar el pago: gasto de Nómina por el sueldo; si hay abono, se descuenta en la línea y se anota en el préstamo
+  async function registrar(e, forma, fecha, nota) {
+    const ab = descuento[e.id] || 0, pr = prestamoDe(e.id);
+    const notas = [nota, ab ? `Descuento préstamo ${fmt(ab)} · entregado ${fmt(netoDe(e))}` : ''].filter(Boolean).join(' · ');
+    const { data, error } = await db().rpc('nomina_pagar', { p_empleado: e.id, p_semana: sem, p_monto: Math.round(sueldoDe(e) * 100) / 100,
+      p_fecha: fecha, p_forma: forma, p_notas: notas });
+    if (error) throw error;
+    if (ab && pr) {
+      await db().from('nomina_lineas').update({ abono_prestamo: ab }).eq('id', data);
+      const r = await db().from('prestamo_abonos').insert({ org_id: estado.miembro.org_id, prestamo_id: pr.id, monto: ab, fecha });
+      if (!r.error) { abonos.push({ prestamo_id: pr.id, monto: ab, fecha }); if (saldoP(pr) <= 0.009) await db().from('prestamos').update({ liquidado: true }).eq('id', pr.id); }
+    }
+    const { data: l } = await db().from('nomina_lineas').select('*').eq('id', data).maybeSingle();
+    lineas.push(l || { id: data, empleado_id: e.id, sueldo: sueldoDe(e), abono_prestamo: ab, forma_pago: forma, fecha });
+  }
   el.addEventListener('click', (ev) => {
     const b = ev.target.closest('[data-pagar]');
     if (!b) return;
-    const e = porId(b.dataset.pagar);
-    pagarModal(e, montoDe(e), async (lineaId) => {        // pagado: solo se actualiza su tarjeta
-      const { data } = await db().from('nomina_lineas').select('*').eq('id', lineaId).maybeSingle();
-      lineas.push(data || { id: lineaId, empleado_id: e.id, sueldo: montoDe(e), forma_pago: '', fecha: hoyISO() });
-      repintarTarjeta(e);
+    const e = porId(b.dataset.pagar), ab = descuento[e.id] || 0;
+    const modal = abrirModal({
+      titulo: `Pagar raya · ${e.nombre}`,
+      cuerpo: `<form class="form" id="np"><div class="ry-recibo">
+          <div><span>Sueldo de la semana</span><strong>${fmt(e.salario_semanal)}</strong></div>
+          ${faltasDe(e.id).length ? `<div><span>Faltas (${faltasDe(e.id).length})</span><strong class="neg">−${fmt(Number(e.salario_semanal) - sueldoDe(e))}</strong></div>` : ''}
+          ${ab ? `<div><span>Abono a préstamo</span><strong class="neg">−${fmt(ab)}</strong></div>` : ''}
+          <div class="ry-recibo-tot"><span>Se entrega</span><strong>${fmt(netoDe(e))}</strong></div></div>
+        <p class="nota">Semana ${etiquetaSemana(sem)}</p>
+        <div class="form-2"><label>Forma de pago<select name="forma">${METODOS.map((m) => `<option>${m}</option>`).join('')}</select></label>
+          <label>Fecha<input type="date" name="fecha" value="${hoy}"></label></div>
+        <label>Nota <small>(opcional)</small><input name="nota" maxlength="200" placeholder="Horas extra, bono…"></label></form>`,
+      pie: `<button class="btn btn-ghost" id="np-no">Cancelar</button><button class="btn btn-primary" id="np-si">Confirmar pago</button>`,
+    });
+    const f = modal.querySelector('#np');
+    modal.querySelector('#np-no').addEventListener('click', cerrarModal);
+    modal.querySelector('#np-si').addEventListener('click', async (x) => {
+      x.currentTarget.disabled = true;
+      try { await registrar(e, f.forma.value, f.fecha.value || hoy, f.nota.value.trim()); }
+      catch (err) { x.currentTarget.disabled = false; return toast(err.message, true); }
+      cerrarModal(); toast(`Pago a ${e.nombre} registrado`); pintarFilas();
     });
   });
-  // Falta: se cambia al instante solo en la tarjeta de esa persona (sin recargar toda la pantalla)
-  const repintarTarjeta = (e) => {
-    const li = el.querySelector(`li[data-emp="${e.id}"]`);
-    if (li) li.outerHTML = tarjeta(e);
-    const lista = grupos[e.centro_id || ''];
-    const sub = lista.reduce((s, x) => s + montoDe(x), 0), pagadoC = lista.reduce((s, x) => s + Number(pagoDe(x.id)?.sueldo || 0), 0);
-    const h = el.querySelector(`section[data-centro="${e.centro_id || ''}"] .n-sub`);
-    if (h) { h.textContent = `${fmt(pagadoC)} / ${fmt(sub)}`; h.classList.toggle('pos', pagadoC >= sub); }
-    el.querySelector('#n-kpis').innerHTML = kpisHTML();
-    botonTodos();
-  };
   el.addEventListener('click', async (ev) => {
     const b = ev.target.closest('[data-falta]');
-    if (!b || b.dataset.ocupado) return;
+    if (!b || b.disabled || b.dataset.ocupado) return;
     const [id, fecha] = b.dataset.falta.split('|');
     const e = porId(id);
     const ya = asis.data.find((a) => a.empleado_id === id && a.fecha === fecha && a.estado === 'falta');
     if (ya) asis.data.splice(asis.data.indexOf(ya), 1);
     else asis.data.push({ empleado_id: id, fecha, estado: 'falta', monto_descuento: 0 });
-    repintarTarjeta(e);
+    repintarFila(e);
     const nuevo = el.querySelector(`[data-falta="${id}|${fecha}"]`);
     if (nuevo) nuevo.dataset.ocupado = '1';
     const { error } = ya ? await db().from('asistencia').delete().eq('empleado_id', id).eq('fecha', fecha).eq('estado', 'falta')
       : await db().rpc('asistencia_marcar', { p_empleado: id, p_fecha: fecha, p_accion: 'falta' });
-    if (error) {                                   // si falla, se regresa como estaba
+    if (error) {
       if (ya) asis.data.push(ya); else asis.data.splice(asis.data.findIndex((a) => a.empleado_id === id && a.fecha === fecha && a.estado === 'falta'), 1);
       toast('No se pudo guardar la falta: ' + error.message, true);
     }
-    repintarTarjeta(e);
+    repintarFila(e);
   });
   el.addEventListener('click', async (ev) => {
     const b = ev.target.closest('[data-borrarpago]');
     if (!b) return;
     const l = lineas.find((x) => x.id === b.dataset.borrarpago);
-    if (!confirm(`¿Eliminar el pago de ${fmt(l.sueldo)} a ${porId(l.empleado_id)?.nombre}?${l.gasto_id ? '\nTambién se borra su gasto de Nómina.' : '\nOjo: su gasto de Nómina se capturó en el sistema anterior; si hace falta, bórralo en Gastos.'}`)) return;
+    if (!confirm(`¿Deshacer el pago de ${fmt(pagadoDe(l))} a ${porId(l.empleado_id)?.nombre}?${l.gasto_id ? '\nTambién se borra su gasto de Nómina.' : '\nSu gasto de Nómina se capturó en el sistema anterior; si hace falta, bórralo en Gastos.'}${Number(l.abono_prestamo) ? '\nEl abono al préstamo se quita en Préstamos.' : ''}`)) return;
     const { error } = await db().from('nomina_lineas').delete().eq('id', l.id);
     if (error) return toast(error.message, true);
     if (l.gasto_id) await db().from('gastos').delete().eq('id', l.gasto_id);
     lineas.splice(lineas.indexOf(l), 1);
-    toast('Pago eliminado'); repintarTarjeta(porId(l.empleado_id));
+    toast('Pago deshecho'); pintarFilas();
   });
-  botonTodos();
   async function pagarTodos(ev) {
-    const pendientes = pendientesDe();
-    const suma = pendientes.reduce((s, e) => s + montoDe(e), 0);
-    if (!confirm(`¿Registrar el pago de ${pendientes.length} personas por ${fmt(suma)}, en efectivo y con fecha de hoy?`)) return;
+    const pendientes = pendientesDe(), forma = el.querySelector('#ry-forma').value;
+    const suma = pendientes.reduce((s, e) => s + netoDe(e), 0);
+    if (!confirm(`¿Registrar el pago de ${pendientes.length} persona${pendientes.length === 1 ? '' : 's'} por ${fmt(suma)}, en ${forma.toLowerCase()} y con fecha de hoy?`)) return;
     ev.currentTarget.disabled = true;
     let ok = 0;
     for (const e of pendientes) {
-      const { error } = await db().rpc('nomina_pagar', { p_empleado: e.id, p_semana: sem, p_monto: montoDe(e), p_fecha: hoyISO(), p_forma: 'Efectivo', p_notas: '' });
-      if (error) toast(`${e.nombre}: ${error.message}`, true); else ok++;
+      try { await registrar(e, forma, hoy, ''); ok++; } catch (err) { toast(`${e.nombre}: ${err.message}`, true); }
     }
-    toast(`${ok} pagos registrados ✓`); pintar();
+    toast(`${ok} pago${ok === 1 ? '' : 's'} registrado${ok === 1 ? '' : 's'}`); pintarFilas();
   }
 }
 const nombreCentro = (id) => estado.centros.find((c) => c.id === id)?.nombre || 'Sin centro asignado';
@@ -577,19 +641,20 @@ async function empleados(el) {
   const asegurados = todos.filter((e) => e.activo && e.imss).length;
   el.innerHTML = `<section class="panel">
     <div class="panel-head"><h3>${todos.length - bajas} empleado${todos.length - bajas === 1 ? '' : 's'} activo${todos.length - bajas === 1 ? '' : 's'}
-      <small class="sub-meta">· ${asegurados} en el IMSS</small></h3>
+      <small class="sub-meta">· ${asegurados} en el IMSS · raya semanal ${fmt(todos.filter((e) => e.activo).reduce((s, e) => s + Number(e.salario_semanal || 0), 0))}</small></h3>
       ${bajas ? `<button class="btn btn-sm btn-ghost" id="e-bajas">${verBajas ? 'Ocultar dados de baja' : `Ver dados de baja (${bajas})`}</button>` : ''}</div>
     <div class="tabla-wrap"><table class="tabla">
-    <thead><tr><th>Nombre</th><th>Puesto</th><th>Centro</th><th class="num">Sueldo semanal</th><th>Horario</th><th></th></tr></thead>
-    <tbody>${data.map((e) => `<tr class="${e.activo ? '' : 'inactivo'}">
+    <thead><tr><th>Nombre</th><th>Puesto</th><th class="num">Sueldo semanal</th><th>Horario</th><th></th></tr></thead>
+    <tbody>${porCentro(data).map(([cid, gente]) => `<tr class="pl-grupo"><td colspan="5"><strong>${esc(nombreCentro(cid))}</strong>
+      <span>${gente.length} · ${fmt(gente.filter((e) => e.activo).reduce((s, e) => s + Number(e.salario_semanal || 0), 0))} por semana</span></td></tr>
+      ${gente.map((e) => `<tr class="${e.activo ? '' : 'inactivo'}">
       <td data-l="Nombre"><strong>${esc(e.nombre)}</strong>${e.activo ? '' : ' <span class="tag tag-suave">baja</span>'}${e.imss ? ' <span class="tag" title="Asegurado en el IMSS (registro patronal)">IMSS</span>' : ''}</td>
       <td class="mut" data-l="Puesto">${esc(e.puesto || '—')}</td>
-      <td class="mut" data-l="Centro">${esc(nombreCentro(e.centro_id))}</td>
-      <td class="num fuerte" data-l="Sueldo">${fmt(e.salario_semanal)}</td>
+            <td class="num fuerte" data-l="Sueldo">${fmt(e.salario_semanal)}</td>
       <td class="mut nowrap" data-l="Horario">${String(e.hora_entrada || '').slice(0, 5)}–${String(e.hora_salida || '').slice(0, 5)} · ${e.dias_semana} días</td>
       <td class="acciones nowrap">${!e.activo ? '' : acceso(e) ? `<span class="tag tag-ok" title="Entra desde su celular">Acceso: ${esc(acceso(e).usuario || '')}</span>`
         : esDueno ? `<button class="btn btn-sm btn-ghost" data-acceso="${e.id}" title="Crearle usuario para su celular">Dar acceso</button>` : ''}
-        <button class="btn btn-sm btn-ghost" data-editar="${e.id}">Editar</button></td></tr>`).join('')}</tbody>
+        <button class="btn btn-sm btn-ghost" data-editar="${e.id}">Editar</button></td></tr>`).join('')}`).join('')}</tbody>
   </table></div></section>`;
   el.querySelectorAll('[data-editar]').forEach((b) => b.addEventListener('click', () => editarEmpleado(data.find((x) => x.id === b.dataset.editar))));
   el.querySelector('#e-bajas')?.addEventListener('click', () => { verBajas = !verBajas; empleados(el); });
@@ -597,6 +662,11 @@ async function empleados(el) {
     (await import('./equipo.js')).darAcceso(data.find((x) => x.id === b.dataset.acceso), () => empleados(el))));
 }
 let verBajas = false;
+const porCentro = (lista) => {
+  const g = new Map();
+  lista.forEach((e) => { const k = e.centro_id || ''; if (!g.has(k)) g.set(k, []); g.get(k).push(e); });
+  return [...g.entries()].sort((a, b) => nombreCentro(a[0]).localeCompare(nombreCentro(b[0]), 'es'));
+};
 
 function editarEmpleado(e) {
   const dl = (e?.dias_laborales || 'LUN,MAR,MIE,JUE,VIE,SAB').split(',');
@@ -696,43 +766,59 @@ async function vacaciones(el) {
   const sinFecha = filas.filter((f) => f.sinFecha);
   const enMes = filas.filter((f) => f.proximo && f.proximo <= sumarMeses(hoy, 1));
 
-  const estadoDe = (f) => {
-    if (f.sinFecha) return '<span class="tag tag-suave">Sin fecha</span>';
-    if (!f.n) return `<span class="mut">Aún no cumple 1 año</span>`;
-    const pend = f.vivos.reduce((a, x) => a + x.pendientes, 0);
-    if (!pend) return '<span class="tag tag-ok">Al corriente</span>';
-    const venc = f.vivos.some((x) => x.pendientes > 0 && x.vence < hoy);
-    return `<span class="tag ${venc ? 'tag-aviso' : ''}" title="${semanasTxt(f.e, pend)} · ${pend} días">${venc ? 'Vencidas: ' : 'Debe '}${fmt(pagoDe(f.e, pend))}</span>`;
+  // Cada persona con su situación, ordenada por lo urgente: fuera de plazo → por vencer → pendientes → al corriente
+  const pendDe = (f) => (f.vivos || []).reduce((a, x) => a + x.pendientes, 0);
+  const nivel = (f) => {
+    if (f.sinFecha) return { k: 4, t: 'Sin fecha de ingreso', c: 'gris' };
+    if (!f.n) return { k: 6, t: 'Aún no cumple 1 año', c: 'gris' };
+    const pend = pendDe(f);
+    if (!pend) return { k: 5, t: 'Al corriente', c: 'ok' };
+    if (f.vivos.some((x) => x.pendientes > 0 && x.vence < hoy)) return { k: 0, t: 'Fuera de plazo', c: 'mal' };
+    if (f.vivos.some((x) => x.pendientes > 0 && x.vence <= sumarMeses(hoy, 1))) return { k: 1, t: 'Vence este mes', c: 'aviso' };
+    return { k: 2, t: 'Pendientes', c: 'aviso' };
   };
-  const grupos = {};
-  filas.forEach((f) => (grupos[f.e.centro_id] = grupos[f.e.centro_id] || []).push(f));
-
+  filas.forEach((f) => { f.niv = nivel(f); });
+  filas.sort((a, b) => a.niv.k - b.niv.k || (a.actual?.vence || '9').localeCompare(b.actual?.vence || '9') || a.e.nombre.localeCompare(b.e.nombre, 'es'));
+  const atencion = filas.filter((f) => f.niv.k <= 2 || f.niv.k === 4);
+  st.vacFiltro ||= atencion.length ? 'atencion' : 'todas';
+  const lista = st.vacFiltro === 'atencion' ? atencion : filas;
+  // Ventana de 6 meses para darlas: dónde va hoy
+  const ventana = (x) => {
+    const t0 = new Date(x.desde).getTime(), t1 = new Date(x.vence).getTime(), th = new Date(hoy).getTime();
+    return Math.max(0, Math.min(100, ((th - t0) / (t1 - t0)) * 100));
+  };
   el.innerHTML = `
-    <div class="kpis">
-      <div class="kpi"><span>Vacaciones por pagar</span><strong class="${pendientesTot ? 'neg' : ''}">${fmt(pendientesTot)}</strong><small>de todos los empleados</small></div>
-      <div class="kpi"><span>Fuera de plazo</span><strong class="${vencidos.length ? 'neg' : ''}">${vencidos.length}</strong><small>pasaron 6 meses del aniversario</small></div>
-      <div class="kpi"><span>Cumplen año este mes</span><strong>${enMes.length}</strong><small>${enMes.map((f) => esc(f.e.nombre)).slice(0, 3).join(', ') || '&nbsp;'}</small></div>
-      <div class="kpi"><span>Sin fecha de ingreso</span><strong>${sinFecha.length}</strong><small>no se pueden calcular</small></div>
+    <div class="vc-cifras">
+      <div class="vc-cifra"><span>Por pagar o dar</span><strong>${fmt(pendientesTot)}</strong><small>${filas.filter((f) => pendDe(f)).length} personas con días pendientes</small></div>
+      <div class="vc-cifra ${vencidos.length ? 'mal' : ''}"><span>Fuera de plazo</span><strong>${vencidos.length}</strong><small>pasaron 6 meses del aniversario</small></div>
+      <div class="vc-cifra"><span>Aniversario en 30 días</span><strong>${enMes.length}</strong><small>${enMes.map((f) => esc(f.e.nombre.split(' ')[0])).slice(0, 4).join(', ') || 'Nadie'}</small></div>
+      <div class="vc-cifra"><span>Sin fecha de ingreso</span><strong>${sinFecha.length}</strong><small>${sinFecha.length ? 'no se pueden calcular' : 'todos completos'}</small></div>
     </div>
-    <p class="nota">Ley Federal del Trabajo (desde 2023): 12 días al cumplir 1 año, +2 por año hasta 20 días al 5º, y +2 cada 5 años después;
-      se dan dentro de los 6 meses siguientes al aniversario, con prima vacacional de al menos 25 %.
-      Aquí se pagan en <strong>semanas de sueldo</strong> (12 días = 2 semanas si trabaja 6 días); la prima del 25 % solo a quien la recibe (se marca en Empleados).</p>
-    ${Object.entries(grupos).sort((a, b) => nombreCentro(a[0]).localeCompare(nombreCentro(b[0]), 'es')).map(([cid, lista]) => `
-    <section class="panel"><h3>${esc(nombreCentro(cid))}</h3>
-      <div class="tabla-wrap"><table class="tabla">
-        <thead><tr><th>Empleado</th><th>Antigüedad</th><th class="num">Le tocan</th><th>Plazo para darlos</th><th>Próximo aniversario</th><th>Estado</th><th></th></tr></thead>
-        <tbody>${lista.map((f) => `<tr>
-          <td data-l="Empleado"><strong>${esc(f.e.nombre)}</strong>${f.e.fecha_ingreso ? `<small class="sub">Ingresó ${fmtFecha(f.e.fecha_ingreso)}</small>` : ''}</td>
-          <td class="mut" data-l="Antigüedad">${f.sinFecha ? '—' : antiguedadTxt(f.e.fecha_ingreso, hoy)}</td>
-          <td class="num fuerte nowrap" data-l="Le tocan">${f.actual ? fmt(pagoDe(f.e, f.actual.dias)) : '—'}${f.actual ? `<small class="sub">${semanasTxt(f.e, f.actual.dias)}${f.e.prima_vacacional ? ' + prima' : ''} · ${f.n}º año</small>` : ''}</td>
-          <td class="nowrap ${f.actual && f.actual.pendientes && f.actual.vence < hoy ? 'neg fuerte' : 'mut'}" data-l="Plazo">${f.actual ? `${fmtFecha(f.actual.desde)} → ${fmtFecha(f.actual.vence)}` : '—'}</td>
-          <td class="mut nowrap" data-l="Próximo" title="${f.proximo ? 'Le tocarán ' + fmt(pagoDe(f.e, f.diasProx)) : ''}">${f.proximo ? fmtFecha(f.proximo) : '—'}</td>
-          <td data-l="Estado">${estadoDe(f)}</td>
-          <td class="acciones">${f.sinFecha ? `<button class="btn btn-sm btn-ghost" data-fecha="${f.e.id}">Poner fecha</button>`
-            : `${f.suyas.length ? `<button class="btn btn-sm btn-ghost" data-hist="${f.e.id}" title="Historial">${f.suyas.length} reg.</button>` : ''}
-               ${f.n ? `<button class="btn btn-sm btn-primary" data-vac="${f.e.id}">＋ Registrar</button>` : ''}`}</td></tr>`).join('')}</tbody>
-      </table></div></section>`).join('')}`;
-
+    <div class="vc-barra"><div class="segmento">
+      <button class="${st.vacFiltro === 'atencion' ? 'activo' : ''}" data-vf="atencion">Requieren atención · ${atencion.length}</button>
+      <button class="${st.vacFiltro === 'todas' ? 'activo' : ''}" data-vf="todas">Todos · ${filas.length}</button></div>
+      <button class="link-btn" id="vc-ley">Cómo se calculan</button></div>
+    <section class="panel vc-lista">${lista.map((f) => {
+      const pend = pendDe(f), x = f.actual;
+      return `<article class="vc-fila">
+        <div class="ry-quien"><span class="avatar">${iniciales(f.e.nombre)}</span><div><strong>${esc(f.e.nombre)}</strong>
+          <small>${esc(nombreCentro(f.e.centro_id))}${f.sinFecha ? '' : ` · ${antiguedadTxt(f.e.fecha_ingreso, hoy)}`}</small></div></div>
+        <div class="vc-toca">${x ? `<strong>${fmt(pagoDe(f.e, x.dias))}</strong><small>${semanasTxt(f.e, x.dias)}${f.e.prima_vacacional ? ' + prima 25 %' : ''} · ${f.n}º año</small>`
+          : f.sinFecha ? '<small class="mut">Falta la fecha de ingreso</small>' : `<small class="mut">Primer año el ${fmtFecha(f.proximo)}</small>`}</div>
+        <div class="vc-plazo">${x ? `<div class="vc-pista ${f.niv.c}"><span style="width:${ventana(x)}%"></span></div>
+          <small>${fmtFecha(x.desde)} → <b>${fmtFecha(x.vence)}</b>${pend ? ` · faltan ${fmt(pagoDe(f.e, pend))}` : ''}</small>` : f.proximo ? `<small class="mut">Próximo aniversario ${fmtFecha(f.proximo)}</small>` : ''}</div>
+        <span class="vc-chip ${f.niv.c}">${f.niv.t}</span>
+        <div class="vc-acc">${f.sinFecha ? `<button class="btn btn-sm btn-ghost" data-fecha="${f.e.id}">Poner fecha</button>`
+          : `${f.suyas.length ? `<button class="btn btn-sm btn-ghost" data-hist="${f.e.id}">Historial (${f.suyas.length})</button>` : ''}
+             ${f.n ? `<button class="btn btn-sm ${pend ? 'btn-primary' : 'btn-ghost'}" data-vac="${f.e.id}">Registrar</button>` : ''}`}</div>
+      </article>`; }).join('') || '<div class="vacio">Nadie requiere atención: todos al corriente.</div>'}</section>`;
+  el.querySelectorAll('[data-vf]').forEach((b) => b.addEventListener('click', () => { st.vacFiltro = b.dataset.vf; vacaciones(el); }));
+  el.querySelector('#vc-ley').addEventListener('click', () => {
+    abrirModal({ titulo: 'Cómo se calculan las vacaciones', cuerpo: `<p class="nota">Ley Federal del Trabajo (desde 2023): 12 días al cumplir 1 año, +2 por año hasta 20 días al 5º, y +2 cada 5 años después.
+      Se dan dentro de los 6 meses siguientes al aniversario, con prima vacacional de al menos 25 %.</p>
+      <p class="nota">En la empresa se pagan en <strong>semanas de sueldo</strong> (12 días = 2 semanas si trabaja 6 días). La prima del 25 % solo a quien la tiene marcada en su ficha. La antigüedad cuenta desde la fecha de ingreso que se le reconoce.</p>`,
+      pie: '<button class="btn btn-primary" id="vl-ok">Entendido</button>' }).querySelector('#vl-ok').addEventListener('click', cerrarModal);
+  });
   const fila = (id) => filas.find((f) => f.e.id === id);
   el.querySelectorAll('[data-vac]').forEach((b) => b.addEventListener('click', () => registrarVacaciones(fila(b.dataset.vac))));
   el.querySelectorAll('[data-hist]').forEach((b) => b.addEventListener('click', () => historialVacaciones(fila(b.dataset.hist))));
@@ -868,16 +954,46 @@ async function prestamos(el) {
     });
   });
   const nom = (id) => emp.data.find((e) => e.id === id)?.nombre || '—';
-  el.innerHTML = `<div class="kpis kpis-3">
-      <div class="kpi"><span>Préstamos vivos</span><strong>${vivos.length}</strong><small>&nbsp;</small></div>
-      <div class="kpi"><span>Saldo por cobrar</span><strong class="neg">${fmt(vivos.reduce((s, p) => s + saldo(p), 0))}</strong><small>&nbsp;</small></div>
-      <div class="kpi"><span>Prestado en total</span><strong>${fmt(pre.data.reduce((s, p) => s + Number(p.monto), 0))}</strong><small>&nbsp;</small></div></div>
-    ${pre.data.length ? `<section class="panel"><ul class="lista-pagos">${pre.data.map((p) => `<li>
-      <div><strong>${esc(nom(p.empleado_id))}</strong> <span class="mut">· ${fmt(p.monto)} el ${fmtFecha(p.fecha)}${Number(p.abono_semanal) ? ` · abona ${fmt(p.abono_semanal)}/sem` : ''}</span>
-        <small>${saldo(p) > 0.009 ? `Debe <strong class="neg">${fmt(saldo(p))}</strong>` : '<span class="pos">Liquidado ✓</span>'}${p.notas ? ' · ' + esc(p.notas) : ''}</small>
-        ${abo.data.filter((a) => a.prestamo_id === p.id).map((a) => `<small class="mut">Abono ${fmt(a.monto)} · ${fmtFecha(a.fecha)}</small>`).join('')}</div>
-      ${saldo(p) > 0.009 ? `<button class="btn btn-sm btn-ghost" data-abono="${p.id}">＋ Abono</button>` : ''}</li>`).join('')}</ul></section>`
-      : '<div class="vacio">Sin préstamos registrados.</div>'}`;
+  // Solo préstamos de la gente de esta empresa (en Grupo, de todos)
+  const suyos = pre.data.filter((p) => emp.data.some((e) => e.id === p.empleado_id));
+  const abonosDe = (p) => abo.data.filter((a) => a.prestamo_id === p.id);
+  const vivosS = suyos.filter((p) => saldo(p) > 0.009), liquidados = suyos.filter((p) => saldo(p) <= 0.009);
+  st.preFiltro ||= 'vigentes';
+  const lista = st.preFiltro === 'vigentes' ? vivosS : liquidados;
+  const semanal = vivosS.reduce((s, p) => s + Math.min(saldo(p), Number(p.abono_semanal) || 0), 0);
+  const centroDe = (id) => nombreCentro(emp.data.find((e) => e.id === id)?.centro_id);
+  el.innerHTML = `<div class="vc-cifras">
+      <div class="vc-cifra"><span>Saldo por recuperar</span><strong>${fmt(vivosS.reduce((s, p) => s + saldo(p), 0))}</strong><small>${vivosS.length} préstamo${vivosS.length === 1 ? '' : 's'} vigente${vivosS.length === 1 ? '' : 's'}</small></div>
+      <div class="vc-cifra"><span>Se descuenta por semana</span><strong>${fmt(semanal)}</strong><small>en la raya semanal</small></div>
+      <div class="vc-cifra"><span>Recuperado</span><strong>${fmt(suyos.reduce((s, p) => s + Number(p.monto) - saldo(p), 0))}</strong><small>de ${fmt(suyos.reduce((s, p) => s + Number(p.monto), 0))} prestados</small></div>
+      <div class="vc-cifra"><span>Liquidados</span><strong>${liquidados.length}</strong><small>préstamos terminados</small></div></div>
+    <div class="vc-barra"><div class="segmento">
+      <button class="${st.preFiltro === 'vigentes' ? 'activo' : ''}" data-pf="vigentes">Vigentes · ${vivosS.length}</button>
+      <button class="${st.preFiltro === 'liquidados' ? 'activo' : ''}" data-pf="liquidados">Liquidados · ${liquidados.length}</button></div></div>
+    ${lista.length ? `<section class="panel"><div class="tabla-wrap"><table class="tabla pr-tabla">
+      <thead><tr><th>Colaborador</th><th class="num">Prestado</th><th>Avance</th><th class="num">Saldo</th><th class="num">Abono semanal</th><th>Termina</th><th></th></tr></thead>
+      <tbody>${lista.map((p) => {
+        const sal = saldo(p), pct = Math.round(((Number(p.monto) - sal) / Number(p.monto)) * 100), ab = Number(p.abono_semanal) || 0;
+        const sems = sal > 0.009 && ab ? Math.ceil(sal / ab) : 0, ult = abonosDe(p).slice(-1)[0];
+        return `<tr>
+          <td data-l="Colaborador"><div class="ry-quien"><span class="avatar">${iniciales(nom(p.empleado_id))}</span><div><strong>${esc(nom(p.empleado_id))}</strong>
+            <small>${esc(centroDe(p.empleado_id))} · ${fmtFecha(p.fecha)}${p.notas ? ' · ' + esc(p.notas) : ''}</small></div></div></td>
+          <td class="num" data-l="Prestado">${fmt(p.monto)}</td>
+          <td data-l="Avance"><div class="pr-avance"><div class="ry-pista"><span style="width:${pct}%"></span></div><small>${pct} % · ${abonosDe(p).length} abono${abonosDe(p).length === 1 ? '' : 's'}${ult ? `, último ${fmtFecha(ult.fecha)}` : ''}</small></div></td>
+          <td class="num fuerte" data-l="Saldo">${sal > 0.009 ? fmt(sal) : '<span class="pos">Liquidado</span>'}</td>
+          <td class="num" data-l="Abono">${ab ? fmt(ab) : '<span class="mut">Sin abono fijo</span>'}</td>
+          <td class="mut nowrap" data-l="Termina">${sal <= 0.009 ? '—' : sems ? `${sems} semana${sems === 1 ? '' : 's'} · ${fmtFecha(sumarDias(lunesDe(hoyISO()), sems * 7))}` : '—'}</td>
+          <td class="acciones nowrap"><button class="btn btn-sm btn-ghost" data-histp="${p.id}">Abonos</button>
+            ${sal > 0.009 ? `<button class="btn btn-sm btn-ghost" data-abono="${p.id}">＋ Abono</button>` : ''}</td></tr>`; }).join('')}</tbody></table></div></section>`
+      : `<div class="vacio">${st.preFiltro === 'vigentes' ? 'Nadie tiene préstamos vigentes.' : 'Todavía no hay préstamos liquidados.'}</div>`}
+    <p class="nota">El abono semanal se descuenta solo en la Raya semanal al pagar (se puede cambiar ahí antes de pagar).</p>`;
+  el.querySelectorAll('[data-pf]').forEach((b) => b.addEventListener('click', () => { st.preFiltro = b.dataset.pf; prestamos(el); }));
+  el.querySelectorAll('[data-histp]').forEach((b) => b.addEventListener('click', () => {
+    const p = pre.data.find((x) => x.id === b.dataset.histp), ab = abonosDe(p);
+    abrirModal({ titulo: `Abonos · ${nom(p.empleado_id)}`, cuerpo: ab.length ? `<ul class="lista-pagos">${ab.map((a) => `<li><div><strong>${fmt(a.monto)}</strong><small>${fmtFecha(a.fecha)}</small></div></li>`).join('')}</ul>
+      <p class="nota">Prestado ${fmt(p.monto)} el ${fmtFecha(p.fecha)} · saldo ${fmt(saldo(p))}</p>` : '<div class="vacio">Sin abonos todavía.</div>',
+      pie: '<button class="btn btn-primary" id="ha-ok">Listo</button>' }).querySelector('#ha-ok').addEventListener('click', cerrarModal);
+  }));
   el.querySelectorAll('[data-abono]').forEach((b) => b.addEventListener('click', () => {
     const p = pre.data.find((x) => x.id === b.dataset.abono);
     const modal = abrirModal({ titulo: `Abono · ${nom(p.empleado_id)}`,

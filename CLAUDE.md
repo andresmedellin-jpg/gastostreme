@@ -30,7 +30,18 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
    en pantallas de administración (las categorías llevan un punto de color: `catIco` de `config.js`). **Solo modo claro.**
    Inicio = "Resumen ejecutivo": utilidad del mes (compara el mes en curso contra el mismo periodo del anterior), flujo de 6 meses,
    tarjeta por empresa, composición de ingresos y egresos, y solo los 8 movimientos más recientes (botón para ver todos).
-   Íconos de línea SVG en el menú.
+   **Mundos (sin menú lateral):** barra superior negra con el selector Grupo · Treme · MEDCO (`MUNDOS` en `config.js`) y debajo
+   las secciones de ese mundo. Rutas `#/<mundo>/<módulo>` (las viejas `#/gastos` siguen sirviendo). En Treme o MEDCO,
+   `estado.foco` = id de la empresa y `db()` (lib.js) agrega `.eq('empresa_id', foco)` a cada lectura de las tablas con empresa
+   (`CON_EMPRESA`); `estado.empresas`/`estado.centros` quedan solo con esa empresa (las completas en `todasEmpresas`/`todosCentros`).
+   Grupo = Resumen del grupo, Patrimonio, Gastos consolidados, Importar, Usuarios. Treme = Resumen, Rentas, Cobranza, Reporte Elysium,
+   Gastos, Nómina y equipo, Patrimonio. MEDCO = Resumen, Obras, Prospectos, Gastos, Nómina y equipo, Patrimonio. Color de acento por mundo.
+   **Nómina y equipo** (antes "Personal"): Hoy · Turnos · Raya semanal · Plantilla · Vacaciones · Préstamos. Raya = hoja de la semana
+   (‹ semana ›, filtro por centro, días L–D para marcar faltas, sueldo, faltas, abono a préstamo editable, a pagar, Pagar);
+   al pagar con abono: gasto de Nómina por el sueldo, `nomina_lineas.abono_prestamo` y un `prestamo_abonos`.
+   Gastos: centros como botones con lo gastado en el mes (sin menú desplegable), también en el formulario.
+   Patrimonio: Panorama (neto, deuda/valor, flujo, rendimiento, costo de la deuda = pago mensual ÷ saldo, lectura para decidir,
+   simulador "¿Qué pasa si vendo…?" que paga primero la deuda más cara, rendimiento por inmueble, concentración) · Inmuebles · Deuda.
 6. Prueba antes de publicar: Playwright con un Supabase falso (se sirve el repo en localhost y se reemplaza
    `supabase.min.js`), revisa escritorio y celular (390px), sin errores en consola.
 7. Commits como `-c user.name="Andrés Medellín" -c user.email="andres.medellin@medco.mx"`.

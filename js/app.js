@@ -1,4 +1,4 @@
-import { MODULOS_ACTIVOS as MODULOS, MARCA, CLIENTE } from './config.js';
+import { MODULOS_ACTIVOS as MODULOS, MARCA, CLIENTE, MUNDOS } from './config.js';
 import { sb, db, estado, esc, toast, abrirModal, cerrarModal, tieneRol, misRoles } from './lib.js';
 
 const vistas = {
@@ -28,10 +28,8 @@ const vistas = {
     r.setProperty('--primary-2', MARCA.color2 || MARCA.color);
     if (MARCA.colorSuave) r.setProperty('--primary-soft', MARCA.colorSuave);
   }
-  // Menú: los logos de Treme y MEDCO (si la marca los tiene); si no, el nombre
-  document.querySelector('.sidebar .brand').innerHTML = MARCA.logos.length
-    ? `<span class="brand-logos">${MARCA.logos.map((l) => `<img src="${l.src}" alt="${esc(l.alt)}" class="${l.clase || ''}">`).join('<span class="brand-logos-sep" aria-hidden="true"></span>')}</span>`
-    : MARCA.marca.map(esc).join(' <span class="brand-sep">/</span> ');
+  // Encabezado: marca del grupo (los logos van en el selector de empresa)
+  document.querySelector('.mx-marca').innerHTML = `<span class="mx-marca-txt">${esc(MARCA.marca.join(' · '))}</span>`;
   document.querySelector('.login-logos').innerHTML = MARCA.logos.length ? MARCA.logos.map((l) =>
     `<picture><img src="${l.src}" alt="${esc(l.alt)}" class="${l.clase || ''}"></picture>`).join('<span class="login-logos-sep" aria-hidden="true"></span>')
     : `<strong class="login-nombre">${esc(MARCA.marca.join(' / '))}</strong>`;   // cliente sin logo todavía: su nombre
@@ -133,7 +131,6 @@ sb.auth.onAuthStateChange((evento) => {
 });
 
 $('logout').addEventListener('click', () => sb.auth.signOut());
-$('menu-btn').addEventListener('click', () => $('sidebar').classList.toggle('open'));
 
 function mensajeLogin(t) { $('login-msg').textContent = t; }
 
@@ -170,14 +167,12 @@ async function entrar(user) {
       db().from('empresas').select('id, nombre, nombre_corto, color').eq('activo', true).order('nombre_corto'),
       db().from('centros').select('id, nombre, tipo, empresa_id, en_gastos').eq('activo', true).order('nombre'),
     ]);
-    estado.empresas = emp.data || [];
-    estado.centros = cen.data || [];
+    estado.todasEmpresas = estado.empresas = emp.data || [];
+    estado.todosCentros = estado.centros = cen.data || [];
 
     const etiquetas = [miembro.rol, ...(miembro.roles || [])].map(rolLegible);
     $('user-box').innerHTML = `<span class="user-avatar" aria-hidden="true">${esc((miembro.nombre || '?').trim().charAt(0).toUpperCase())}</span>
       <span class="user-txt"><strong>${esc(miembro.nombre)}</strong><span>${esc([...new Set(etiquetas)].join(' · '))}</span></span>`;
-    pintarNav();
-    avisoProspectos();
     $('login').hidden = true;
     $('shell').hidden = false;
     navegar();
@@ -193,18 +188,35 @@ const rolLegible = (r) => ({ dueno: 'Dueño', socio: 'Socio', administracion: 'A
 // soloRoles: módulos que solo ve quien tiene ese rol (el dueño no los ve en su menú, p. ej. "Mi turno" del personal)
 const modulosDelUsuario = () => MODULOS.filter((m) => (m.soloRoles ? misRoles().some((r) => m.soloRoles.includes(r)) : tieneRol(m.roles)));
 
-function pintarNav() {
+// Mundos: Grupo (todo junto), Treme y MEDCO. Cada uno con sus propias secciones y sus propios datos.
+const LOGOS = Object.fromEntries((MARCA.logos || []).map((l) => [l.clase, l]));
+function empresaDe(mundo) { return mundo.empresa ? estado.todasEmpresas.find((e) => mundo.empresa.test(e.nombre) || mundo.empresa.test(e.nombre_corto || '')) : null; }
+function mundosDelUsuario() {
   const mios = modulosDelUsuario();
-  const grupos = [...new Set(mios.map((m) => m.grupo))];
-  $('nav').innerHTML = grupos.map((g) => `
-    <div class="nav-grupo">
-      ${grupos.length > 1 ? `<span class="nav-titulo">${esc(g)}</span>` : ''}
-      ${mios.filter((m) => m.grupo === g).map((m) => `
-        <a href="#/${m.id}" data-mod="${m.id}">
-          <span class="nav-ico">${m.icono}</span>${esc(m.titulo)}
-          ${m.listo ? '' : '<span class="nav-tag">pronto</span>'}
-        </a>`).join('')}
-    </div>`).join('');
+  const lista = MUNDOS.map((w) => {
+    const emp = empresaDe(w);
+    if (w.empresa && !emp) return null;                        // el usuario no ve esa empresa
+    const mods = w.modulos.map((id) => mios.find((m) => m.id === id)).filter(Boolean);
+    return mods.length ? { ...w, emp, mods } : null;
+  }).filter(Boolean);
+  // Grupo solo tiene sentido si ve más de una empresa
+  const empresas = lista.filter((w) => w.emp);
+  const final = empresas.length > 1 ? lista : lista.filter((w) => w.emp);
+  if (final.length) return final;
+  return [{ id: 'grupo', nombre: MARCA.marca[0] || 'Inicio', mods: mios, titulos: {}, color: '#101216' }];   // marca sin mundos
+}
+const tituloEn = (w, m) => w.titulos?.[m.id] || m.titulo;
+
+function pintarNav(w, todos) {
+  const unico = todos.length < 2;
+  $('mundos').hidden = unico;
+  $('mundos').innerHTML = todos.map((x) => {
+    const logo = x.logo && LOGOS[x.logo];
+    return `<a href="#/${x.id}/${x.mods[0].id}" class="mx-mundo${x.id === w.id ? ' activo' : ''}" data-mundo="${x.id}" style="--w:${x.color}">
+      ${logo ? `<img src="${logo.src}" alt="" class="mx-mundo-logo ${x.logo}">` : '<span class="mx-mundo-ico" aria-hidden="true"></span>'}
+      <span class="mx-mundo-txt"><strong>${esc(x.nombre)}</strong>${x.sub ? `<small>${esc(x.sub)}</small>` : ''}</span></a>`;
+  }).join('');
+  $('nav').innerHTML = w.mods.map((m) => `<a href="#/${w.id}/${m.id}" data-mod="${m.id}">${esc(tituloEn(w, m))}</a>`).join('');
 }
 
 // Contador en el menú de prospectos que llevan más de una hora sin respuesta (se revisa cada 5 minutos)
@@ -226,22 +238,39 @@ window.addEventListener('hashchange', navegar);
 
 async function navegar() {
   if (!estado.miembro) return;
-  const mios = modulosDelUsuario();
-  let id = location.hash.replace(/^#\/?/, '').split('?')[0];
-  let mod = mios.find((m) => m.id === id);
+  const todos = mundosDelUsuario();
+  const partes = location.hash.replace(/^#\/?/, '').split('?')[0].split('/').filter(Boolean);
+  let w = todos.find((x) => x.id === partes[0]);
+  let id = w ? partes[1] : partes[0];                          // también acepta las ligas viejas "#/gastos"
+  if (!w) w = todos.find((x) => x.id === mundoActual && x.mods.some((m) => m.id === id))
+    || todos.find((x) => x.mods.some((m) => m.id === id)) || todos.find((x) => x.id === mundoActual) || todos[0];
+  let mod = w.mods.find((m) => m.id === id);
   if (!mod) {
-    mod = mios.find((m) => m.listo) || mios[0];
+    mod = w.mods.find((m) => m.listo) || w.mods[0];
     if (!mod) {
       $('page-title').textContent = 'Sin módulos';
       $('view').innerHTML = '<div class="vacio">Tu usuario todavía no tiene módulos asignados. Pídele a Andrés que te dé acceso.</div>';
       return;
     }
-    history.replaceState(null, '', '#/' + mod.id);
   }
+  const destino = `#/${w.id}/${mod.id}` + (location.hash.includes('?') ? location.hash.slice(location.hash.indexOf('?')) : '');
+  if (location.hash !== destino) history.replaceState(null, '', destino);
+  // Alcance: en Treme o MEDCO solo se leen sus datos (empleados, gastos, centros…); en Grupo, todo
+  mundoActual = w.id;
+  estado.mundo = w;
+  estado.foco = w.emp ? w.emp.id : null;
+  estado.empresas = w.emp ? [w.emp] : estado.todasEmpresas;
+  estado.centros = w.emp ? estado.todosCentros.filter((c) => c.empresa_id === w.emp.id) : estado.todosCentros;
+  document.documentElement.style.setProperty('--primary', w.emp ? w.color : (MARCA.color || '#8B1A1A'));
+  document.body.dataset.mundo = w.id;
+  pintarNav(w, todos);
+  avisoProspectos();
   document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('active', a.dataset.mod === mod.id));
-  $('sidebar').classList.remove('open');
-  $('page-title').textContent = mod.titulo;
-  $('page-eyebrow').textContent = mod.grupo || '';
+  document.querySelector('#nav a.active')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  const titulo = tituloEn(w, mod);
+  $('page-title').textContent = titulo;
+  $('page-eyebrow').textContent = w.emp ? `${w.nombre} · ${w.sub}` : (todos.length > 1 ? 'Grupo · Treme y MEDCO' : (mod.grupo || ''));
+  document.title = `${titulo} · ${w.emp ? w.nombre : MARCA.nombre}`;
   $('top-fecha').textContent = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^./, (c) => c.toUpperCase());
   $('page-actions').innerHTML = '';
   // Cada vez que se abre un módulo se le da una caja nueva. Si una carga anterior sigue en camino
@@ -255,7 +284,7 @@ async function navegar() {
   try {
     const m = await (vistas[mod.vista || mod.id] || pendiente)();
     if (mio !== turno) return;
-    await m.render(caja, mod);
+    await m.render(caja, { ...mod, titulo: tituloEn(w, mod) });
   } catch (e) {
     console.error(e);
     if (mio === turno) caja.innerHTML = `<div class="vacio">No se pudo cargar el módulo.<br><small>${esc(e.message)}</small></div>`;
@@ -263,6 +292,7 @@ async function navegar() {
   if (mio === turno) view.focus({ preventScroll: true });
 }
 let turno = 0;
+let mundoActual = null;
 
 // Arranque: si no hay sesión, mostrar acceso
 sb.auth.getSession().then(({ data }) => { if (!data.session) salir(); });

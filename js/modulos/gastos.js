@@ -26,8 +26,8 @@ export async function render(view) {
     <div class="filtros">
       <select id="g-mes" aria-label="Mes">${MESES.map((m, i) => `<option value="${i}">${m}</option>`).join('')}</select>
       <select id="g-anio" aria-label="Año">${aniosDisponibles().map((a) => `<option>${a}</option>`).join('')}</select>
-      <select id="g-centro" aria-label="Centro">${opcionesCentro(true)}</select>
     </div>
+    <nav class="cx" id="g-centro" aria-label="Centro"></nav>
     <div class="kpis" id="g-kpis"></div>
     <section class="panel" id="g-porpagar" hidden></section>
     <div class="grid-2">
@@ -54,12 +54,14 @@ export async function render(view) {
     </section>`;
 
   const sel = (id) => view.querySelector('#' + id);
-  sel('g-mes').value = f.mes; sel('g-anio').value = f.anio; sel('g-centro').value = f.centro;
+  sel('g-mes').value = f.mes; sel('g-anio').value = f.anio;
+  // al cambiar de empresa arriba, el centro elegido de la otra empresa ya no aplica
+  if (f.centro !== 'todos' && !(f.centro.startsWith('emp:') ? estado.empresas.some((e) => 'emp:' + e.id === f.centro) : estado.centros.some((c) => c.id === f.centro))) f.centro = 'todos';
   sel('g-q').value = f.q; sel('g-cat').value = f.categoria; sel('g-forma').value = f.forma;
 
   sel('g-mes').addEventListener('change', (e) => { f.mes = +e.target.value; cargar(); });
   sel('g-anio').addEventListener('change', (e) => { f.anio = +e.target.value; cargar(); });
-  sel('g-centro').addEventListener('change', (e) => { f.centro = e.target.value; pintar(); });
+  sel('g-centro').addEventListener('click', (e) => { const b = e.target.closest('[data-cx]'); if (!b) return; f.centro = b.dataset.cx; pintar(); });
   sel('g-q').addEventListener('input', (e) => { f.q = e.target.value.toLowerCase(); pintarTabla(); });
   sel('g-cat').addEventListener('change', (e) => { f.categoria = e.target.value; pintarTabla(); });
   sel('g-forma').addEventListener('change', (e) => { f.forma = e.target.value; pintarTabla(); });
@@ -87,12 +89,25 @@ function opcionesCentro(conAgrupadores, incluir = '') {
   return (conAgrupadores ? '<option value="todos">Todos</option>' : '<option value="">Elige…</option>') + grupos;
 }
 
+// Selector de centro: botones con lo gastado en el mes, del que más gastó al que menos (sin menú desplegable)
+const nombreCorto = (c) => c.nombre.replace(/^Socios - /, 'Socio: ');
 function refrescarSelectorCentro() {
   const s = raiz.querySelector('#g-centro');
   if (!s) return;
-  s.innerHTML = opcionesCentro(true, f.centro);
-  s.value = f.centro;
+  const suma = (fn) => datos.filter(fn).reduce((t, g) => t + Number(g.monto || 0), 0);
+  const chip = (k, txt, monto, extra = '') => `<button class="cx-chip ${f.centro === k ? 'activo' : ''} ${monto ? '' : 'cero'} ${extra}" data-cx="${k}">
+    <span>${esc(txt)}</span><b>${monto ? fmtCorto(monto) : '—'}</b></button>`;
+  const varias = estado.empresas.length > 1;
+  const bloques = estado.empresas.map((e) => {
+    const cs = estado.centros.filter((c) => c.empresa_id === e.id && (c.en_gastos !== false || c.id === f.centro))
+      .map((c) => ({ c, m: suma((g) => g.centro_id === c.id) })).sort((a, b) => b.m - a.m || a.c.nombre.localeCompare(b.c.nombre, 'es'));
+    if (!cs.length) return '';
+    return `<div class="cx-grupo">${varias ? chip('emp:' + e.id, 'Todo ' + e.nombre_corto, suma((g) => g.empresa_id === e.id), 'cx-emp') : ''}
+      ${cs.map(({ c, m }) => chip(c.id, nombreCorto(c), m)).join('')}</div>`;
+  }).join('');
+  s.innerHTML = chip('todos', varias ? 'Todo el grupo' : 'Todos los centros', suma(() => true), 'cx-todos') + bloques;
 }
+const fmtCorto = (n) => n >= 1e6 ? `$${(n / 1e6).toFixed(1)} M` : n >= 1e3 ? `$${Math.round(n / 1e3)} mil` : fmt(n);
 
 async function cargar() {
   const desde = new Date(f.anio, f.mes, 1);
@@ -121,7 +136,7 @@ function filtrados() {
   });
 }
 
-function pintar() { pintarKPIs(); pintarPorPagar(); pintarCategorias(); pintarCentros(); pintarTabla(); }
+function pintar() { refrescarSelectorCentro(); pintarKPIs(); pintarPorPagar(); pintarCategorias(); pintarCentros(); pintarTabla(); }
 
 const suma = (arr) => arr.reduce((s, g) => s + Number(g.monto || 0), 0);
 
@@ -175,7 +190,6 @@ function pintarCentros() {
   }, true);
   cont.querySelectorAll('li.clic').forEach((li) => li.addEventListener('click', () => {
     f.centro = li.dataset.k;
-    raiz.querySelector('#g-centro').value = f.centro;
     pintar();
   }));
 }
@@ -346,7 +360,8 @@ function abrirFormulario(g = null) {
           <label class="opcion opcion-linea"><input type="radio" name="estado" value="pagado" checked> Sí, ya se pagó</label>
           <label class="opcion opcion-linea"><input type="radio" name="estado" value="por_pagar"> No, es un pedido por pagar</label>
         </div></fieldset>
-        <label>Centro<select name="centro_id" required>${opcionesCentro(false)}</select></label>
+        <fieldset class="opciones"><legend>¿De qué centro es?</legend><div class="cx cx-form" id="gf-centros"></div>
+          <select name="centro_id" required hidden>${opcionesCentro(false)}</select></fieldset>
         <div class="form-2">
           <label><span id="gf-lbl-fecha">Fecha</span><input type="date" name="fecha" required value="${hoyISO()}"></label>
           <label>Monto<input type="number" name="monto" required min="0.01" step="0.01" inputmode="decimal" placeholder="0.00"></label>
@@ -371,6 +386,20 @@ function abrirFormulario(g = null) {
   const form = modal.querySelector('#gf');
   if (g) form.centro_id.innerHTML = opcionesCentro(false, g.centro_id);   // si el gasto viejo está en un centro oculto
   form.centro_id.value = centroInicial;
+  const pintarCentrosForm = () => {
+    const actual = form.centro_id.value, varias = estado.empresas.length > 1;
+    modal.querySelector('#gf-centros').innerHTML = estado.empresas.map((e) => {
+      const cs = [...form.centro_id.querySelectorAll('option')].filter((o) => o.value && centro(o.value)?.empresa_id === e.id);
+      if (!cs.length) return '';
+      return `<div class="cx-grupo">${varias ? `<span class="cx-eti" style="--e:${/medco/i.test(e.nombre) ? 'var(--medco)' : 'var(--treme)'}">${esc(e.nombre_corto)}</span>` : ''}
+        ${cs.map((o) => `<button type="button" class="cx-chip ${o.value === actual ? 'activo' : ''}" data-fc="${o.value}"><span>${esc(o.textContent)}</span></button>`).join('')}</div>`;
+    }).join('');
+  };
+  pintarCentrosForm();
+  modal.querySelector('#gf-centros').addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-fc]'); if (!b) return;
+    form.centro_id.value = b.dataset.fc; form.centro_id.dispatchEvent(new Event('change', { bubbles: true })); pintarCentrosForm();
+  });
   if (g) {
     form.querySelector(`input[name="estado"][value="${g.estado === 'por_pagar' ? 'por_pagar' : 'pagado'}"]`).checked = true;
     form.fecha.value = g.fecha;

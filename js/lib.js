@@ -3,10 +3,30 @@ import { SUPABASE_URL, SUPABASE_KEY, ESQUEMA } from './config.js';
 export const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
 });
-export const db = () => sb.schema(ESQUEMA);
+// Estado de la sesión: usuario, membresía y catálogos compartidos.
+// foco = empresa del mundo abierto (Treme o MEDCO); null = Grupo (las dos). empresas/centros ya vienen filtrados al foco;
+// todasEmpresas/todosCentros guardan la lista completa.
+export const estado = { user: null, miembro: null, empresas: [], centros: [], foco: null, todasEmpresas: [], todosCentros: [] };
 
-// Estado de la sesión: usuario, membresía y catálogos compartidos
-export const estado = { user: null, miembro: null, empresas: [], centros: [] };
+// Tablas con empresa_id: dentro de un mundo, toda lectura se limita a esa empresa (así MEDCO y Treme nunca se revuelven).
+// Escribir (insert/update/delete) no cambia: cada módulo ya guarda la empresa del centro elegido.
+const CON_EMPRESA = new Set(['activos', 'centros', 'cuentas_por_cobrar', 'empleados', 'gastos', 'ingresos', 'inversion_publicidad',
+  'nomina_periodos', 'pagos', 'pasivos', 'prospectos', 'v_gasto_mensual', 'v_saldos_cxc']);
+export const db = () => {
+  const s = sb.schema(ESQUEMA);
+  if (!estado.foco) return s;
+  return {
+    from(tabla) {
+      const b = s.from(tabla);
+      if (!CON_EMPRESA.has(tabla)) return b;
+      const sel = b.select.bind(b);
+      b.select = (...a) => sel(...a).eq('empresa_id', estado.foco);
+      return b;
+    },
+    rpc: (...a) => s.rpc(...a),
+    storage: s.storage,
+  };
+};
 
 // Rol principal + roles extra de la persona que entró
 export const misRoles = () => estado.miembro ? [estado.miembro.rol, ...(estado.miembro.roles || [])] : [];

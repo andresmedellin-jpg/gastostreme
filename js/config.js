@@ -82,7 +82,7 @@ export const MODULOS = [
   { id: 'cotizaciones', grupo: 'Ventas',  titulo: 'Cotizaciones',     icono: ICONOS.cotizaciones, roles: ['dueno','administracion','cobranza'], listo: true, opcional: true },
   { id: 'inventario', grupo: 'Ventas',    titulo: 'Inventario',       icono: ICONOS.inventario, roles: ['dueno','administracion','operacion'], listo: true, opcional: true },
   { id: 'patrimonio', grupo: 'Finanzas',  titulo: 'Patrimonio',       icono: ICONOS.patrimonio, roles: ['dueno','socio'], listo: true },
-  { id: 'personal',   grupo: 'Operación', titulo: 'Personal',         icono: ICONOS.personal,   roles: ['dueno','administracion','encargado'], listo: true },
+  { id: 'personal',   grupo: 'Operación', titulo: 'Nómina y equipo',  icono: ICONOS.personal,   roles: ['dueno','administracion','encargado'], listo: true },
   // Personal separado en el menú (solo si la marca lo pide con sus ids en "modulos"; usan el módulo de Personal)
   { id: 'nomina',      grupo: 'Personal', titulo: 'Nómina',      icono: ICONOS.nomina,      roles: ['dueno','administracion'], listo: true, opcional: true, vista: 'personal', tab: 'nomina' },
   { id: 'asistencia',  grupo: 'Personal', titulo: 'Asistencia',  icono: ICONOS.asistencia,  roles: ['dueno','administracion','encargado'], listo: true, opcional: true, vista: 'personal', tab: 'asistencia' },
@@ -114,7 +114,7 @@ export const PERFILES = [
   { id: 'encargado', titulo: 'Encargado de sitio',         rol: 'encargado', roles: [],
     desc: 'Tareas, rondines, incidencias y asistencia de su personal. No ve dinero.' },
   { id: 'equipo',    titulo: 'Equipo (vigilancia, limpieza)', rol: 'equipo', roles: [],
-    desc: 'Desde su celular: checa con foto, hace su rondín, marca sus pendientes, recibe paquetes y busca placas. No ve dinero. Mejor dale acceso desde Personal → Empleados para ligarlo a su ficha.' },
+    desc: 'Desde su celular: checa con foto, hace su rondín, marca sus pendientes, recibe paquetes y busca placas. No ve dinero. Mejor dale acceso desde Nómina y equipo → Plantilla para ligarlo a su ficha.' },
   { id: 'admin',     titulo: 'Administración',             rol: 'administracion', roles: [],
     desc: 'Todo, incluidos Casa, Socios y nómina, menos Patrimonio y Usuarios.' },
 ];
@@ -164,4 +164,15 @@ MODULOS.forEach((m) => { if (MARCA.titulos[m.id]) m.titulo = MARCA.titulos[m.id]
 export const MODULOS_ACTIVOS = MODULOS.filter((m) => (MARCA.modulos ? MARCA.modulos.includes(m.id) : !m.opcional));
 if (MARCA.modulos) MODULOS_ACTIVOS.sort((a, b) => MARCA.modulos.indexOf(a.id) - MARCA.modulos.indexOf(b.id));
 
+// Mundos de la plataforma: cada empresa con sus propias secciones (barra superior). Grupo = las dos juntas.
+// empresa: cómo se reconoce la empresa por su nombre (null = todas). titulos: nombre de la sección dentro de ese mundo.
+export const MUNDOS = [
+  { id: 'grupo', nombre: 'Grupo', sub: 'Treme · MEDCO', empresa: null, color: '#101216',
+    modulos: ['inicio', 'patrimonio', 'gastos', 'importar', 'usuarios'], titulos: { inicio: 'Resumen del grupo', gastos: 'Gastos consolidados', patrimonio: 'Patrimonio' } },
+  { id: 'treme', nombre: 'Treme', sub: 'Grupo Inmobiliario', empresa: /treme/i, color: '#8B1A1A', logo: 'logo-treme',
+    modulos: ['inicio', 'rentas', 'cobranza', 'reportes', 'servicios', 'lecturas', 'gastos', 'personal', 'patrimonio'],
+    titulos: { inicio: 'Resumen', reportes: 'Reporte Elysium', servicios: 'Luz, gas y agua', lecturas: 'Lecturas' } },
+  { id: 'medco', nombre: 'MEDCO', sub: 'Desarrollos y Proyectos', empresa: /medco/i, color: '#23408E', logo: 'logo-medco',
+    modulos: ['inicio', 'obras', 'prospectos', 'cotizaciones', 'inventario', 'gastos', 'personal', 'patrimonio'], titulos: { inicio: 'Resumen' } },
+];
 export const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];

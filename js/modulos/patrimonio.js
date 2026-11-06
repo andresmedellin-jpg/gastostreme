@@ -1,7 +1,7 @@
-// Patrimonio: activos (inmuebles) y pasivos (deudas). Solo el dueño lo ve.
+// Patrimonio: activos (inmuebles) y pasivos (deudas), para decidir. Solo el dueño y los socios lo ven.
 import { db, estado, fmt, fmtFecha, esc, toast, abrirModal, cerrarModal, normalizar } from '../lib.js';
 
-const st = { vista: 'activos', entidad: '', q: '' };
+const st = { vista: 'panorama', entidad: '', q: '' };
 let raiz, activos = [], pasivos = [];
 
 // Campos editables: [columna, etiqueta, tipo, opciones]
@@ -26,16 +26,17 @@ const CAMPOS_PASIVO = [
   ['garantia', 'Garantía', 'text'], ['notas', 'Notas', 'textarea'],
 ];
 
+// Tres vistas: Panorama (para decidir: rendimiento, deuda cara, capital parado y simulador de venta),
+// Inmuebles y Deuda (registros, con su rendimiento y su costo).
 export async function render(view) {
   raiz = view;
   view.innerHTML = `
     <div class="sub-head">
       <div class="tabs" role="tablist">
-        <button role="tab" data-vista="activos">Activos</button><button role="tab" data-vista="pasivos">Pasivos</button>
+        <button role="tab" data-vista="panorama">Panorama</button><button role="tab" data-vista="activos">Inmuebles</button><button role="tab" data-vista="pasivos">Deuda</button>
       </div>
       <div class="sub-meta">Solo lo ven el dueño y los socios</div>
     </div>
-    <div id="pt-kpis"></div>
     <div id="pt-cuerpo"><div class="cargando">Cargando…</div></div>`;
   view.querySelectorAll('[data-vista]').forEach((b) => b.addEventListener('click', () => {
     if (st.vista !== b.dataset.vista) { st.q = ''; st.entidad = ''; }
@@ -60,90 +61,208 @@ const sumaPor = (lista, campo, moneda) => lista.filter((r) => (r.moneda || 'MXN'
 const usd = (v) => '$' + Math.round(v).toLocaleString('es-MX') + ' USD';
 const corto = (v) => {
   const a = Math.abs(v);
-  return (v < 0 ? '−' : '') + (a >= 1e6 ? `$${(a / 1e6).toFixed(1)} M` : fmt(a));
+  return (v < 0 ? '−' : '') + (a >= 1e6 ? `$${(a / 1e6).toFixed(1)} M` : a >= 1e4 ? `$${Math.round(a / 1e3)} mil` : fmt(a));
 };
+const pct = (v, d = 1) => (v * 100).toLocaleString('es-MX', { maximumFractionDigits: d, minimumFractionDigits: d }) + ' %';
+// Rendimiento anual bruto de un inmueble: renta × 12 / valor
+const rend = (a) => num(a.valor_comercial) && num(a.ingreso_mensual) ? num(a.ingreso_mensual) * 12 / num(a.valor_comercial) : 0;
+const rentado = (a) => num(a.ingreso_mensual) > 0;
+// Costo de una deuda: lo que se paga al mes como % del saldo (si no hay pago registrado, la tasa guardada)
+const costoMes = (p) => num(p.saldo_actual) && num(p.pago_mensual) ? num(p.pago_mensual) / num(p.saldo_actual) : null;
+const nombreActivo = (a) => [a.tipo_unidad, a.identificador].filter(Boolean).join(' · ') || a.codigo || 'Inmueble';
 
 function pintar() {
   raiz.querySelectorAll('[data-vista]').forEach((b) => b.setAttribute('aria-selected', b.dataset.vista === st.vista));
-  const valMXN = sumaPor(activos, 'valor_comercial', 'MXN'), valUSD = sumaPor(activos, 'valor_comercial', 'USD');
-  const deuda = sumaPor(pasivos, 'saldo_actual', 'MXN'), deudaUSD = sumaPor(pasivos, 'saldo_actual', 'USD');
-  const renta = sumaPor(activos, 'ingreso_mensual', 'MXN');
-  const pagos = sumaPor(pasivos, 'pago_mensual', 'MXN');
-  const sinValor = activos.filter((a) => !num(a.valor_comercial)).length;
-  raiz.querySelector('#pt-kpis').innerHTML = `
-    <div class="kpis">
-      <div class="kpi"><span>Valor de activos</span><strong class="pos">${corto(valMXN)}</strong>
-        <small>${activos.length} inmuebles${valUSD ? ` · + ${usd(valUSD)}` : ''}${sinValor ? ` · ${sinValor} sin valor` : ''}</small></div>
-      <div class="kpi"><span>Deuda total</span><strong class="neg">${corto(deuda)}</strong>
-        <small>${pasivos.length} pasivos${deudaUSD ? ` · + ${usd(deudaUSD)}` : ''} · ${valMXN ? Math.round(deuda / valMXN * 100) : 0}% del valor</small></div>
-      <div class="kpi"><span>Patrimonio neto</span><strong>${corto(valMXN - deuda)}</strong><small>activos − deuda (en pesos)</small></div>
-      <div class="kpi"><span>Flujo mensual</span><strong class="${renta - pagos >= 0 ? 'pos' : 'neg'}">${fmt(renta - pagos)}</strong>
-        <small>${fmt(renta)} rentas − ${fmt(pagos)} pagos de deuda</small></div>
-    </div>`;
-  document.getElementById('page-actions').innerHTML =
-    `<button class="btn btn-primary" id="pt-nuevo">＋ ${st.vista === 'activos' ? 'Activo' : 'Pasivo'}</button>`;
-  document.getElementById('pt-nuevo').addEventListener('click', () => editar(st.vista, null));
+  document.getElementById('page-actions').innerHTML = st.vista === 'panorama' ? ''
+    : `<button class="btn btn-primary" id="pt-nuevo">＋ ${st.vista === 'activos' ? 'Inmueble' : 'Deuda'}</button>`;
+  document.getElementById('pt-nuevo')?.addEventListener('click', () => editar(st.vista, null));
   const el = raiz.querySelector('#pt-cuerpo');
-  st.vista === 'activos' ? pintarActivos(el) : pintarPasivos(el);
+  ({ panorama: pintarPanorama, activos: pintarActivos, pasivos: pintarPasivos })[st.vista](el);
 }
 
-function pintarActivos(el) {
-  const entidades = [...new Set(activos.map((a) => a.entidad_legal || 'Sin asignar'))].sort();
-  const porEntidad = entidades.map((e) => {
-    const l = activos.filter((a) => (a.entidad_legal || 'Sin asignar') === e);
-    return { e, n: l.length, mxn: sumaPor(l, 'valor_comercial', 'MXN'), usd: sumaPor(l, 'valor_comercial', 'USD'), renta: sumaPor(l, 'ingreso_mensual', 'MXN') };
-  }).sort((a, b) => b.mxn - a.mxn);
-  const max = Math.max(1, ...porEntidad.map((x) => x.mxn));
-  const filas = activos.filter((a) => (!st.entidad || (a.entidad_legal || 'Sin asignar') === st.entidad)
-    && (!st.q || normalizar([a.codigo, a.identificador, a.tipo_unidad, a.ciudad, a.inquilino, a.uso_actual].join(' ')).includes(normalizar(st.q))));
+// ================= PANORAMA =================
+function pintarPanorama(el) {
+  const mx = activos.filter((a) => (a.moneda || 'MXN') === 'MXN');
+  const val = sumaPor(activos, 'valor_comercial', 'MXN'), valUSD = sumaPor(activos, 'valor_comercial', 'USD');
+  const deuda = sumaPor(pasivos, 'saldo_actual', 'MXN');
+  const renta = sumaPor(activos, 'ingreso_mensual', 'MXN'), pagos = sumaPor(pasivos, 'pago_mensual', 'MXN');
+  const ltv = val ? deuda / val : 0;
+  const conRenta = mx.filter((a) => rentado(a) && num(a.valor_comercial));
+  const rendProm = conRenta.reduce((s, a) => s + num(a.valor_comercial), 0) ? conRenta.reduce((s, a) => s + num(a.ingreso_mensual) * 12, 0) / conRenta.reduce((s, a) => s + num(a.valor_comercial), 0) : 0;
+  const parados = mx.filter((a) => !rentado(a) && num(a.valor_comercial));
+  const valParado = parados.reduce((s, a) => s + num(a.valor_comercial), 0);
+  const caras = pasivos.filter((p) => costoMes(p) != null).sort((a, b) => costoMes(b) - costoMes(a));
+  const sinPago = pasivos.filter((p) => costoMes(p) == null);
+  const costoProm = caras.reduce((s, p) => s + num(p.saldo_actual), 0) ? caras.reduce((s, p) => s + num(p.pago_mensual), 0) / caras.reduce((s, p) => s + num(p.saldo_actual), 0) : 0;
+  const bajo = conRenta.filter((a) => rend(a) < rendProm * 0.7).sort((a, b) => rend(a) - rend(b));
+
+  // Rendimiento por inmueble (rentados, en pesos), del mejor al peor
+  const ranking = [...conRenta].sort((a, b) => rend(b) - rend(a));
+  const maxR = Math.max(0.0001, ...ranking.map(rend));
+  // Concentración por tipo y por dueño legal
+  const grupoPor = (fn) => {
+    const m = new Map();
+    mx.forEach((a) => { const k = fn(a) || 'Sin asignar'; const x = m.get(k) || { k, val: 0, renta: 0, n: 0 }; x.val += num(a.valor_comercial); x.renta += num(a.ingreso_mensual); x.n++; m.set(k, x); });
+    return [...m.values()].sort((a, b) => b.val - a.val);
+  };
+  const COLS = ['#101216', '#8B1A1A', '#23408E', '#A15C07', '#0F7A4F', '#8A8F98', '#5B4B8A'];
+  const barra = (lista) => `<div class="pz-stack">${lista.map((x, i) => `<span style="width:${val ? x.val / val * 100 : 0}%;background:${COLS[i % COLS.length]}" title="${esc(x.k)} · ${corto(x.val)}"></span>`).join('')}</div>
+    <ul class="pz-ley">${lista.map((x, i) => `<li><i style="background:${COLS[i % COLS.length]}"></i><span>${esc(x.k)}</span><b>${val ? pct(x.val / val, 0) : '—'}</b>
+      <small>${x.n} · ${corto(x.val)} · ${x.renta ? `renta ${corto(x.renta)}/mes · ${pct(x.renta * 12 / Math.max(1, x.val))}` : 'sin renta'}</small></li>`).join('')}</ul>`;
+
+  // Lecturas para decidir (reglas simples, con números)
+  const ideas = [];
+  if (caras.length && rendProm && costoProm * 12 > rendProm) ideas.push({ c: 'mal', t: 'La deuda pesa más en el flujo de lo que rinden los inmuebles',
+    d: `Los pagos de la deuda con pago registrado equivalen a ${pct(costoProm)} del saldo al mes (${pct(costoProm * 12, 0)} al año), y los inmuebles rentados rinden ${pct(rendProm)} al año. Vender un inmueble de bajo rendimiento para bajar la deuda más cara mejora el flujo del mes (pruébalo en el simulador).` });
+  if (caras[0]) ideas.push({ c: 'aviso', t: `Deuda más cara: ${caras[0].acreedor}`,
+    d: `${corto(num(caras[0].saldo_actual))} con pago de ${fmt(caras[0].pago_mensual)} al mes (${pct(costoMes(caras[0]))} del saldo). Es la primera que conviene liquidar o refinanciar.` });
+  if (parados.length) ideas.push({ c: 'aviso', t: `${corto(valParado)} en inmuebles sin renta`,
+    d: `${parados.length} inmueble${parados.length === 1 ? '' : 's'} no genera${parados.length === 1 ? '' : 'n'} ingreso (${pct(val ? valParado / val : 0, 0)} del valor). Rentados al rendimiento promedio darían unos ${fmt(valParado * rendProm / 12)} al mes.` });
+  if (bajo.length) ideas.push({ c: '', t: `${bajo.length} inmueble${bajo.length === 1 ? '' : 's'} rinde${bajo.length === 1 ? '' : 'n'} muy por debajo del promedio`,
+    d: `${bajo.slice(0, 3).map((a) => `${esc(nombreActivo(a))} (${pct(rend(a))})`).join(', ')}${bajo.length > 3 ? '…' : ''}. Candidatos a subir renta, cambiar de inquilino o vender.` });
+  if (sinPago.length) ideas.push({ c: '', t: `${sinPago.length} deuda${sinPago.length === 1 ? '' : 's'} sin pago mensual ni plazo`,
+    d: `${corto(sinPago.reduce((s, p) => s + num(p.saldo_actual), 0))} sin calendario (${sinPago.slice(0, 4).map((p) => esc(p.acreedor)).join(', ')}${sinPago.length > 4 ? '…' : ''}). Conviene fijarles pago y fecha para planear el flujo.` });
+  if (!activos.some((a) => num(a.renta_mercado_estimada))) ideas.push({ c: '', t: 'Falta la renta de mercado',
+    d: 'Si capturas la renta de mercado estimada de cada inmueble, aquí verás cuánto se está dejando de cobrar contra el mercado.' });
+
   el.innerHTML = `
-    <section class="panel"><h3>Por dueño legal</h3>
-      <ul class="barras">${porEntidad.map((x) => `<li class="clic ${st.entidad === x.e ? 'activa' : ''}" data-entidad="${esc(x.e)}" tabindex="0" role="button">
-        <span class="barra-nombre">${esc(x.e)} <em>${x.n} · renta ${fmt(x.renta)}/mes</em></span>
-        <span class="barra-pista"><span class="pos" style="width:${Math.max(2, x.mxn / max * 100)}%"></span></span>
-        <span class="barra-monto">${corto(x.mxn)}${x.usd ? ` + ${usd(x.usd)}` : ''}</span></li>`).join('')}</ul>
+    <section class="pz-hero">
+      <div class="pz-neto"><span>Patrimonio neto</span><strong>${corto(val - deuda)}</strong><small>${corto(val)} en inmuebles − ${corto(deuda)} de deuda${valUSD ? ` · aparte ${usd(valUSD)}` : ''}</small></div>
+      <div class="pz-m"><span>Deuda / valor</span><strong>${pct(ltv, 0)}</strong><div class="pz-pista"><span style="width:${Math.min(100, ltv * 100)}%" class="${ltv > .5 ? 'mal' : ltv > .3 ? 'aviso' : ''}"></span></div><small>${ltv <= .3 ? 'Nivel sano' : ltv <= .5 ? 'Moderado' : 'Alto'}</small></div>
+      <div class="pz-m"><span>Flujo mensual</span><strong class="${renta - pagos >= 0 ? 'pos' : 'neg'}">${corto(renta - pagos)}</strong><small>${corto(renta)} rentas − ${corto(pagos)} pagos de deuda</small></div>
+      <div class="pz-m"><span>Rendimiento de inmuebles</span><strong>${pct(rendProm)}</strong><small>anual bruto de los ${conRenta.length} rentados</small></div>
+      <div class="pz-m"><span>Costo de la deuda</span><strong>${costoProm ? pct(costoProm) : '—'}</strong><small>pago mensual / saldo, ${caras.length} con pago</small></div>
     </section>
+
+    <div class="pz-grid">
+      <section class="panel pz-ideas"><h3>Lectura para decidir</h3>
+        <ul>${ideas.map((i) => `<li class="${i.c}"><strong>${i.t}</strong><p>${i.d}</p></li>`).join('') || '<li>Sin alertas.</li>'}</ul></section>
+      <section class="panel pz-sim" id="pz-sim"></section>
+    </div>
+
+    <section class="panel"><div class="panel-head"><h3>Rendimiento por inmueble</h3><span class="sub-meta">renta anual ÷ valor · línea = promedio ${pct(rendProm)}</span></div>
+      <ul class="pz-rank">${ranking.map((a) => `<li class="clic" data-editar="${a.id}" tabindex="0">
+        <span class="pz-rn"><b>${esc(nombreActivo(a))}</b><small>${esc(a.entidad_legal || '')}${a.inquilino ? ' · ' + esc(a.inquilino) : ''}</small></span>
+        <span class="pz-rb"><span class="${rend(a) < rendProm * .7 ? 'bajo' : rend(a) > rendProm * 1.3 ? 'alto' : ''}" style="width:${rend(a) / maxR * 100}%"></span><i style="left:${rendProm / maxR * 100}%"></i></span>
+        <span class="pz-rv"><b>${pct(rend(a))}</b><small>${corto(num(a.ingreso_mensual))}/mes · ${corto(num(a.valor_comercial))}</small></span></li>`).join('')}</ul>
+      ${parados.length ? `<h4 class="pz-sub">Sin renta · ${corto(valParado)}</h4><ul class="pz-parados">${parados.sort((a, b) => num(b.valor_comercial) - num(a.valor_comercial)).map((a) =>
+        `<li class="clic" data-editar="${a.id}" tabindex="0"><b>${esc(nombreActivo(a))}</b><span>${esc(a.uso_actual || 'Sin uso definido')}</span><strong>${corto(num(a.valor_comercial))}</strong></li>`).join('')}</ul>` : ''}
+    </section>
+
+    <div class="grid-2">
+      <section class="panel"><h3>Por tipo de inmueble</h3>${barra(grupoPor((a) => a.tipo_unidad))}</section>
+      <section class="panel"><h3>Por dueño legal</h3>${barra(grupoPor((a) => a.entidad_legal))}</section>
+    </div>`;
+  el.querySelectorAll('[data-editar]').forEach((tr) => activar(tr, () => editar('activos', tr.dataset.editar)));
+  simulador(el.querySelector('#pz-sim'), { mx, caras, sinPago, renta, pagos, val, deuda });
+}
+
+// ¿Qué pasa si vendo…? Se eligen inmuebles; el dinero paga primero la deuda más cara.
+function simulador(el, { mx, caras, sinPago, renta, pagos, val, deuda }) {
+  st.venta ||= new Set();
+  const candidatos = [...mx].filter((a) => num(a.valor_comercial)).sort((a, b) => (rentado(a) - rentado(b)) || rend(a) - rend(b));
+  const pintarSim = () => {
+    const elegidos = candidatos.filter((a) => st.venta.has(a.id));
+    const descuento = (st.descVenta ?? 10) / 100;
+    let caja = elegidos.reduce((s, a) => s + num(a.valor_comercial), 0) * (1 - descuento);
+    const bruto = caja;
+    const rentaPerdida = elegidos.reduce((s, a) => s + num(a.ingreso_mensual), 0);
+    let pagosAhorro = 0; const liquida = [];
+    for (const p of [...caras, ...sinPago]) {
+      if (caja <= 0) break;
+      const s = num(p.saldo_actual), usa = Math.min(s, caja);
+      caja -= usa;
+      if (costoMes(p) != null) pagosAhorro += num(p.pago_mensual) * (usa / s);
+      liquida.push({ p, usa, total: usa >= s - 0.5 });
+    }
+    const nuevoFlujo = renta - rentaPerdida - (pagos - pagosAhorro);
+    const nuevaDeuda = deuda - (bruto - caja), nuevoVal = val - elegidos.reduce((s, a) => s + num(a.valor_comercial), 0);
+    el.innerHTML = `<div class="panel-head"><h3>¿Qué pasa si vendo…?</h3><label class="pz-desc">Vender con descuento de <input type="number" id="pz-d" min="0" max="50" step="1" value="${st.descVenta ?? 10}"> %</label></div>
+      <p class="sub-meta">Elige inmuebles; lo que se obtenga paga primero la deuda más cara.</p>
+      <div class="pz-cands">${candidatos.slice(0, 14).map((a) => `<label class="pz-cand ${st.venta.has(a.id) ? 'on' : ''}"><input type="checkbox" value="${a.id}" ${st.venta.has(a.id) ? 'checked' : ''}>
+        <span><b>${esc(nombreActivo(a))}</b><small>${rentado(a) ? `rinde ${pct(rend(a))}` : 'sin renta'} · ${corto(num(a.valor_comercial))}</small></span></label>`).join('')}</div>
+      ${elegidos.length ? `<div class="pz-res">
+        <div><span>Se obtiene</span><strong>${corto(bruto)}</strong></div>
+        <div><span>Flujo mensual</span><strong class="${nuevoFlujo - (renta - pagos) >= 0 ? 'pos' : 'neg'}">${nuevoFlujo - (renta - pagos) >= 0 ? '+' : ''}${corto(nuevoFlujo - (renta - pagos))}</strong><small>pasa a ${corto(nuevoFlujo)}</small></div>
+        <div><span>Deuda / valor</span><strong>${nuevoVal ? pct(Math.max(0, nuevaDeuda) / nuevoVal, 0) : '—'}</strong><small>antes ${val ? pct(deuda / val, 0) : '—'}</small></div></div>
+        <ul class="pz-liq">${liquida.map((x) => `<li><span>${esc(x.p.acreedor)}</span><b>${x.total ? 'Se liquida' : 'Abono ' + corto(x.usa)}</b></li>`).join('')}
+          ${caja > 0.5 ? `<li><span>Sobra en caja</span><b>${corto(caja)}</b></li>` : ''}</ul>
+        <p class="nota">Se deja de cobrar ${fmt(rentaPerdida)} de renta y se dejan de pagar ${fmt(pagosAhorro)} al mes de deuda. Estimación sin impuestos ni comisiones de venta.</p>`
+      : '<div class="vacio">Elige uno o varios inmuebles para ver el efecto.</div>'}`;
+    el.querySelectorAll('.pz-cand input').forEach((c) => c.addEventListener('change', () => { c.checked ? st.venta.add(c.value) : st.venta.delete(c.value); pintarSim(); }));
+    el.querySelector('#pz-d').addEventListener('change', (e) => { st.descVenta = Math.max(0, Math.min(50, Number(e.target.value) || 0)); pintarSim(); });
+  };
+  pintarSim();
+}
+
+// ================= INMUEBLES =================
+function pintarActivos(el) {
+  const val = sumaPor(activos, 'valor_comercial', 'MXN');
+  const entidades = [...new Set(activos.map((a) => a.entidad_legal || 'Sin asignar'))].sort();
+  st.orden ||= 'rend';
+  const filas = activos.filter((a) => (!st.entidad || (a.entidad_legal || 'Sin asignar') === st.entidad)
+    && (!st.q || normalizar([a.codigo, a.identificador, a.tipo_unidad, a.ciudad, a.inquilino, a.uso_actual].join(' ')).includes(normalizar(st.q))))
+    .sort((a, b) => st.orden === 'valor' ? num(b.valor_comercial) - num(a.valor_comercial) : st.orden === 'codigo' ? String(a.codigo).localeCompare(String(b.codigo), 'es', { numeric: true }) : rend(b) - rend(a));
+  el.innerHTML = `
+    <div class="cx">${['', ...entidades].map((e) => {
+      const l = activos.filter((a) => !e || (a.entidad_legal || 'Sin asignar') === e);
+      return `<button class="cx-chip ${st.entidad === e ? 'activo' : ''}" data-entidad="${esc(e)}"><span>${esc(e || 'Todos')}</span><b>${l.length} · ${corto(sumaPor(l, 'valor_comercial', 'MXN'))}</b></button>`; }).join('')}</div>
     <section class="panel">
-      <div class="panel-head"><h3>${filas.length} activo${filas.length !== 1 ? 's' : ''}${st.entidad ? ' · ' + esc(st.entidad) : ''}</h3>
-        <input type="search" id="pt-q" placeholder="Buscar código, unidad, inquilino…" value="${esc(st.q)}" aria-label="Buscar activo"></div>
+      <div class="panel-head"><h3>${filas.length} inmueble${filas.length !== 1 ? 's' : ''}</h3>
+        <div class="filtros filtros-sm"><input type="search" id="pt-q" placeholder="Buscar código, unidad, inquilino…" value="${esc(st.q)}" aria-label="Buscar inmueble">
+          <select id="pt-orden" aria-label="Ordenar"><option value="rend">Por rendimiento</option><option value="valor">Por valor</option><option value="codigo">Por código</option></select></div></div>
       <div class="tabla-wrap"><table class="tabla">
-        <thead><tr><th>Código</th><th>Inmueble</th><th>Uso / inquilino</th><th class="num">m²</th><th class="num">Valor</th><th class="num">Renta/mes</th><th class="num">Rend. anual</th></tr></thead>
+        <thead><tr><th>Código</th><th>Inmueble</th><th>Uso / inquilino</th><th class="num">m²</th><th class="num">Valor</th><th class="num">Renta/mes</th><th class="num">Rend. anual</th><th class="num">% del total</th></tr></thead>
         <tbody>${filas.length ? filas.map((a) => {
-          const val = num(a.valor_comercial), ren = num(a.ingreso_mensual);
-          const dinero = (v) => v ? (a.moneda === 'USD' ? usd(v) : fmt(v)) : '—';
+          const v = num(a.valor_comercial), ren = num(a.ingreso_mensual);
+          const dinero = (x) => x ? (a.moneda === 'USD' ? usd(x) : fmt(x)) : '—';
           return `<tr class="clic" data-editar="${a.id}" tabindex="0">
             <td data-l="Código"><b>${esc(a.codigo || '—')}</b></td>
             <td data-l="Inmueble">${esc(a.tipo_unidad || '—')}${a.identificador ? ' · ' + esc(a.identificador) : ''}<small class="sub">${esc(a.ciudad || '')}</small></td>
-            <td data-l="Uso">${esc(a.uso_actual || '—')}${a.inquilino ? `<small class="sub">${esc(a.inquilino)}</small>` : ''}</td>
+            <td data-l="Uso">${ren ? esc(a.uso_actual || 'Rentado') : `<span class="vc-chip aviso">${esc(a.uso_actual || 'Sin renta')}</span>`}${a.inquilino ? `<small class="sub">${esc(a.inquilino)}</small>` : ''}</td>
             <td data-l="m²" class="num">${a.superficie_m2 ? num(a.superficie_m2).toLocaleString('es-MX') : '—'}</td>
-            <td data-l="Valor" class="num">${dinero(val)}</td>
-            <td data-l="Renta/mes" class="num pos">${dinero(ren)}</td>
-            <td data-l="Rend. anual" class="num">${val && ren ? (ren * 12 / val * 100).toFixed(1) + '%' : '—'}</td></tr>`;
-        }).join('') : '<tr><td colspan="7" class="vacio">Sin activos para este filtro</td></tr>'}</tbody>
+            <td data-l="Valor" class="num">${dinero(v)}</td>
+            <td data-l="Renta/mes" class="num">${dinero(ren)}</td>
+            <td data-l="Rend. anual" class="num fuerte">${rend(a) ? pct(rend(a)) : '—'}</td>
+            <td data-l="% del total" class="num mut">${a.moneda !== 'USD' && val && v ? pct(v / val) : '—'}</td></tr>`;
+        }).join('') : '<tr><td colspan="8" class="vacio">Sin inmuebles para este filtro</td></tr>'}</tbody>
       </table></div>
     </section>`;
-  el.querySelectorAll('[data-entidad]').forEach((b) => activar(b, () => { st.entidad = st.entidad === b.dataset.entidad ? '' : b.dataset.entidad; pintar(); }));
+  el.querySelector('#pt-orden').value = st.orden;
+  el.querySelector('#pt-orden').addEventListener('change', (e) => { st.orden = e.target.value; pintar(); });
+  el.querySelectorAll('[data-entidad]').forEach((b) => b.addEventListener('click', () => { st.entidad = b.dataset.entidad; pintar(); }));
   conectarTabla(el, 'activos');
 }
 
+// ================= DEUDA =================
 function pintarPasivos(el) {
-  const filas = pasivos.filter((p) => !st.q || normalizar([p.acreedor, p.tipo_pasivo, p.activo_ref, p.notas].join(' ')).includes(normalizar(st.q)));
+  const filas = pasivos.filter((p) => !st.q || normalizar([p.acreedor, p.tipo_pasivo, p.activo_ref, p.notas].join(' ')).includes(normalizar(st.q)))
+    .sort((a, b) => (costoMes(b) ?? -1) - (costoMes(a) ?? -1) || num(b.saldo_actual) - num(a.saldo_actual));
+  const total = sumaPor(filas, 'saldo_actual', 'MXN'), pagos = sumaPor(filas, 'pago_mensual', 'MXN');
   el.innerHTML = `
-    <section class="panel">
-      <div class="panel-head"><h3>${filas.length} pasivo${filas.length !== 1 ? 's' : ''} · ${fmt(sumaPor(filas, 'saldo_actual', 'MXN'))}</h3>
-        <input type="search" id="pt-q" placeholder="Buscar acreedor…" value="${esc(st.q)}" aria-label="Buscar pasivo"></div>
+    <div class="vc-cifras">
+      <div class="vc-cifra"><span>Deuda total</span><strong>${corto(total)}</strong><small>${filas.length} acreedores</small></div>
+      <div class="vc-cifra"><span>Pagos al mes</span><strong>${corto(pagos)}</strong><small>${filas.filter((p) => num(p.pago_mensual)).length} con pago registrado</small></div>
+      <div class="vc-cifra"><span>Sin calendario</span><strong>${corto(filas.filter((p) => !num(p.pago_mensual)).reduce((s, p) => s + num(p.saldo_actual), 0))}</strong><small>sin pago mensual</small></div>
+      <div class="vc-cifra"><span>Las 2 más grandes</span><strong>${total ? pct(filas.map((p) => num(p.saldo_actual)).sort((a, b) => b - a).slice(0, 2).reduce((s, x) => s + x, 0) / total, 0) : '—'}</strong><small>de toda la deuda</small></div>
+    </div>
+    <section class="panel" style="margin-top:16px">
+      <div class="panel-head"><h3>Orden sugerido para pagar <small class="sub-meta">· primero la más cara</small></h3>
+        <input type="search" id="pt-q" placeholder="Buscar acreedor…" value="${esc(st.q)}" aria-label="Buscar deuda"></div>
       <div class="tabla-wrap"><table class="tabla">
-        <thead><tr><th>Acreedor</th><th>Tipo</th><th class="num">Saldo</th><th class="num">Pago mensual</th><th class="num">Tasa</th><th>Vence</th><th>Para qué</th></tr></thead>
-        <tbody>${filas.length ? filas.map((p) => `<tr class="clic" data-editar="${p.id}" tabindex="0">
-          <td data-l="Acreedor"><b>${esc(p.acreedor || '—')}</b></td>
-          <td data-l="Tipo">${esc(p.tipo_pasivo || '—')}</td>
-          <td data-l="Saldo" class="num neg">${p.moneda === 'USD' ? usd(num(p.saldo_actual)) : fmt(p.saldo_actual)}${p.fecha_saldo ? `<small class="sub">al ${fmtFecha(p.fecha_saldo)}</small>` : ''}</td>
-          <td data-l="Pago mensual" class="num">${p.pago_mensual ? fmt(p.pago_mensual) : '—'}</td>
-          <td data-l="Tasa" class="num">${p.tasa_interes != null ? tasa(p.tasa_interes) : '—'}</td>
-          <td data-l="Vence">${p.fecha_vencimiento ? fmtFecha(p.fecha_vencimiento) : '—'}</td>
-          <td data-l="Para qué">${esc(p.activo_ref || '—')}</td></tr>`).join('')
-          : '<tr><td colspan="7" class="vacio">Sin pasivos</td></tr>'}</tbody>
+        <thead><tr><th>#</th><th>Acreedor</th><th>Tipo</th><th class="num">Saldo</th><th>Peso</th><th class="num">Pago mensual</th><th class="num">Costo al mes</th><th>Vence</th></tr></thead>
+        <tbody>${filas.length ? filas.map((p, i) => `<tr class="clic" data-editar="${p.id}" tabindex="0">
+          <td class="mut" data-l="#">${i + 1}</td>
+          <td data-l="Acreedor"><b>${esc(p.acreedor || '—')}</b>${p.activo_ref && p.activo_ref !== 'General/Corporativo' ? `<small class="sub">${esc(p.activo_ref)}</small>` : ''}</td>
+          <td data-l="Tipo" class="mut">${esc(p.tipo_pasivo || '—')}</td>
+          <td data-l="Saldo" class="num fuerte">${p.moneda === 'USD' ? usd(num(p.saldo_actual)) : fmt(p.saldo_actual)}${p.fecha_saldo ? `<small class="sub">al ${fmtFecha(p.fecha_saldo)}</small>` : ''}</td>
+          <td data-l="Peso"><div class="pz-pista mini"><span style="width:${total ? num(p.saldo_actual) / total * 100 : 0}%"></span></div><small class="sub">${total ? pct(num(p.saldo_actual) / total, 0) : ''}</small></td>
+          <td data-l="Pago mensual" class="num">${p.pago_mensual ? fmt(p.pago_mensual) : '<span class="mut">Sin pago</span>'}</td>
+          <td data-l="Costo al mes" class="num">${costoMes(p) != null ? `<span class="${costoMes(p) >= .015 ? 'neg fuerte' : ''}">${pct(costoMes(p))}</span>` : p.tasa_interes != null ? `<span class="mut">tasa ${tasa(p.tasa_interes)}</span>` : '—'}</td>
+          <td data-l="Vence">${p.fecha_vencimiento ? fmtFecha(p.fecha_vencimiento) : '<span class="mut">—</span>'}</td></tr>`).join('')
+          : '<tr><td colspan="8" class="vacio">Sin deudas</td></tr>'}</tbody>
       </table></div>
+      <p class="nota">Costo al mes = pago mensual ÷ saldo. Incluye capital e intereses; sirve para comparar cuál pesa más en el flujo.</p>
     </section>`;
   conectarTabla(el, 'pasivos');
 }

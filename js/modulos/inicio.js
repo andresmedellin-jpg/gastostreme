@@ -31,7 +31,7 @@ export async function render(view) {
   for (let a = new Date().getFullYear() + 1; a >= 2025; a--) anios.push(a);
   view.innerHTML = `
     <div class="ex-controles">
-      <div class="segmento ex-emp" role="group" aria-label="Empresa">
+      <div class="segmento ex-emp" role="group" aria-label="Empresa" ${estado.mundo ? 'hidden' : ''}>
         <button type="button" data-emp="">${estado.empresas.length === 2 ? 'Grupo' : 'Todas'}</button>
         ${estado.empresas.map((e) => `<button type="button" data-emp="${e.id}">${esc(e.nombre_corto)}</button>`).join('')}
       </div>
@@ -42,6 +42,7 @@ export async function render(view) {
       <span class="ex-meta">Estado de resultados</span>
     </div>
     <div id="i-cuerpo"><div class="cargando">Cargando…</div></div>`;
+  if (estado.mundo) st.empresa = '';   // la empresa se escoge arriba (Grupo / Treme / MEDCO)
   view.querySelector('#i-mes').value = st.mes;
   view.querySelector('#i-anio').value = st.anio;
   const marcarEmp = () => view.querySelectorAll('[data-emp]').forEach((b) => b.classList.toggle('activo', b.dataset.emp === st.empresa));
@@ -247,7 +248,11 @@ function pintar() {
     b.addEventListener('click', ir);
     b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
   });
-  cuerpo.querySelectorAll('[data-ir-emp]').forEach((b) => b.addEventListener('click', () => raiz.querySelector(`[data-emp="${b.dataset.irEmp}"]`)?.click()));
+  cuerpo.querySelectorAll('[data-ir-emp]').forEach((b) => b.addEventListener('click', () => {
+    const e = estado.empresas.find((x) => x.id === b.dataset.irEmp);
+    if (estado.mundo && e) { location.hash = `#/${/medco/i.test(e.nombre + e.nombre_corto) ? 'medco' : 'treme'}/inicio`; return; }
+    raiz.querySelector(`[data-emp="${b.dataset.irEmp}"]`)?.click();
+  }));
   cuerpo.querySelectorAll('[data-borrar]').forEach((b) => b.addEventListener('click', () => borrar(b.dataset.borrar)));
 }
 
@@ -312,7 +317,7 @@ function estilos() {
   .ex-sub { display:block; font-size:12.5px; color:var(--text-3); margin-top:2px; font-weight:400; }
   .ex-hero { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1.9fr); gap:14px; }
   .ex-util { position:relative; overflow:hidden; border-radius:16px; padding:24px 26px 20px; color:#fff; display:flex; flex-direction:column; gap:10px;
-    background:radial-gradient(520px 260px at 100% 0%, rgba(139,26,26,.55), transparent 60%), linear-gradient(160deg, #1B1E24, #0C0D10); box-shadow:0 24px 50px -28px rgba(16,18,22,.7); }
+    background:radial-gradient(520px 260px at 100% 0%, color-mix(in srgb, var(--primary) 60%, transparent), transparent 60%), linear-gradient(160deg, #1B1E24, #0C0D10); box-shadow:0 24px 50px -28px rgba(16,18,22,.7); }
   .ex-util .ex-eti { color:rgba(255,255,255,.6); }
   .ex-grande { font-size:clamp(34px,3.6vw,46px); font-weight:600; letter-spacing:-.035em; line-height:1.05; font-feature-settings:"tnum"; }
   .ex-util-pie { display:flex; flex-wrap:wrap; gap:6px 16px; align-items:center; font-size:13px; color:rgba(255,255,255,.72); }
