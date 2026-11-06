@@ -23,8 +23,14 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
    operacion, encargado, lectura, equipo (personal de piso: solo "Mi turno" desde su celular; `soloRoles` en MODULOS). Casa y Socios (centros tipo `personal`/`socio`) solo dueño/socio/administración.
 4. Migraciones: guárdalas en `supabase/migrations/NNNN_nombre.sql`. Las que llevan DROP o DELETE se cancelan
    solas en este entorno: usa ALTER POLICY, REVOKE, columnas-bandera (`activo`, `en_padron`) o borra desde la app.
-5. Estilo: opción "Treme" — Arial, blanco, rojo Treme `#a21d21` solo como acento, tablas con encabezado en
-   mayúsculas y línea negra, esquinas de 4px. **Solo modo claro.** Íconos de línea SVG en el menú.
+5. Estilo "Ejecutivo" (desde 05/11/2026, `css/ejecutivo.css` encima de `app.css`): Inter (incrustada en `fonts/`), fondo papel
+   `#F4F3EF`, tarjetas blancas de 14px con línea fina, tinta `#101216` para botones principales y el menú activo, vino Treme
+   `#8B1A1A` solo como acento (etiqueta de sección arriba del título) y azul MEDCO `#23408E` para distinguir empresas.
+   Tablas con encabezado en mayúsculas pequeñas y líneas finas; números tabulares. Lenguaje formal y profesional, sin emojis
+   en pantallas de administración (las categorías llevan un punto de color: `catIco` de `config.js`). **Solo modo claro.**
+   Inicio = "Resumen ejecutivo": utilidad del mes (compara el mes en curso contra el mismo periodo del anterior), flujo de 6 meses,
+   tarjeta por empresa, composición de ingresos y egresos, y solo los 8 movimientos más recientes (botón para ver todos).
+   Íconos de línea SVG en el menú.
 6. Prueba antes de publicar: Playwright con un Supabase falso (se sirve el repo en localhost y se reemplaza
    `supabase.min.js`), revisa escritorio y celular (390px), sin errores en consola.
 7. Commits como `-c user.name="Andrés Medellín" -c user.email="andres.medellin@medco.mx"`.

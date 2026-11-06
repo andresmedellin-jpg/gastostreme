@@ -135,7 +135,7 @@ function pintar() {
         <button role="tab" data-vista="lista" aria-selected="${st.vista === 'lista'}">Prospectos</button>
         <button role="tab" data-vista="publicidad" aria-selected="${st.vista === 'publicidad'}">Publicidad</button>
       </div>
-      <div class="sub-meta">${st.vista === 'lista' ? 'Lo que entra por la página y los anuncios llega aquí solo' : 'Cuánto cuesta cada contacto serio, por plataforma'}</div>
+      <div class="sub-meta">${st.vista === 'lista' ? 'Los contactos de la página y de los anuncios se registran automáticamente' : 'Cuánto cuesta cada contacto serio, por plataforma'}</div>
     </div>
     <div id="p-cuerpo"></div>`;
   raiz.querySelectorAll('[data-vista]').forEach((b) => b.addEventListener('click', () => { st.vista = b.dataset.vista; pintar(); }));
@@ -249,7 +249,7 @@ function pedirMonto(p) {
   modal.querySelector('[data-cerrar]').addEventListener('click', cerrarModal);
   modal.querySelector('#pm-ok').addEventListener('click', async () => {
     const m = modal.querySelector('#pm-monto').value;
-    if (await guardar(p, { estado: 'ganado', monto: m ? Number(m) : p.monto })) { cerrarModal(); toast('¡Ganado! ✓'); pintar(); avisoMenu(); }
+    if (await guardar(p, { estado: 'ganado', monto: m ? Number(m) : p.monto })) { cerrarModal(); toast('Prospecto marcado como ganado'); pintar(); avisoMenu(); }
   });
 }
 

@@ -72,8 +72,8 @@ export const MARCA = Object.assign(BASE_CLIENTE || {
 
 // Módulos de la plataforma, en el orden y grupo del menú, y qué roles los ven.
 export const MODULOS = [
-  { id: 'inicio',     grupo: 'General',   titulo: 'Inicio',           icono: ICONOS.inicio,     roles: ['dueno','administracion'], listo: true },
-  { id: 'reportes',   grupo: 'General',   titulo: 'Reporte mensual',  icono: ICONOS.reportes,   roles: ['dueno','administracion'], listo: true },
+  { id: 'inicio',     grupo: 'Dirección', titulo: 'Resumen ejecutivo',           icono: ICONOS.inicio,     roles: ['dueno','administracion'], listo: true },
+  { id: 'reportes',   grupo: 'Dirección', titulo: 'Reporte mensual',  icono: ICONOS.reportes,   roles: ['dueno','administracion'], listo: true },
   { id: 'gastos',     grupo: 'Finanzas',  titulo: 'Gastos',           icono: ICONOS.gastos,     roles: ['dueno','administracion','operacion'], listo: true },
   { id: 'cobranza',   grupo: 'Finanzas',  titulo: 'Cobranza Elysium', icono: ICONOS.cobranza,   roles: ['dueno','administracion','cobranza'], listo: true },
   { id: 'rentas',     grupo: 'Finanzas',  titulo: 'Rentas',           icono: ICONOS.rentas,     roles: ['dueno','administracion','cobranza'], listo: true },
@@ -93,7 +93,7 @@ export const MODULOS = [
   { id: 'vacaciones',  grupo: 'Personal', titulo: 'Vacaciones',  icono: ICONOS.vacaciones,  roles: ['dueno','administracion'], listo: true, opcional: true, vista: 'personal', tab: 'vacaciones' },
   { id: 'prestamos',   grupo: 'Personal', titulo: 'Préstamos',   icono: ICONOS.prestamos,   roles: ['dueno','administracion'], listo: true, opcional: true, vista: 'personal', tab: 'prestamos' },
   // Luz, gas y agua por medidor (opcionales: solo para edificios que reparten un recibo entre sus unidades)
-  { id: 'lecturas',  grupo: 'Servicios', titulo: 'Toma de lecturas', icono: ICONOS.lecturaqr, roles: ['dueno','administracion','operacion','encargado'], listo: true, opcional: true, vista: 'lecturas', tab: 'recorrido' },
+  { id: 'lecturas',  grupo: 'Servicios', titulo: 'Lecturas de medidores', icono: ICONOS.lecturaqr, roles: ['dueno','administracion','operacion','encargado'], listo: true, opcional: true, vista: 'lecturas', tab: 'recorrido' },
   { id: 'servicios', grupo: 'Servicios', titulo: 'Luz, gas y agua',  icono: ICONOS.medidor,   roles: ['dueno','administracion','cobranza'], listo: true, opcional: true, vista: 'lecturas' },
   // La pantalla del celular del personal de piso (vigilancia, limpieza): solo la ve quien tiene el rol "equipo"
   { id: 'turno', grupo: 'Operación', titulo: 'Mi turno', icono: ICONOS.turno, roles: ['equipo'], soloRoles: ['equipo'], listo: true },
@@ -132,6 +132,11 @@ export const CATEGORIAS = MARCA.categorias || {
   'Mantenimiento':'🔧','Limpieza':'🧹','Seguridad':'🔒','Luz':'⚡','Agua':'💧','Gas':'🔥',
   'Teléfono e internet':'📶','Administración':'📋','Impuestos':'🧾','Intereses y comisiones':'🏦','Retiro socios':'💸','Otros':'📌'
 };
+// Punto de color de cada categoría (en pantalla va un punto, no el emoji)
+const COLOR_CAT = { 'Construcción':'#8B1A1A','Nómina':'#23408E','Seguro social e ISN':'#4F6BB8','Gasolina':'#A15C07','Vehículos':'#C27C2C',
+  'Mantenimiento':'#0F7A4F','Limpieza':'#3E9C78','Seguridad':'#2A2E36','Luz':'#C9A227','Agua':'#2C7DB8','Gas':'#C2410C',
+  'Teléfono e internet':'#6B5BA8','Administración':'#5B6170','Impuestos':'#7A2E4C','Intereses y comisiones':'#4D525B','Retiro socios':'#9A6B3F','Otros':'#A8ACB3' };
+export const catIco = (k) => `<i class="cat-dot" style="--c:${COLOR_CAT[k] || '#A8ACB3'}" aria-hidden="true"></i>`;
 // Qué va en cada una (se muestra al capturar, para que todos usen la misma)
 export const CATEGORIA_AYUDA = MARCA.ayuda || {
   'Construcción': 'Material y servicios de obra: acero, concreto, ferretería, grúas, renta de maquinaria',

@@ -241,6 +241,8 @@ async function navegar() {
   document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('active', a.dataset.mod === mod.id));
   $('sidebar').classList.remove('open');
   $('page-title').textContent = mod.titulo;
+  $('page-eyebrow').textContent = mod.grupo || '';
+  $('top-fecha').textContent = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^./, (c) => c.toUpperCase());
   $('page-actions').innerHTML = '';
   // Cada vez que se abre un módulo se le da una caja nueva. Si una carga anterior sigue en camino
   // (doble clic, cambio rápido de pantalla, sesión que se renueva), termina en su caja vieja y no estorba.

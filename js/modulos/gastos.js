@@ -1,4 +1,4 @@
-import { CATEGORIAS, CATEGORIA_AYUDA, FORMAS_PAGO, MESES, BUCKET_COMPROBANTES } from '../config.js';
+import { CATEGORIAS, CATEGORIA_AYUDA, FORMAS_PAGO, MESES, BUCKET_COMPROBANTES , catIco } from '../config.js';
 import { sb, db, todo, estado, esAdmin, tieneRol, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal,
          comprimirImagen, blobADataURL, abrirComprobante } from '../lib.js';
 
@@ -139,7 +139,7 @@ function pintarKPIs() {
     <div class="kpi"><span>Promedio por gasto</span><strong>${d.length ? fmt(total / d.length) : '—'}</strong><small>${MESES[f.mes]} ${f.anio}</small></div>
     <div class="kpi"><span>Por empresa</span>${porEmpresa.map(({ e, t }) =>
       `<div class="kpi-linea"><i style="background:${e.color || '#888'}"></i>${esc(e.nombre_corto)}<b>${fmt(t)}</b></div>`).join('')}</div>
-    <div class="kpi"><span>Mayor categoría</span><strong class="sm">${top ? `${CATEGORIAS[top.k] || '•'} ${esc(top.k)}` : '—'}</strong><small>${top ? fmt(top.t) : ''}</small></div>`;
+    <div class="kpi"><span>Mayor categoría</span><strong class="sm">${top ? `${catIco(top.k)}${esc(top.k)}` : '—'}</strong><small>${top ? fmt(top.t) : ''}</small></div>`;
 }
 
 function agrupar(arr, clave) {
@@ -161,7 +161,7 @@ function barras(filas, etiqueta, alClic) {
 
 function pintarCategorias() {
   const filas = agrupar(filtrados(), (g) => g.categoria || 'Otros');
-  raiz.querySelector('#g-cats').innerHTML = barras(filas, (r) => `${CATEGORIAS[r.k] || '•'} ${esc(r.k)}`);
+  raiz.querySelector('#g-cats').innerHTML = barras(filas, (r) => `${catIco(r.k)}${esc(r.k)}`);
 }
 
 function pintarCentros() {
@@ -203,7 +203,7 @@ function pintarTabla() {
       <td data-l="Centro"><span class="tag">${esc(c?.nombre || '—')}</span></td>
       <td class="concepto" data-l="Concepto" title="${esc(g.notas || g.concepto)}">${esc(g.concepto)}</td>
       <td class="mut corto" data-l="Proveedor" title="${esc(g.proveedor || '')}">${esc(g.proveedor || '—')}</td>
-      <td data-l="Categoría"><span class="tag tag-suave">${CATEGORIAS[g.categoria] || '•'} ${esc(g.categoria || 'Otros')}</span></td>
+      <td data-l="Categoría"><span class="tag tag-suave">${catIco(g.categoria)}${esc(g.categoria || 'Otros')}</span></td>
       <td class="mut" data-l="Forma">${g.estado === 'por_pagar' ? '<span class="tag tag-aviso">Por pagar</span>' : esc(g.forma_pago || '—')}</td>
       <td class="num fuerte" data-l="Monto">${fmt(g.monto)}</td>
       <td class="acciones">

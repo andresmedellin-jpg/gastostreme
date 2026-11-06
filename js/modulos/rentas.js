@@ -397,7 +397,7 @@ function pintarAdeudos(el) {
           <div class="deudor-top"><strong>${esc(r.arrendatario)}</strong><strong class="neg">${money(a.monto_original, r.moneda)}</strong></div>
           <div class="mut">${esc(nombreCentro(r.centro_id))} · ${a.meses ?? '?'} mes${a.meses === 1 ? '' : 'es'}</div>
           ${a.notas ? `<small class="mut">${esc(a.notas)}</small>` : ''}
-        </button>`).join('')}</div>` : '<div class="vacio">Sin adeudos registrados. ¡Todo al corriente!</div>'}
+        </button>`).join('')}</div>` : '<div class="vacio">Sin adeudos registrados. Todos los arrendatarios están al corriente.</div>'}
     </section>
     ${puedeCobrar() && sin.length ? `<section class="panel"><h3>Agregar adeudo</h3>
       <div class="tabla-wrap"><table class="tabla"><tbody>${sin.map((r) => {

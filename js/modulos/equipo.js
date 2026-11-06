@@ -196,7 +196,7 @@ export async function hoy(el, ctx) {
     const sup = supDe(e);
     if (['descanso', 'permiso', 'falta'].includes(s.k)) return '';
     if (['nollego', 'proximo', 'sin'].includes(s.k)) return `<button class="btn btn-sm btn-primary" data-marca="entrada" data-e="${e.id}">Llegó</button><button class="btn btn-sm btn-ghost" data-marca="falta" data-e="${e.id}">Faltó</button>`;
-    if (s.k === 'turno') return `<button class="btn btn-sm btn-ghost" data-sup="${e.id}" title="La vi trabajando">👁 ${sup ? `Vista ${hora(sup.hora_registro)}` : 'Supervisar'}</button><button class="btn btn-sm btn-ghost" data-marca="salida" data-e="${e.id}">Salió</button>`;
+    if (s.k === 'turno') return `<button class="btn btn-sm btn-ghost" data-sup="${e.id}" title="Registrar supervisión">${sup ? `Vista ${hora(sup.hora_registro)}` : 'Supervisar'}</button><button class="btn btn-sm btn-ghost" data-marca="salida" data-e="${e.id}">Salió</button>`;
     return '';
   };
   el.innerHTML = `
@@ -211,20 +211,20 @@ export async function hoy(el, ctx) {
         </button>
         ${botones(e, s) ? `<div class="eq-bot">${botones(e, s)}</div>` : ''}
       </div>`; }).join('')}</div>`
-      : `<div class="vacio">Todavía no hay personal en este edificio. Agrégalo en <button class="link-btn" data-ir="personas">Personas</button>.</div>`}
+      : `<div class="vacio">No hay personal registrado en este centro. Puede darlo de alta en <button class="link-btn" data-ir="personas">Personas</button>.</div>`}
     <div class="eq-grid">
       <div>
-        <section class="panel"><div class="panel-head"><h3>Hoy en ${esc(estado.centros.find((c) => c.id === centro)?.nombre || 'la torre')}</h3><span class="sub-meta">se llena solo con lo que hace el equipo</span></div>
+        <section class="panel"><div class="panel-head"><h3>Actividad de hoy · ${esc(estado.centros.find((c) => c.id === centro)?.nombre || 'la torre')}</h3><span class="sub-meta">Actividad del día registrada por el equipo</span></div>
           ${ev.length ? `<ul class="eq-tl">${ev.slice(0, 40).map((x) => `<li><span class="h">${hora(x.t)}</span><span class="ic ${x.ic}">${x.s}</span>
             <span class="tx">${x.txt}${x.sub ? `<small>${x.sub}</small>` : ''}</span>${x.foto ? `<button class="eq-foto" data-foto="${esc(x.foto)}" style="background-image:url('${esc(x.foto)}')" title="Ver foto"></button>` : ''}</li>`).join('')}</ul>`
-          : '<div class="vacio">Todavía no hay movimientos hoy. Aquí aparecen las llegadas, los rondines, las tareas terminadas, los reportes y los paquetes.</div>'}
+          : '<div class="vacio">Sin actividad registrada hoy. Aquí se muestran las entradas, rondines, tareas concluidas, reportes y paquetes.</div>'}
         </section>
         <p class="eq-otros">Ver otros días: <button class="link-btn" data-ir="asistencia">Asistencia</button> · <button class="link-btn" data-ir="tareas">Tareas</button> · <button class="link-btn" data-ir="rondines">Rondines</button> · <button class="link-btn" data-ir="incidencias">Incidencias</button></p>
       </div>
       <div>
         <section class="panel eq-atencion"><div class="panel-head"><h3>Necesita tu atención</h3><span class="sub-meta">${at.length || ''}</span></div>
           ${at.length ? at.map((x) => `<div class="eq-at"><span class="ic ${x.ic}"></span><div><div>${x.txt}</div>${x.sub ? `<small>${x.sub}</small>` : ''}${x.acc ? `<div class="eq-acc">${x.acc}</div>` : ''}</div></div>`).join('')
-            : `<div class="eq-ok">✓ Todo en orden${esHoy ? ' por ahora' : ''}</div>`}
+            : `<div class="eq-ok">✓ Sin pendientes${esHoy ? ' por el momento' : ''}</div>`}
         </section>
         <section class="panel"><div class="panel-head"><h3>Reportes de residentes</h3><span class="sub-meta">${abiertas.length} abierto${abiertas.length === 1 ? '' : 's'}</span></div>
           ${abiertas.filter((s) => s.asignado_a).slice(0, 4).map((s) => tarjetaReporte(s, ctx)).join('') || (abiertas.length ? '' : '<p class="nota">Sin reportes abiertos.</p>')}
@@ -295,8 +295,8 @@ function fichaDia(e, s, tareas, ctx, fecha) {
       ${tareas.length ? tareas.map((f, i) => `<div class="tu-chk ${f.reg?.estado === 'hecho' ? 'hecho' : ''}"><button class="tu-box ${f.reg?.estado === 'hecho' ? 'y' : ''}" data-t="${i}" ${puede ? '' : 'disabled'} aria-label="Hecha"></button>
         <span>${esc(f.tarea)}${f.reg?.hora_registro && f.reg.estado === 'hecho' ? `<small>${hora(f.reg.hora_registro)}${f.reg.foto_path ? ' · con foto' : ''}</small>` : ''}</span>
         ${f.reg?.foto_path ? `<button class="eq-foto" data-foto="${esc(f.reg.foto_path)}" style="background-image:url('${esc(f.reg.foto_path)}')"></button>` : ''}</div>`).join('')
-        : '<p class="nota">No tiene tareas fijas. Se configuran en ⚙ Configurar → Tareas de cada día.</p>'}
-      ${puede ? `<div class="eq-acc" style="margin-top:12px"><button class="btn btn-sm btn-ghost" id="fd-extra">＋ Darle otra tarea hoy</button><button class="btn btn-sm btn-ghost" id="fd-inc">⚠ Reportar algo de ${esc(primerNombre(e.nombre))}</button>
+        : '<p class="nota">No tiene tareas fijas. Se configuran en Configurar → Tareas de cada día.</p>'}
+      ${puede ? `<div class="eq-acc" style="margin-top:12px"><button class="btn btn-sm btn-ghost" id="fd-extra">＋ Darle otra tarea hoy</button><button class="btn btn-sm btn-ghost" id="fd-inc">Reportar incidencia de ${esc(primerNombre(e.nombre))}</button>
         ${s.k !== 'descanso' && fecha === hoyISO() ? '<button class="btn btn-sm btn-ghost" id="fd-permiso">Darle permiso hoy</button>' : ''}</div>` : ''}
     </div>` });
   modal.querySelectorAll('[data-foto]').forEach((b) => b.addEventListener('click', () => verFoto(b.dataset.foto)));
@@ -353,7 +353,7 @@ function incidencia(e, ctx) {
 // ================= CONFIGURAR (lo que se hace una sola vez) =================
 export function configurar(ctx) {
   const admin = tieneRol(['administracion']);
-  const modal = abrirModal({ titulo: '⚙ Configurar el edificio',
+  const modal = abrirModal({ titulo: 'Configuración del centro',
     cuerpo: `<div class="eq-conf">
       <button data-c="rondin"><b>Puntos del rondín y placas QR</b><small>Los lugares que el vigilante debe escanear en cada vuelta.</small></button>
       ${admin ? '<button data-c="plantillas"><b>Tareas de cada día</b><small>Lo que le toca a cada quien todos los días: lobby, basura, bombas…</small></button>' : ''}
@@ -516,7 +516,7 @@ export async function reportes(el, ctx) {
       <div class="kpi"><span>Tiempo para resolver</span><strong>${prom == null ? '—' : prom < 24 ? Math.round(prom) + ' h' : (prom / 24).toFixed(1) + ' días'}</strong><small>en promedio</small></div></div>
     <section class="panel"><div class="panel-head"><div class="segmento">${[['abiertos', 'Abiertos'], ['resueltos', 'Resueltos'], ['todos', 'Todos']].map(([id, t]) => `<button data-f="${id}" class="${f === id ? 'activo' : ''}">${t}</button>`).join('')}</div>
       <span class="sub-meta">Los residentes reportan con el QR del elevador; lo que llega por WhatsApp o en caseta se registra aquí.</span></div>
-      ${lista.map((s) => tarjetaReporte(s, ctx)).join('') || '<div class="vacio">Nada por aquí.</div>'}</section>`;
+      ${lista.map((s) => tarjetaReporte(s, ctx)).join('') || '<div class="vacio">Sin registros.</div>'}</section>`;
   el.querySelectorAll('[data-f]').forEach((b) => b.addEventListener('click', () => { ctx.st.filtroRep = b.dataset.f; ctx.repintar(); }));
   enlazarReportes(el, ctx, data);
 }
@@ -548,7 +548,7 @@ export async function paquetes(el, ctx) {
   el.innerHTML = `<section class="panel"><div class="panel-head"><h3>Por entregar · ${pend.length}</h3></div>
       ${pend.length ? `<div class="tabla-wrap"><table class="tabla rs-tabla"><thead><tr><th>Depto</th><th>Qué</th><th>Recibió</th><th>Entrega</th><th></th></tr></thead><tbody>${pend.map(fila).join('')}</tbody></table></div>` : '<p class="nota">No hay paquetes esperando.</p>'}</section>
     <section class="panel"><div class="panel-head"><h3>Entregados</h3></div>
-      ${entregados.length ? `<div class="tabla-wrap"><table class="tabla rs-tabla"><thead><tr><th>Depto</th><th>Qué</th><th>Recibió</th><th>Entrega</th><th></th></tr></thead><tbody>${entregados.slice(0, 50).map(fila).join('')}</tbody></table></div>` : '<p class="nota">Todavía no hay.</p>'}</section>`;
+      ${entregados.length ? `<div class="tabla-wrap"><table class="tabla rs-tabla"><thead><tr><th>Depto</th><th>Qué</th><th>Recibió</th><th>Entrega</th><th></th></tr></thead><tbody>${entregados.slice(0, 50).map(fila).join('')}</tbody></table></div>` : '<p class="nota">Sin registros.</p>'}</section>`;
   el.querySelectorAll('[data-foto]').forEach((b) => b.addEventListener('click', () => verFoto(b.dataset.foto)));
   el.querySelectorAll('[data-entregar]').forEach((b) => b.addEventListener('click', () => entregarPaquete(data.find((p) => p.id === b.dataset.entregar), ctx.repintar)));
 }

@@ -32,7 +32,7 @@ export async function render(view) {
   view.innerHTML = `
     <div class="sub-head">
       <div class="tabs" role="tablist">
-        ${[['resumen','Resumen'],['mantenimiento','🏠 Mantenimiento'],['luz','⚡ Luz'],['deudores','Deudores']]
+        ${[['resumen','Resumen'],['mantenimiento','Mantenimiento'],['luz','Luz'],['deudores','Deudores']]
           .map(([id, t]) => `<button role="tab" data-vista="${id}">${t}</button>`).join('')}
       </div>
       <div class="sub-meta">${esc(CONDOMINIO)} · cuotas de condominio</div>
@@ -245,7 +245,7 @@ function pintarDeudores(el) {
           <div class="chips">${atrasados.map((i) => `<span class="chip">${CORTO[i]}</span>`).join('')}</div>
           <div class="deudor-total">Debe aprox. <strong>${fmt(total)}</strong></div>
         </div>`).join('')}</div>`
-        : `<div class="vacio">✅ Todas las unidades pagaron ${MESES[m].toLowerCase()}</div>`}
+        : `<div class="vacio">Todas las unidades pagaron ${MESES[m].toLowerCase()}</div>`}
     </section>`;
   });
   el.innerHTML = `<p class="nota">Unidades sin pago en ${MESES[m].toLowerCase()} ${st.anio}, con los meses de este año que no tienen ningún pago. El adeudo se estima con la cuota registrada.</p>${bloques.join('')}`;

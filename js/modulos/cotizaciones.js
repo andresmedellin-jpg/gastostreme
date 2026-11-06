@@ -229,7 +229,7 @@ function aceptar(doc, guardar) {
   const modal = abrirModal({
     titulo: `${doc.folio} aceptada`,
     cuerpo: `<form class="form" id="fa">
-      <p>¡Bien! ${esc(doc.cliente)} aceptó por <b>${fmt(totales(doc.partidas).total)}</b>.</p>
+      <p>${esc(doc.cliente)} aceptó la cotización por <b>${fmt(totales(doc.partidas).total)}</b>.</p>
       <label class="opcion opcion-linea"><input type="checkbox" name="proyecto" checked> Crear el proyecto en ${esc(MARCA.titulos.obras || 'Obras')} (valor, cobros y costos)</label>
       <label>Nombre del proyecto<input name="nombre" maxlength="80" value="${esc((doc.titulo || doc.cliente).slice(0, 80))}"></label>
       ${conProductos.length ? `<label class="opcion opcion-linea"><input type="checkbox" name="surtir" checked> Descontar del inventario las ${conProductos.reduce((s, x) => s + Number(x.cantidad), 0)} piezas de la cotización</label>` : ''}

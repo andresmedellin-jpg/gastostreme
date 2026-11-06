@@ -60,7 +60,7 @@ export async function render(view, mod) {
       <div class="p-der">
         <select id="p-centro" aria-label="Edificio" class="${admin() ? '' : 'solo-dia'}" ${visibles.length < 2 ? 'hidden' : ''}>
           ${visibles.map((c) => `<option value="${c.id}" ${c.id === st.centro ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select>
-        ${tieneRol(['administracion', 'encargado']) && !fijo ? '<button class="btn btn-ghost" id="p-conf" title="Rondín, tareas de cada día, QR del elevador">⚙ Configurar</button>' : ''}
+        ${tieneRol(['administracion', 'encargado']) && !fijo ? '<button class="btn btn-ghost" id="p-conf" title="Rondín, tareas de cada día, QR del elevador">Configurar</button>' : ''}
       </div>
     </div>
     <div id="p-volver"></div>
@@ -109,7 +109,7 @@ async function pintar() {
       return;
     }
     if (st.tab === 'personas') {
-      el.innerHTML = `<div class="p-atajos"><button class="btn btn-ghost" data-ir="vacaciones">🌴 Vacaciones</button><button class="btn btn-ghost" data-ir="prestamos">💵 Préstamos</button></div><div id="s-emp"></div>`;
+      el.innerHTML = `<div class="p-atajos"><button class="btn btn-ghost" data-ir="vacaciones">Vacaciones</button><button class="btn btn-ghost" data-ir="prestamos">Préstamos</button></div><div id="s-emp"></div>`;
       el.querySelectorAll('[data-ir]').forEach((b) => b.addEventListener('click', () => irA(b.dataset.ir)));
       await empleados(el.querySelector('#s-emp'));
       return;
@@ -587,8 +587,8 @@ async function empleados(el) {
       <td class="mut" data-l="Centro">${esc(nombreCentro(e.centro_id))}</td>
       <td class="num fuerte" data-l="Sueldo">${fmt(e.salario_semanal)}</td>
       <td class="mut nowrap" data-l="Horario">${String(e.hora_entrada || '').slice(0, 5)}–${String(e.hora_salida || '').slice(0, 5)} · ${e.dias_semana} días</td>
-      <td class="acciones nowrap">${!e.activo ? '' : acceso(e) ? `<span class="tag tag-ok" title="Entra desde su celular">📱 ${esc(acceso(e).usuario || '')}</span>`
-        : esDueno ? `<button class="btn btn-sm btn-ghost" data-acceso="${e.id}" title="Crearle usuario para su celular">📱 Dar acceso</button>` : ''}
+      <td class="acciones nowrap">${!e.activo ? '' : acceso(e) ? `<span class="tag tag-ok" title="Entra desde su celular">Acceso: ${esc(acceso(e).usuario || '')}</span>`
+        : esDueno ? `<button class="btn btn-sm btn-ghost" data-acceso="${e.id}" title="Crearle usuario para su celular">Dar acceso</button>` : ''}
         <button class="btn btn-sm btn-ghost" data-editar="${e.id}">Editar</button></td></tr>`).join('')}</tbody>
   </table></div></section>`;
   el.querySelectorAll('[data-editar]').forEach((b) => b.addEventListener('click', () => editarEmpleado(data.find((x) => x.id === b.dataset.editar))));

@@ -1,6 +1,6 @@
 // Obras de MEDCO: por cada obra, cuánto vale, cuánto ha cobrado, cuánto ha costado (pagado + pedido por pagar)
 // y cuánto deja. Una obra es un centro de tipo "obra"; su cliente es una cuenta por cobrar de tipo venta.
-import { CATEGORIAS, MARCA } from '../config.js';
+import { CATEGORIAS, MARCA , catIco } from '../config.js';
 // Cómo se le dice a una obra en esta instalación (Treme/MEDCO: obra; el demo de válvulas: proyecto)
 const [OBRA, OBRAS] = MARCA.palabraObra || ['obra', 'obras'];
 const may = (t) => t[0].toUpperCase() + t.slice(1);
@@ -132,7 +132,7 @@ function detalle(el, o) {
 
     <div class="grid-2">
       <section class="panel"><h3>Costo por categoría</h3>
-        ${catFilas.length ? `<ul class="barras">${catFilas.map(([k, v]) => `<li><span class="barra-nombre">${CATEGORIAS[k] || '•'} ${esc(k)}</span>
+        ${catFilas.length ? `<ul class="barras">${catFilas.map(([k, v]) => `<li><span class="barra-nombre">${catIco(k)}${esc(k)}</span>
           <span class="barra-pista"><span style="width:${Math.max(2, v / maxCat * 100)}%"></span></span><span class="barra-monto">${fmt(v)}</span></li>`).join('')}</ul>`
           : '<div class="vacio">Sin gastos registrados</div>'}
       </section>

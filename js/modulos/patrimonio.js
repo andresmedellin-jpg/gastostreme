@@ -31,7 +31,7 @@ export async function render(view) {
   view.innerHTML = `
     <div class="sub-head">
       <div class="tabs" role="tablist">
-        <button role="tab" data-vista="activos">🏢 Activos</button><button role="tab" data-vista="pasivos">💳 Pasivos</button>
+        <button role="tab" data-vista="activos">Activos</button><button role="tab" data-vista="pasivos">Pasivos</button>
       </div>
       <div class="sub-meta">Solo lo ven el dueño y los socios</div>
     </div>
