@@ -172,7 +172,7 @@ async function entrar(user) {
 
     const etiquetas = [miembro.rol, ...(miembro.roles || [])].map(rolLegible);
     $('user-box').innerHTML = `<span class="user-avatar" aria-hidden="true">${esc((miembro.nombre || '?').trim().charAt(0).toUpperCase())}</span>
-      <span class="user-txt"><strong>${esc(miembro.nombre)}</strong><span>${esc([...new Set(etiquetas)].join(' · '))}</span></span>`;
+      <span class="user-txt"><strong>${esc(miembro.nombre)}</strong></span>`;
     $('login').hidden = true;
     $('shell').hidden = false;
     navegar();
