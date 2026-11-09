@@ -433,7 +433,7 @@ function pintarActivos(el) {
 
 // ================= POR COBRAR =================
 // Lo que le deben a las empresas: saldos de compra de unidades de Elysium, clientes de obra (MEDCO) y adeudos de renta.
-const TIPOS_COBRO = { cartera_vencida: 'Adeudos de condóminos y compradores', venta: 'Clientes de obra', adeudo_inicial: 'Rentas atrasadas', otro: 'Otros' };
+const TIPOS_COBRO = { cartera_vencida: 'Unidades vendidas por terminar de pagar', venta: 'Clientes de obra', adeudo_inicial: 'Rentas atrasadas', otro: 'Otros' };
 function pintarCobrar(el) {
   const filas = cobrar.filter((x) => !st.q || normalizar([x.cliente, x.referencia, x.notas, centroDe(x.centro_id)?.nombre].join(' ')).includes(normalizar(st.q)));
   const vivas = filas.filter((x) => num(x.saldo) > 0.5), pagadas = filas.filter((x) => num(x.saldo) <= 0.5);
