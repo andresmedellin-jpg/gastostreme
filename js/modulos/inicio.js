@@ -3,6 +3,7 @@
 // Gastos = todos los gastos, menos Casa y Socios (no son gasto de la empresa).
 import { MESES, FORMAS_COBRO, MARCA } from '../config.js';
 import { db, todo, estado, tieneRol, esAdmin, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal, normalizar } from '../lib.js';
+import { pintarRecibo, abrirVentanaRecibo } from '../recibo.js';
 
 const PRIVADOS = [];   // Casa y Socios sí son gasto de la empresa (todo sale de la empresa); Victoria no los ve por la base
 const FUENTES = {
@@ -80,9 +81,9 @@ async function cargar() {
   const desde = iso(meses[0].a, meses[0].m);
   const fin = st.mes === 11 ? iso(st.anio + 1, 0) : iso(st.anio, st.mes + 1);
   const [p, i, g, c, u, x] = await Promise.all([
-    todo(() => db().from('pagos').select('id, empresa_id, centro_id, unidad_id, contrato_id, cxc_id, concepto, periodo, fecha, monto, forma_pago, notas')
+    todo(() => db().from('pagos').select('id, empresa_id, centro_id, unidad_id, contrato_id, cxc_id, concepto, periodo, fecha, monto, forma_pago, notas, folio')
       .or(`periodo.gte.${desde},fecha.gte.${desde}`)),
-    todo(() => db().from('ingresos').select('id, empresa_id, centro_id, fecha, monto, concepto, cliente, categoria, forma_pago, notas, capturado_por')
+    todo(() => db().from('ingresos').select('id, empresa_id, centro_id, fecha, monto, concepto, cliente, categoria, forma_pago, notas, capturado_por, folio')
       .gte('fecha', desde).lt('fecha', fin)),
     // Gastos ya pagados: cuentan en el mes en que salió el dinero (fecha de pago, o la fecha si se pagó al momento).
     // Los pedidos por pagar se muestran aparte y no restan todavía.
@@ -112,11 +113,16 @@ async function cargar() {
         // Las "ventas" de MEDCO son bodegas que construye para sus clientes: cuentan como obra
         fuente: r.concepto === 'venta' && esObra(r.centro_id) ? 'construccion' : (FUENTES[r.concepto] ? r.concepto : 'manual'),
         monto: Number(r.monto),
-        concepto: `${titulo}${quien ? ' — ' + quien : ''}`, forma: r.forma_pago, editable: false };
+        concepto: `${titulo}${quien ? ' — ' + quien : ''}`, forma: r.forma_pago, editable: false,
+        // Abonos de clientes de obra: se puede volver a sacar su recibo
+        recibo: r.concepto === 'venta' ? { tabla: 'pagos', id: r.id, empresaId: r.empresa_id, centroId: r.centro_id, folio: r.folio, fecha: r.fecha,
+          monto: Number(r.monto), concepto: titulo, cliente: quien || '', forma: r.forma_pago, notas: r.notas || '', abono: !!r.cxc_id } : null };
     }),
     ...i.data.map((r) => ({ id: r.id, mes: r.fecha.slice(0, 7), fecha: r.fecha, empresa_id: r.empresa_id, centro: centroDe(r.centro_id)?.nombre,
       fuente: fuenteDeCategoria(r.categoria), monto: Number(r.monto), concepto: r.concepto + (r.cliente ? ' — ' + r.cliente : ''), forma: r.forma_pago,
-      categoria: r.categoria, notas: r.notas, editable: true })),
+      categoria: r.categoria, notas: r.notas, editable: true,
+      recibo: { tabla: 'ingresos', id: r.id, empresaId: r.empresa_id, centroId: r.centro_id, folio: r.folio, fecha: r.fecha, monto: Number(r.monto),
+        concepto: r.concepto, cliente: r.cliente || '', forma: r.forma_pago, notas: r.notas || '' } })),
   ].filter((r) => r.mes >= desde.slice(0, 7) && r.mes < fin.slice(0, 7));
 
   const base = g.data.filter((r) => !PRIVADOS.includes(centroDe(r.centro_id)?.tipo))
@@ -237,7 +243,7 @@ function pintar() {
           <td data-l="Fuente"><span class="ex-fuente"><i style="background:${FUENTES[r.fuente].c}"></i>${FUENTES[r.fuente].t}</span></td>
           <td data-l="Forma">${esc(r.forma || '—')}</td>
           <td data-l="Monto" class="num fuerte">${fmt(r.monto)}</td>
-          <td class="acciones">${r.editable && esAdmin() ? `<button class="icon-btn peligro" data-borrar="${r.id}" aria-label="Eliminar ingreso" title="Eliminar">${X}</button>` : ''}</td>
+          <td class="acciones">${r.recibo && esAdmin() ? `<button class="btn btn-ghost btn-sm" data-recibo="${r.id}" title="Recibo en PDF">Recibo</button>` : ''}${r.editable && esAdmin() ? `<button class="icon-btn peligro" data-borrar="${r.id}" aria-label="Eliminar ingreso" title="Eliminar">${X}</button>` : ''}</td>
         </tr>`).join('') : '<tr><td colspan="7" class="vacio">Sin movimientos para este filtro.</td></tr>'}</tbody>
       </table></div>
       ${filas.length > 8 ? `<div class="ex-mas"><button type="button" class="btn btn-ghost btn-sm" id="i-todos">${st.todos ? 'Mostrar solo los más recientes' : `Ver los ${Math.min(filas.length, 400)} movimientos`}</button></div>` : ''}
@@ -261,6 +267,7 @@ function pintar() {
     raiz.querySelector(`[data-emp="${b.dataset.irEmp}"]`)?.click();
   }));
   cuerpo.querySelectorAll('[data-borrar]').forEach((b) => b.addEventListener('click', () => borrar(b.dataset.borrar)));
+  cuerpo.querySelectorAll('[data-recibo]').forEach((b) => b.addEventListener('click', () => volverARecibo(b.dataset.recibo)));
 }
 
 const X = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
@@ -410,6 +417,7 @@ function nuevoIngreso() {
         <label>Forma de cobro<select name="forma">${FORMAS_COBRO.map((f) => `<option>${f}</option>`).join('')}</select></label>
       </div>
       <label>Notas<textarea name="notas" rows="2"></textarea></label>
+      <label class="check-linea"><input type="checkbox" name="recibo" checked> Generar recibo en PDF al guardar</label>
     </form>`,
     pie: `<button class="btn btn-ghost" data-cerrar>Cancelar</button><button class="btn btn-primary" id="ing-ok">Guardar ingreso</button>`,
   });
@@ -441,23 +449,71 @@ function nuevoIngreso() {
     if (!f.reportValidity()) return;
     const btn = ev.currentTarget; btn.disabled = true; btn.textContent = 'Guardando…';
     const cxc = f.cxc?.value;
+    // La ventana del recibo se abre al tocar el botón (si no, el navegador la bloquea) y se llena al guardar
+    const ventana = f.recibo.checked ? abrirVentanaRecibo() : null;
+    const folio = f.recibo.checked ? (await db().rpc('siguiente_folio_empresa', { p_empresa: f.empresa.value, p_fecha: f.fecha.value })).data || null : null;
     const { error } = cxc ? await db().from('pagos').insert({
       org_id: estado.miembro.org_id, empresa_id: f.empresa.value, centro_id: f.centro.value, cxc_id: cxc, concepto: 'venta',
       fecha: f.fecha.value, monto: Number(f.monto.value), forma_pago: f.forma.value,
-      notas: [f.concepto.value.trim(), f.notas.value.trim()].filter(Boolean).join(' · ') || null, capturado_por: estado.miembro.nombre,
+      notas: [f.concepto.value.trim(), f.notas.value.trim()].filter(Boolean).join(' · ') || null, capturado_por: estado.miembro.nombre, folio,
     }) : await db().from('ingresos').insert({
       org_id: estado.miembro.org_id, empresa_id: f.empresa.value, centro_id: f.centro.value || null,
       fecha: f.fecha.value, monto: Number(f.monto.value), concepto: f.concepto.value.trim(),
       cliente: f.cliente.value.trim() || null, categoria: f.categoria.value, forma_pago: f.forma.value,
-      notas: f.notas.value.trim() || null, creado_por: estado.user.id, capturado_por: estado.miembro.nombre,
+      notas: f.notas.value.trim() || null, creado_por: estado.user.id, capturado_por: estado.miembro.nombre, folio,
     });
     btn.disabled = false; btn.textContent = 'Guardar ingreso';
-    if (error) return toast('No se pudo guardar: ' + error.message, true);
+    if (error) { ventana?.close(); return toast('No se pudo guardar: ' + error.message, true); }
+    if (f.recibo.checked) {
+      if (ventana) {
+        const cuenta = cxc && cuentas.find((c) => c.id === cxc);
+        reciboIngreso(ventana, {
+          empresaId: f.empresa.value, centroId: f.centro.value, folio, fecha: f.fecha.value, monto: Number(f.monto.value),
+          concepto: f.concepto.value.trim(), cliente: f.cliente.value.trim() || cuenta?.cliente || '', forma: f.forma.value,
+          notas: f.notas.value.trim(), saldo: cuenta ? Math.max(0, Number(cuenta.saldo) - Number(f.monto.value)) : null,
+        });
+      } else toast('El navegador bloqueó la ventana del recibo. Permite ventanas emergentes para app.medco.mx.', true);
+    }
     cerrarModal(); toast(cxc ? 'Abono registrado en la cuenta del cliente' : 'Ingreso registrado');
     const d = f.fecha.value; st.anio = +d.slice(0, 4); st.mes = +d.slice(5, 7) - 1;
     raiz.querySelector('#i-mes').value = st.mes; raiz.querySelector('#i-anio').value = st.anio;
     cargar();
   });
+}
+
+// Recibo de un ingreso con los datos de la empresa que cobra: MEDCO (azul, "Obra", cliente) o Treme (rojo vino)
+function reciboIngreso(w, d) {
+  const emp = (estado.todasEmpresas.length ? estado.todasEmpresas : estado.empresas).find((e) => e.id === d.empresaId) || {};
+  const esMedco = /medco/i.test(`${emp.nombre || ''} ${emp.nombre_corto || ''}`);
+  const emisor = esMedco ? 'Desarrollos y Proyectos MEDCO' : 'Grupo Inmobiliario Treme';
+  const centro = (estado.todosCentros.length ? estado.todosCentros : estado.centros).find((c) => c.id === d.centroId);
+  const abono = d.abono ?? d.saldo != null;
+  const info = [['Recibí de', d.cliente || '—']];
+  if (centro) info.push([esMedco ? 'Obra' : 'Inmueble', centro.nombre]);
+  info.push(['Concepto', d.concepto || 'Pago'], ['Recibido por', emisor], ['Método de pago', d.forma || '—']);
+  if (d.saldo != null) info.push(['Saldo pendiente', d.saldo > 0.5 ? `$${d.saldo.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN después de este pago` : 'Cuenta liquidada']);
+  return pintarRecibo(w, {
+    emisor, logo: esMedco ? 'img/logo-medco.png' : null, color: esMedco ? '#1E4F9C' : null,
+    titulo: `Recibo ${d.folio || ''} · ${d.cliente || emisor}`, folio: d.folio, fecha: d.fecha, info,
+    lineas: [{ concepto: d.concepto || 'Pago', detalle: centro ? centro.nombre : '', cantidad: 1, precio: d.monto, subtotal: d.monto }],
+    total: d.monto, moneda: 'MXN', ivaTexto: 'No desglosado',
+    estadoTexto: abono ? (d.saldo > 0.5 ? 'PAGO RECIBIDO — ABONO A CUENTA' : 'PAGO RECIBIDO — CUENTA LIQUIDADA EN SU TOTALIDAD') : 'PAGO RECIBIDO',
+    notas: d.notas || '',
+    aviso: `Este recibo ampara el pago recibido por ${emisor} de parte de ${d.cliente || 'el cliente'}${centro ? `, correspondiente a ${centro.nombre}` : ''}.`,
+  });
+}
+
+// Recibo de un ingreso ya guardado: usa su folio, o le asigna uno la primera vez
+async function volverARecibo(id) {
+  const r = ingresos.find((x) => x.id === id)?.recibo;
+  if (!r) return;
+  const w = abrirVentanaRecibo();
+  if (!w) return toast('El navegador bloqueó la ventana del recibo. Permite ventanas emergentes para app.medco.mx.', true);
+  if (!r.folio) {
+    const { data } = await db().rpc('siguiente_folio_empresa', { p_empresa: r.empresaId, p_fecha: r.fecha });
+    if (data) { r.folio = data; await db().from(r.tabla).update({ folio: data }).eq('id', r.id); }
+  }
+  reciboIngreso(w, { ...r, saldo: null });
 }
 
 async function borrar(id) {

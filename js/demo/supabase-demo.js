@@ -175,6 +175,17 @@
     marcar_password_cambiado: () => null,
     siguiente_folio_renta: () => 'REC-' + String(T('pagos').filter((p) => p.concepto === 'renta').length + 1).padStart(4, '0'),
     siguiente_folio_cuota: ({ p_periodo }) => 'REC-' + String(p_periodo).slice(0, 7).replace('-', '') + '-' + String(T('pagos').filter((p) => p.folio).length + 1).padStart(4, '0'),
+    siguiente_folio_empresa: ({ p_empresa, p_fecha }) => {
+      const pre = 'REC-' + String(p_fecha).slice(0, 7).replace('-', '') + '-';
+      const n = [...T('pagos'), ...T('ingresos')].filter((r) => r.empresa_id === p_empresa && String(r.folio || '').startsWith(pre))
+        .reduce((m, r) => Math.max(m, Number(String(r.folio).slice(pre.length)) || 0), 0);
+      return pre + String(n + 1).padStart(4, '0');
+    },
+    espacios_contratos: () => {
+      const m = new Map();
+      T('activo_contrato').forEach((x) => { const a = T('activos').find((y) => y.id === x.activo_id); if (a) m.set(x.contrato_id, [...(m.get(x.contrato_id) || []), a.identificador || a.tipo_unidad]); });
+      return [...m].map(([contrato_id, l]) => ({ contrato_id, espacio: l.sort().join(', ') }));
+    },
     equipo_de: ({ p_centro }) => T('empleados').filter((e) => e.centro_id === p_centro && e.activo)
       .sort((a, b) => a.nombre.localeCompare(b.nombre))
       .map(({ id, nombre, puesto, hora_entrada, hora_salida, tolerancia_min, dias_laborales }) => ({ id, nombre, puesto, hora_entrada, hora_salida, tolerancia_min, dias_laborales })),

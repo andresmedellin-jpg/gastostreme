@@ -670,6 +670,14 @@
       { empresa_id: E.id, acreedor: 'Emerson (crédito comercial)', tipo_pasivo: 'Proveedor a largo plazo', saldo_actual: 907000, tasa_interes: 0, pago_mensual: null, fecha_inicio: null, fecha_vencimiento: null, activo_ref: 'Compras de mercancía a 30 días', garantia: null },
       { empresa_id: E.id, acreedor: 'Financiera Automotriz', tipo_pasivo: 'Crédito simple', saldo_actual: 980000, tasa_interes: 14.9, pago_mensual: 58000, fecha_inicio: '2023-01-15', fecha_vencimiento: '2027-01-15', activo_ref: '3 camionetas de servicio', garantia: 'Las camionetas' },
     ].map((p) => ({ id: id('pas'), org_id: ORG, activo_id: null, fecha_saldo: hoy, moneda: 'MXN', notas: null, ...p }));
+    // Las torres en renta quedan ligadas a sus contratos: la renta del Patrimonio sale de Rentas, igual que en la plataforma real
+    const activo_contrato = [];
+    activos.forEach((a) => {
+      const t = a.identificador === 'Torre Cumbres' ? torreA : a.identificador === 'Torre Valle' ? torreB : null;
+      if (!t) return;
+      a.centro_id = t.id; a.ingreso_mensual = null;
+      contratos.filter((c) => c.centro_id === t.id).forEach((c) => activo_contrato.push({ org_id: ORG, activo_id: a.id, contrato_id: c.id }));
+    });
 
     // ---------- usuarios con acceso (ejemplo) ----------
     const miembros = [{ org_id: ORG, user_id: 'demo-usuario', nombre: ADMIN, usuario: 'direccion', rol: 'dueno', roles: [], empresas: null, activo: true, debe_cambiar_password: false, creado_en: '2026-01-05T12:00:00Z' },
@@ -736,7 +744,7 @@
       miembros,
       empresas: [E, E2], centros, productos, inventario_movs, ingresos, gastos, cuentas_por_cobrar, pagos, empleados,
       nomina_periodos, nomina_lineas, asistencia, vacaciones, prestamos, prestamo_abonos, tareas_plantilla, tareas,
-      cotizaciones, contratos, unidades, cuotas: [], medidores, lecturas, recibos_servicio, tarifas_servicio, activos, pasivos, tipo_cambio: [], prospectos, inversion_publicidad,
+      cotizaciones, contratos, unidades, cuotas: [], medidores, lecturas, recibos_servicio, tarifas_servicio, activos, pasivos, activo_contrato, tipo_cambio: [], prospectos, inversion_publicidad,
     };
     if (MEDCO) {            // las dos empresas juntas, con los nombres de Treme y MEDCO
       E.nombre = 'Desarrollos y Proyectos MEDCO'; E.nombre_corto = 'MEDCO';

@@ -39,11 +39,13 @@ async function fuentes() {
 }
 
 /**
- * d = { titulo, folio, fecha (ISO), info: [[etiqueta, valor], …], lineas: [{ concepto, detalle, cantidad, precio, subtotal }],
+ * d = { emisor, logo, color (opcionales: por omisión Treme), ivaTexto, titulo, folio, fecha (ISO), info: [[etiqueta, valor], …], lineas: [{ concepto, detalle, cantidad, precio, subtotal }],
  *       total, moneda, liquidado, aviso, notas }
  */
 export async function pintarRecibo(w, d) {
-  const [img, ff] = await Promise.all([logo(), fuentes()]);
+  // Cada recibo puede traer su propio emisor (MEDCO o Treme): nombre, logo y color
+  const EMI = d.emisor || EMISOR, COLOR = d.color || ROJO;
+  const [img, ff] = await Promise.all([d.logo ? incrustar(d.logo) : logo(), fuentes()]);
   const m = d.moneda || 'MXN';
   const libPDF = new URL('js/vendor/html2pdf.bundle.min.js', location.href).href;
   const quien = (d.info.find(([k]) => /recib[ií] de/i.test(k)) || [])[1] || '';
@@ -57,13 +59,13 @@ export async function pintarRecibo(w, d) {
   .barra{position:sticky;top:0;z-index:2;display:flex;gap:8px;justify-content:center;padding:12px;background:#1a1a1a}
   .barra button{font:600 14px Inter,Arial,sans-serif;padding:9px 16px;border-radius:4px;border:0;cursor:pointer}
   .hoja{width:8.5in;min-height:11in;max-width:100%;margin:24px auto;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.1)}
-  .topbar{height:8px;background:${ROJO}}
+  .topbar{height:8px;background:${COLOR}}
   .c{padding:30px 54px 40px}
   .head{display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #1a1a1a;padding-bottom:16px;margin-bottom:22px;gap:16px}
   .head img{width:185px;max-width:45%;height:auto;object-fit:contain}
   .t{text-align:right} .t h1{font-size:19px;margin:0 0 6px;letter-spacing:.5px;font-weight:700}
-  .t div{font-size:11.5px;margin:2px 0;color:#333} .t b{color:${ROJO}}
-  .st{color:${ROJO};font-weight:700;font-size:11px;margin:20px 0 8px;letter-spacing:.4px}
+  .t div{font-size:11.5px;margin:2px 0;color:#333} .t b{color:${COLOR}}
+  .st{color:${COLOR};font-weight:700;font-size:11px;margin:20px 0 8px;letter-spacing:.4px}
   table{width:100%;border-collapse:collapse}
   .info td{border:1px solid #d9d9d9;padding:8px 10px;font-size:11px} .info td.l{background:#f4f4f4;font-weight:600;width:24%}
   .det th{background:#1a1a1a;color:#fff;padding:8px 10px;font-size:10.5px;font-weight:600;text-align:left}
@@ -71,11 +73,11 @@ export async function pintarRecibo(w, d) {
   .r{text-align:right!important} .ce{text-align:center!important}
   .tot{margin-top:8px;font-size:11px} .tot div{display:flex;justify-content:flex-end;gap:8px;padding:4px 10px}
   .tot .g{background:#1a1a1a;color:#fff;font-weight:700;font-size:12px;padding:9px 10px;margin-top:4px}
-  .estado{border:1.5px solid ${ROJO};text-align:center;padding:11px;font-weight:700;font-size:11.5px;letter-spacing:.6px;margin:24px 0 20px}
+  .estado{border:1.5px solid ${COLOR};text-align:center;padding:11px;font-weight:700;font-size:11.5px;letter-spacing:.6px;margin:24px 0 20px}
   .nota{font-size:11px;margin:-6px 0 16px}
   .aviso{font-size:9.5px;font-style:italic;color:#555;border-top:1px solid #d9d9d9;padding-top:10px;text-align:center;line-height:1.6}
   .pie{margin-top:36px;border-top:1px solid #d9d9d9;padding-top:10px;text-align:center;font-size:8.5px;color:#888;line-height:1.6}
-  .barra .ok{background:${ROJO};color:#fff} .barra button:disabled{opacity:.6;cursor:wait}
+  .barra .ok{background:${COLOR};color:#fff} .barra button:disabled{opacity:.6;cursor:wait}
   body.pdf{width:8.5in;margin:0;background:#fff} body.pdf .barra{display:none}
   body.pdf .hoja{margin:0;box-shadow:none;width:8.5in;max-width:none;min-height:0}
   @media print{body{background:#fff}.barra{display:none}.hoja{margin:0;box-shadow:none;width:100%;min-height:0}}
@@ -83,7 +85,7 @@ export async function pintarRecibo(w, d) {
 </style></head><body>
 <div class="barra"><button class="ok" id="pdf">Descargar PDF</button><button onclick="print()">Imprimir</button><button onclick="close()">Cerrar</button></div>
 <div class="hoja"><div class="topbar"></div><div class="c">
-  <div class="head">${img ? `<img src="${img}" alt="${esc(EMISOR)}">` : `<strong style="font-size:24px">${esc(EMISOR)}</strong>`}
+  <div class="head">${img ? `<img src="${img}" alt="${esc(EMI)}">` : `<strong style="font-size:24px">${esc(EMI)}</strong>`}
     <div class="t"><h1>${esc(d.encabezado || 'RECIBO DE PAGO')}</h1><div>Folio: <b>${esc(d.folio || '—')}</b></div><div>Fecha: ${fechaLarga(d.fecha)}</div></div></div>
   <div class="st">INFORMACIÓN DE PAGO</div>
   <table class="info">${d.info.map(([k, v]) => `<tr><td class="l">${esc(k)}:</td><td>${esc(v)}</td></tr>`).join('')}</table>
@@ -95,13 +97,13 @@ export async function pintarRecibo(w, d) {
   </table>
   <div class="tot">
     <div><span>Subtotal:</span><span>${dinero(d.total, m)}</span></div>
-    ${d.sinIva ? '' : '<div><span>IVA (incluido):</span><span>Incluido en el total</span></div>'}
+    ${d.sinIva ? '' : d.ivaTexto ? `<div><span>IVA:</span><span>${esc(d.ivaTexto)}</span></div>` : '<div><span>IVA (incluido):</span><span>Incluido en el total</span></div>'}
     <div class="g"><span>${esc(d.totalTexto || 'TOTAL PAGADO:')}</span><span>${dinero(d.total, m)} ${m}</span></div>
   </div>
   <div class="estado">${esc(d.estadoTexto || (d.liquidado === false ? 'PAGO RECIBIDO' : 'PAGO RECIBIDO — LIQUIDADO EN SU TOTALIDAD'))}</div>
   ${d.notas ? `<div class="nota"><b>Notas:</b> ${esc(d.notas)}</div>` : ''}
-  <div class="aviso">${esc(d.aviso)} Para cualquier aclaración, comuníquese con el departamento de administración de ${esc(EMISOR)}.</div>
-  <div class="pie">${esc(EMISOR)}<br>${esc(d.pie || 'Este recibo es comprobante de pago válido • Consérvelo para sus registros')}</div>
+  <div class="aviso">${esc(d.aviso)} Para cualquier aclaración, comuníquese con el departamento de administración de ${esc(EMI)}.</div>
+  <div class="pie">${esc(EMI)}<br>${esc(d.pie || 'Este recibo es comprobante de pago válido • Consérvelo para sus registros')}</div>
 </div></div>
 <script>
   // Descarga directa del PDF (tamaño carta), con el nombre del folio y de quien pagó

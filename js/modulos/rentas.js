@@ -11,7 +11,7 @@ const st = {
   filtro: 'todos', centro: '', q: '',
   hMes: '', hCentro: '',
 };
-let contratos = [], pagos = [], adeudos = [], unidades = [], raiz;
+let contratos = [], pagos = [], adeudos = [], unidades = [], espacios = new Map(), raiz;
 // Pagos incompletos (abonos): con MARCA.rentaParcial, una renta con pagos que no suman el monto queda "Abonado" y muestra lo que falta.
 // Sin la opción (Treme hoy), cualquier pago marca el mes como pagado, como la página vieja.
 const PARCIAL = !!MARCA.rentaParcial;
@@ -27,7 +27,9 @@ const money = (n, cur = 'MXN') => new Intl.NumberFormat('es-MX', { style: 'curre
   currencyDisplay: 'narrowSymbol', maximumFractionDigits: 2 }).format(Number(n || 0)) + (cur === 'USD' ? ' USD' : '');
 const periodo = (y, m) => `${y}-${String(m + 1).padStart(2, '0')}-01`;
 const nombreCentro = (id) => estado.centros.find((c) => c.id === id)?.nombre || '—';
-const unidadDe = (r) => r?.unidad_id && unidades.find((u) => u.id === r.unidad_id);
+// Unidad del contrato: la del mapa de ocupación, o el nombre de los inmuebles ligados en Patrimonio (p. ej. "Local 21, Local 22")
+const unidadDe = (r) => (r?.unidad_id && unidades.find((u) => u.id === r.unidad_id))
+  || (r && espacios.has(r.id) ? { identificador: espacios.get(r.id) } : null);
 const puedeCobrar = () => tieneRol(['administracion', 'cobranza']);
 
 export async function render(view) {
@@ -45,17 +47,19 @@ export async function render(view) {
 }
 
 async function cargar() {
-  const [c, p, a, u] = await Promise.all([
+  const [c, p, a, u, e] = await Promise.all([
     db().from('contratos').select('id, centro_id, unidad_id, arrendatario, monto, moneda, dia_pago, fecha_inicio, fecha_fin, telefono, email, notas, activo')
       .order('arrendatario'),
     todo(() => db().from('pagos').select('id, contrato_id, periodo, monto, moneda, forma_pago, fecha, folio, notas, capturado_por, creado_en')
       .eq('concepto', 'renta').order('fecha', { ascending: false })),
     db().from('cuentas_por_cobrar').select('id, contrato_id, meses, monto_original, notas, creado_en').eq('tipo', 'adeudo_inicial'),
     OCUPACION ? todo(() => db().from('unidades').select('id, centro_id, identificador, tipo, superficie_m2, activo')) : { data: [] },
+    Promise.resolve(db().rpc('espacios_contratos')).catch(() => ({ data: [] })),
   ]);
   const err = c.error || p.error || a.error;
   if (err) { toast('No se pudieron cargar las rentas: ' + err.message, true); return; }
   contratos = c.data; pagos = p.data; adeudos = a.data; unidades = u.data || [];
+  espacios = new Map((e?.error ? [] : e?.data || []).map((x) => [x.contrato_id, x.espacio]));
   pintar();
 }
 
@@ -432,7 +436,7 @@ function pintarAdeudos(el) {
         <thead><tr><th>Inquilino</th><th>Desarrollo</th><th class="num">Meses</th><th>Nota</th><th class="num">Adeudo</th></tr></thead>
         <tbody>${con.map(({ a, r }) => `<tr class="clic" data-adeudo="${r.id}" tabindex="0">
           <td data-l="Inquilino"><strong>${esc(r.arrendatario)}</strong></td>
-          <td class="mut" data-l="Desarrollo">${esc(nombreCentro(r.centro_id))}</td>
+          <td class="mut" data-l="Desarrollo">${esc(nombreCentro(r.centro_id))}${unidadDe(r) ? `<small class="sub">${esc(unidadDe(r).identificador)}</small>` : ''}</td>
           <td class="num" data-l="Meses">${a.meses ?? '—'}</td>
           <td class="mut" data-l="Nota">${esc(a.notas || '')}</td>
           <td class="num neg fuerte" data-l="Adeudo">${money(a.monto_original, r.moneda)}</td></tr>`).join('')}</tbody></table></div>`
@@ -529,7 +533,7 @@ function pintarContratos(el) {
         const v = vigencia(r.fecha_fin);
         return `<tr class="${r.activo ? '' : 'inactivo'}">
           <td data-l="Arrendatario"><strong>${esc(r.arrendatario)}</strong>${r.activo ? '' : ' <span class="tag tag-suave">inactivo</span>'}</td>
-          <td class="mut" data-l="Desarrollo">${esc(nombreCentro(r.centro_id))}</td>
+          <td class="mut" data-l="Desarrollo">${esc(nombreCentro(r.centro_id))}${unidadDe(r) ? `<small class="sub">${esc(unidadDe(r).identificador)}</small>` : ''}</td>
           <td class="num fuerte" data-l="Renta">${Number(r.monto) ? money(r.monto, r.moneda) : '—'}</td>
           <td class="mut" data-l="Día">${r.dia_pago || '—'}</td>
           <td data-l="Contrato">${v ? `<span class="${v.cls}">${v.txt}</span>` : '<span class="mut">Sin fecha</span>'}</td>
