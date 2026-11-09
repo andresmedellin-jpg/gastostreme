@@ -45,7 +45,11 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
    Gastos: centros como botones con lo gastado en el mes (sin menú desplegable), también en el formulario.
    Patrimonio (reorganizado 09/11/2026): Panorama = 4 cifras (valor total con dólares, renta, rendimiento, deuda aparte), "Por revisar"
    plegado, barra de ocupación (rentado / disponible / uso propio) con la proyección plegada, tabla por plaza o dueño legal (toca una
-   plaza → sus inmuebles), "Para decidir" (máx. 3) y simulador de venta plegado · Inmuebles (por plaza) · Deuda (por empresa).
+   plaza → sus inmuebles), "Para decidir" (máx. 3) y simulador de venta plegado · Inmuebles (por plaza) · Por cobrar · Deuda (por empresa).
+   Por cobrar = `v_saldos_cxc` (todas las cuentas por cobrar): adeudos de condóminos/compradores de Elysium (`tipo cartera_vencida`,
+   abono = `pagos` concepto `cartera` con `cxc_id`), clientes de obra (`venta`) y rentas atrasadas (`adeudo_inicial`, se cobran en Rentas).
+   "Te deben" se muestra aparte en el Panorama, no se suma al valor. Héctor Martínez (Oficina 601): saldo de compra + mantenimiento
+   $50/m² al mes desde ene 2025 (capturado hasta nov 2026), predial y ajuste de descuento.
 6. Prueba antes de publicar: Playwright con un Supabase falso (se sirve el repo en localhost y se reemplaza
    `supabase.min.js`), revisa escritorio y celular (390px), sin errores en consola.
 7. Commits como `-c user.name="Andrés Medellín" -c user.email="andres.medellin@medco.mx"`.

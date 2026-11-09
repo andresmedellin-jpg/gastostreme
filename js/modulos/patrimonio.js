@@ -2,10 +2,11 @@
 // La renta de cada inmueble NO se captura aquí: sale de los contratos de Rentas ligados al inmueble (tabla activo_contrato),
 // así Patrimonio y Rentas siempre dicen lo mismo. Los dólares se convierten a pesos con el tipo de cambio del día.
 // La deuda es de las empresas: se muestra aparte y no se resta del valor del patrimonio.
-import { db, estado, fmt, fmtFecha, esc, toast, abrirModal, cerrarModal, normalizar } from '../lib.js';
+import { db, estado, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal, normalizar } from '../lib.js';
+import { FORMAS_COBRO } from '../config.js';
 
 const st = { vista: 'panorama', plaza: '', entidad: '', q: '' };
-let raiz, activos = [], pasivos = [], contratos = [], enlaces = [];
+let raiz, activos = [], pasivos = [], contratos = [], enlaces = [], cobrar = [];
 let tc = { valor: 18.5, fecha: null, fuente: 'aproximado' };
 
 const CAMPOS_ACTIVO = [
@@ -33,7 +34,7 @@ export async function render(view) {
   view.innerHTML = `
     <div class="sub-head">
       <div class="tabs" role="tablist">
-        <button role="tab" data-vista="panorama">Panorama</button><button role="tab" data-vista="activos">Inmuebles</button><button role="tab" data-vista="pasivos">Deuda</button>
+        <button role="tab" data-vista="panorama">Panorama</button><button role="tab" data-vista="activos">Inmuebles</button><button role="tab" data-vista="cobrar">Por cobrar</button><button role="tab" data-vista="pasivos">Deuda</button>
       </div>
       <div class="sub-meta pz-tcbox" id="pt-tc"></div>
     </div>
@@ -47,15 +48,16 @@ export async function render(view) {
 }
 
 async function cargar(repintar = true) {
-  const [a, p, k, e] = await Promise.all([
+  const [a, p, k, e, c] = await Promise.all([
     db().from('activos').select('*').order('codigo'),
     db().from('pasivos').select('*').order('saldo_actual', { ascending: false }),
     db().from('contratos').select('id, centro_id, arrendatario, monto, moneda, activo').order('arrendatario'),
     db().from('activo_contrato').select('activo_id, contrato_id, monto'),
+    db().from('v_saldos_cxc').select('*').order('saldo', { ascending: false }),
   ]);
-  const err = a.error || p.error || k.error || e.error;
+  const err = a.error || p.error || k.error || e.error || c.error;
   if (err) { toast('No se pudo cargar el patrimonio: ' + err.message, true); return false; }
-  activos = a.data; pasivos = p.data; contratos = k.data; enlaces = e.data;
+  activos = a.data; pasivos = p.data; contratos = k.data; enlaces = e.data; cobrar = c.data;
   if (repintar) pintar();
   return true;
 }
@@ -182,10 +184,10 @@ function pintar() {
   raiz.querySelectorAll('[data-vista]').forEach((b) => b.setAttribute('aria-selected', b.dataset.vista === st.vista));
   pintarTC();
   document.getElementById('page-actions').innerHTML = st.vista === 'panorama' ? ''
-    : `<button class="btn btn-primary" id="pt-nuevo">＋ ${st.vista === 'activos' ? 'Inmueble' : 'Deuda'}</button>`;
-  document.getElementById('pt-nuevo')?.addEventListener('click', () => editar(st.vista, null));
+    : `<button class="btn btn-primary" id="pt-nuevo">＋ ${({ activos: 'Inmueble', pasivos: 'Deuda', cobrar: 'Por cobrar' })[st.vista]}</button>`;
+  document.getElementById('pt-nuevo')?.addEventListener('click', () => st.vista === 'cobrar' ? editarCobro(null) : editar(st.vista, null));
   const el = raiz.querySelector('#pt-cuerpo');
-  ({ panorama: pintarPanorama, activos: pintarActivos, pasivos: pintarPasivos })[st.vista](el);
+  ({ panorama: pintarPanorama, activos: pintarActivos, cobrar: pintarCobrar, pasivos: pintarPasivos })[st.vista](el);
 }
 
 // ================= PANORAMA =================
@@ -205,6 +207,8 @@ function pintarPanorama(el) {
   const proyectado = libres.reduce((s, x) => s + (x.e?.mx || 0), 0);
   const valLibre = libres.reduce((s, x) => s + valMX(x.a), 0), valPropio = propios.reduce((s, x) => s + valMX(x.a), 0);
   const deuda = pasivos.reduce((s, p) => s + saldoMX(p), 0), pagos = pasivos.reduce((s, p) => s + pagoMX(p), 0);
+  const vivas = cobrar.filter((x) => num(x.saldo) > 0.5);
+  const porCobrar = vivas.reduce((s, x) => s + aMXN(x.saldo, x.moneda), 0), deudores = vivas.length;
   const caras = pasivos.filter((p) => costoMes(p) != null).sort((a, b) => costoMes(b) - costoMes(a));
   const sinPago = pasivos.filter((p) => costoMes(p) == null);
   const bajo = conRenta.filter((a) => rend(a) < rendProm * 0.6).sort((a, b) => rend(a) - rend(b));
@@ -238,12 +242,13 @@ function pintarPanorama(el) {
   const valOcup = segOcup.reduce((s, x) => s + x.v, 0);
 
   el.innerHTML = `
-    <section class="pz-hero pz-hero4">
+    <section class="pz-hero pz-hero5">
       <div class="pz-neto"><span>Valor total del patrimonio</span><strong>${corto(total)}</strong>
         <small>${corto(valMxn)} en México${valUsd ? ` + ${usd(valUsd)} en Estados Unidos` : ''}</small></div>
       <div class="pz-m"><span>Renta mensual</span><strong>${corto(renta)}</strong><small>según Rentas${rentaUsd ? ` · incluye ${usd(rentaUsd)}` : ''}</small></div>
       <div class="pz-m"><span>Rendimiento anual</span><strong>${pct(rendProm)}</strong><small>sobre lo rentado</small></div>
-      <div class="pz-m"><span>Deuda de las empresas</span><strong>${corto(deuda)}</strong><small>aparte, no se resta</small></div>
+      <div class="pz-m clic" data-ir="cobrar" tabindex="0"><span>Te deben</span><strong>${corto(porCobrar)}</strong><small>${deudores} cuenta${deudores === 1 ? '' : 's'} por cobrar</small></div>
+      <div class="pz-m clic" data-ir="pasivos" tabindex="0"><span>Deuda de las empresas</span><strong>${corto(deuda)}</strong><small>aparte, no se resta</small></div>
     </section>
 
     ${nRev ? `<details class="pz-aviso"><summary><em><b>${nRev} pendiente${nRev === 1 ? '' : 's'} por revisar</b> entre Patrimonio y Rentas</em><span>Ver</span></summary>${revisarHTML(rev)}</details>` : ''}
@@ -279,6 +284,7 @@ function pintarPanorama(el) {
   el.querySelectorAll('[data-editar]').forEach((tr) => activar(tr, () => editar('activos', tr.dataset.editar)));
   el.querySelectorAll('[data-nuevo-contrato]').forEach((b) => b.addEventListener('click', () => ligarContrato(b.dataset.nuevoContrato)));
   el.querySelectorAll('[data-ligar]').forEach((b) => b.addEventListener('click', () => editar('activos', b.dataset.ligar)));
+  el.querySelectorAll('[data-ir]').forEach((d) => activar(d, () => { st.vista = d.dataset.ir; st.q = ''; pintar(); window.scrollTo(0, 0); }));
   el.querySelectorAll('[data-agrupa]').forEach((b) => b.addEventListener('click', () => { st.agrupa = b.dataset.agrupa; pintar(); }));
   el.querySelectorAll('[data-plaza-ir]').forEach((tr) => activar(tr, () => { st.plaza = tr.dataset.plazaIr; st.entidad = ''; st.q = ''; st.vista = 'activos'; pintar(); window.scrollTo(0, 0); }));
   simulador(el.querySelector('#pz-sim'), { caras, sinPago, renta });
@@ -423,6 +429,111 @@ function pintarActivos(el) {
   el.querySelectorAll('[data-plaza]').forEach((b) => b.addEventListener('click', () => { st.plaza = b.dataset.plaza; pintar(); }));
   el.querySelector('#pt-ent').addEventListener('change', (e) => { st.entidad = e.target.value; pintar(); });
   conectarTabla(el, 'activos');
+}
+
+// ================= POR COBRAR =================
+// Lo que le deben a las empresas: saldos de compra de unidades de Elysium, clientes de obra (MEDCO) y adeudos de renta.
+const TIPOS_COBRO = { cartera_vencida: 'Adeudos de condóminos y compradores', venta: 'Clientes de obra', adeudo_inicial: 'Rentas atrasadas', otro: 'Otros' };
+function pintarCobrar(el) {
+  const filas = cobrar.filter((x) => !st.q || normalizar([x.cliente, x.referencia, x.notas, centroDe(x.centro_id)?.nombre].join(' ')).includes(normalizar(st.q)));
+  const vivas = filas.filter((x) => num(x.saldo) > 0.5), pagadas = filas.filter((x) => num(x.saldo) <= 0.5);
+  const total = vivas.reduce((s, x) => s + aMXN(x.saldo, x.moneda), 0);
+  const grupos = Object.keys(TIPOS_COBRO).map((t) => ({ t, l: vivas.filter((x) => (x.tipo || 'otro') === t) })).filter((g) => g.l.length);
+  const mayor = [...vivas].sort((a, b) => aMXN(b.saldo, b.moneda) - aMXN(a.saldo, a.moneda))[0];
+  const fila = (x) => {
+    const r = x.tipo === 'adeudo_inicial';
+    return `<tr>
+      <td data-l="Quién debe"><b>${esc(x.cliente || '—')}</b><small class="sub">${esc([x.referencia, centroDe(x.centro_id)?.nombre].filter(Boolean).join(' · '))}</small></td>
+      <td data-l="Original" class="num mut">${fmt(x.monto_original)}</td>
+      <td data-l="Abonado" class="num">${num(x.pagado) ? fmt(x.pagado) : '<span class="mut">—</span>'}</td>
+      <td data-l="Saldo" class="num fuerte">${fmt(x.saldo)}</td>
+      <td class="acciones">${r ? '<span class="mut">Se cobra en Rentas</span>' : `<button class="btn btn-sm btn-primary" data-abono="${x.id}">Abono</button>`}
+        <button class="btn btn-sm btn-ghost" data-cobro="${x.id}">Editar</button></td></tr>`;
+  };
+  el.innerHTML = `
+    <div class="vc-cifras">
+      <div class="vc-cifra"><span>Te deben</span><strong>${corto(total)}</strong><small>${vivas.length} cuenta${vivas.length === 1 ? '' : 's'}</small></div>
+      ${grupos.slice(0, 2).map((g) => `<div class="vc-cifra"><span>${esc(TIPOS_COBRO[g.t])}</span><strong>${corto(g.l.reduce((s, x) => s + aMXN(x.saldo, x.moneda), 0))}</strong><small>${g.l.length} cuenta${g.l.length === 1 ? '' : 's'}</small></div>`).join('')}
+      ${mayor ? `<div class="vc-cifra"><span>La más grande</span><strong>${corto(aMXN(mayor.saldo, mayor.moneda))}</strong><small>${esc(mayor.cliente || '')}</small></div>` : ''}
+    </div>
+    <section class="panel" style="margin-top:16px">
+      <div class="panel-head"><h3>Cuentas por cobrar</h3><input type="search" id="pt-q" placeholder="Buscar nombre o unidad…" value="${esc(st.q)}" aria-label="Buscar cuenta"></div>
+      <div class="tabla-wrap"><table class="tabla tm">
+        <thead><tr><th>Quién debe</th><th class="num">Original</th><th class="num">Abonado</th><th class="num">Saldo</th><th></th></tr></thead>
+        <tbody>${grupos.length ? grupos.map((g) => `<tr class="pz-grupo"><td colspan="5"><b>${esc(TIPOS_COBRO[g.t])}</b><span>${g.l.length} · ${corto(g.l.reduce((s, x) => s + aMXN(x.saldo, x.moneda), 0))}</span></td></tr>${g.l.map(fila).join('')}`).join('')
+          : '<tr><td colspan="5" class="vacio">Nadie te debe con este filtro.</td></tr>'}</tbody>
+      </table></div>
+      ${pagadas.length ? `<details class="pz-mas"><summary>${pagadas.length} cuenta${pagadas.length === 1 ? '' : 's'} ya liquidada${pagadas.length === 1 ? '' : 's'}</summary>
+        <ul class="pz-liq">${pagadas.map((x) => `<li><span>${esc(x.cliente)} · ${esc(x.referencia || '')}</span><b>${fmt(x.monto_original)}</b></li>`).join('')}</ul></details>` : ''}
+      <p class="nota">Lo que te deben no se suma al valor del patrimonio; se muestra aparte. Cada abono registrado aquí baja el saldo y cuenta como ingreso del mes.</p>
+    </section>`;
+  const q = el.querySelector('#pt-q');
+  q.addEventListener('input', (e) => { st.q = e.target.value; const pos = e.target.selectionStart; pintar(); const n = raiz.querySelector('#pt-q'); n.focus(); n.setSelectionRange(pos, pos); });
+  el.querySelectorAll('[data-abono]').forEach((b) => b.addEventListener('click', () => abonoCobro(b.dataset.abono)));
+  el.querySelectorAll('[data-cobro]').forEach((b) => b.addEventListener('click', () => editarCobro(b.dataset.cobro)));
+}
+
+function abonoCobro(id) {
+  const x = cobrar.find((c) => c.id === id); if (!x) return;
+  const modal = abrirModal({
+    titulo: `Abono · ${x.cliente}`,
+    cuerpo: `<form class="form" id="ab-f" onsubmit="return false"><p class="sub-meta">${esc(x.referencia || '')} · saldo actual ${fmt(x.saldo)}</p>
+      <div class="form-2"><label>Fecha<input type="date" name="fecha" value="${hoyISO()}"></label>
+      <label>Monto<input type="number" name="monto" step="0.01" min="0.01" inputmode="decimal" required></label></div>
+      <label>Forma de cobro<select name="forma">${FORMAS_COBRO.map((f) => `<option>${f}</option>`).join('')}</select></label>
+      <label>Notas<input name="notas" maxlength="200"></label></form>`,
+    pie: `<span style="flex:1"></span><button class="btn btn-ghost" id="ab-x">Cancelar</button><button class="btn btn-primary" id="ab-ok">Registrar abono</button>`,
+  });
+  modal.querySelector('#ab-x').addEventListener('click', cerrarModal);
+  modal.querySelector('#ab-ok').addEventListener('click', async (ev) => {
+    const f = modal.querySelector('#ab-f'), monto = Number(f.monto.value);
+    if (!(monto > 0)) return toast('Escribe el monto del abono', true);
+    ev.currentTarget.disabled = true;
+    const { error } = await db().from('pagos').insert({ org_id: estado.miembro.org_id, empresa_id: x.empresa_id, centro_id: x.centro_id, cxc_id: x.id,
+      concepto: x.tipo === 'venta' ? 'venta' : 'cartera', fecha: f.fecha.value, monto, moneda: x.moneda || 'MXN', forma_pago: f.forma.value,
+      notas: [x.referencia, f.notas.value.trim()].filter(Boolean).join(' · ') || null, capturado_por: estado.miembro.nombre });
+    if (error) { ev.currentTarget.disabled = false; return toast('No se pudo registrar: ' + error.message, true); }
+    cerrarModal(); toast('Abono registrado'); cargar();
+  });
+}
+
+function editarCobro(id) {
+  const x = id ? cobrar.find((c) => c.id === id) : { tipo: 'cartera_vencida', moneda: 'MXN' };
+  const centros = (estado.centros.length ? estado.centros : estado.todosCentros).slice().sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  const modal = abrirModal({
+    titulo: id ? `Cuenta por cobrar · ${x.cliente}` : 'Nueva cuenta por cobrar',
+    cuerpo: `<form class="form" id="cx-f" onsubmit="return false"><div class="form-2">
+      <label>Quién debe<input name="cliente" value="${esc(x.cliente || '')}" maxlength="120"></label>
+      <label>Unidad o concepto<input name="referencia" value="${esc(x.referencia || '')}" maxlength="120" placeholder="Ej. Departamento 1209"></label>
+      <label>Monto que debe (original)<input name="monto" type="number" step="0.01" inputmode="decimal" value="${x.monto_original ?? ''}"></label>
+      <label>Tipo<select name="tipo">${Object.entries(TIPOS_COBRO).filter(([t]) => t !== 'adeudo_inicial' || x.tipo === t).map(([t, n]) => `<option value="${t}" ${x.tipo === t ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+      <label class="ancho">Plaza / obra<select name="centro"><option value="">—</option>${centros.map((c) => `<option value="${c.id}" ${c.id === x.centro_id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select></label>
+      <label class="ancho">Notas<textarea name="notas" rows="3">${esc(x.notas || '')}</textarea></label></div>
+      ${id && num(x.pagado) ? `<p class="nota">Lleva ${fmt(x.pagado)} abonados; el saldo es el monto original menos los abonos.</p>` : ''}</form>`,
+    pie: `${id && !num(x.pagado) ? '<button class="btn btn-ghost peligro" id="cx-borrar">Eliminar</button>' : ''}<span style="flex:1"></span>
+      <button class="btn btn-ghost" id="cx-x">Cancelar</button><button class="btn btn-primary" id="cx-ok">Guardar</button>`,
+  });
+  modal.querySelector('#cx-x').addEventListener('click', cerrarModal);
+  modal.querySelector('#cx-ok').addEventListener('click', async (ev) => {
+    const f = modal.querySelector('#cx-f');
+    const centro = f.centro.value ? centroDe(f.centro.value) : null;
+    const datos = { cliente: f.cliente.value.trim(), referencia: f.referencia.value.trim() || null, monto_original: Number(f.monto.value),
+      tipo: f.tipo.value, centro_id: centro?.id || null, notas: f.notas.value.trim() || null };
+    if (!datos.cliente || !(datos.monto_original > 0)) return toast('Escribe quién debe y cuánto', true);
+    const empresa_id = centro?.empresa_id || x.empresa_id || estado.foco || (estado.empresas.find((e) => e.nombre_corto === 'Treme') || estado.empresas[0])?.id;
+    ev.currentTarget.disabled = true;
+    const { error } = id ? await db().from('cuentas_por_cobrar').update({ ...datos, empresa_id }).eq('id', id)
+      : await db().from('cuentas_por_cobrar').insert({ ...datos, empresa_id, org_id: estado.miembro.org_id, moneda: 'MXN', fecha_origen: hoyISO() });
+    if (error) { ev.currentTarget.disabled = false; return toast('No se pudo guardar: ' + error.message, true); }
+    cerrarModal(); toast('Guardado'); cargar();
+  });
+  modal.querySelector('#cx-borrar')?.addEventListener('click', async (ev) => {
+    const b = ev.currentTarget;
+    if (!b.dataset.seguro) { b.dataset.seguro = '1'; b.textContent = '¿Seguro? Toca otra vez'; return; }
+    const { error } = await db().from('cuentas_por_cobrar').delete().eq('id', id);
+    if (error) return toast('No se pudo eliminar: ' + error.message, true);
+    cerrarModal(); toast('Eliminada'); cargar();
+  });
 }
 
 // ================= DEUDA =================
