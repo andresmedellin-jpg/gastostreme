@@ -376,11 +376,16 @@ function pintarActivos(el) {
 }
 
 // ================= DEUDA =================
+const empresaDe = (id) => (estado.todasEmpresas.length ? estado.todasEmpresas : estado.empresas).find((e) => e.id === id);
 function pintarPasivos(el) {
-  const filas = pasivos.filter((p) => !st.q || normalizar([p.acreedor, p.tipo_pasivo, p.activo_ref, p.notas].join(' ')).includes(normalizar(st.q)))
+  const emps = [...new Set(pasivos.map((p) => p.empresa_id))].map(empresaDe).filter(Boolean);
+  const filas = pasivos.filter((p) => (!st.empDeuda || p.empresa_id === st.empDeuda) && (!st.q || normalizar([p.acreedor, p.tipo_pasivo, p.activo_ref, p.notas].join(' ')).includes(normalizar(st.q))))
     .sort((a, b) => (costoMes(b) ?? -1) - (costoMes(a) ?? -1) || saldoMX(b) - saldoMX(a));
   const total = filas.reduce((s, p) => s + saldoMX(p), 0), pagos = filas.reduce((s, p) => s + pagoMX(p), 0);
   el.innerHTML = `
+    ${emps.length > 1 ? `<div class="cx">${[{ id: '', nombre_corto: 'Todas' }, ...emps].map((e) => {
+      const l = pasivos.filter((p) => !e.id || p.empresa_id === e.id);
+      return `<button class="cx-chip ${(st.empDeuda || '') === e.id ? 'activo' : ''}" data-empd="${e.id}"><span>${esc(e.nombre_corto)}</span><b>${l.length} · ${corto(l.reduce((s, p) => s + saldoMX(p), 0))}</b></button>`; }).join('')}</div>` : ''}
     <div class="vc-cifras">
       <div class="vc-cifra"><span>Deuda de las empresas</span><strong>${corto(total)}</strong><small>${filas.length} acreedores</small></div>
       <div class="vc-cifra"><span>Pagos al mes</span><strong>${corto(pagos)}</strong><small>${filas.filter((p) => num(p.pago_mensual)).length} con pago registrado</small></div>
@@ -391,20 +396,22 @@ function pintarPasivos(el) {
       <div class="panel-head"><h3>Orden sugerido para pagar <small class="sub-meta">· primero la más cara</small></h3>
         <input type="search" id="pt-q" placeholder="Buscar acreedor…" value="${esc(st.q)}" aria-label="Buscar deuda"></div>
       <div class="tabla-wrap"><table class="tabla tm">
-        <thead><tr><th>#</th><th>Acreedor</th><th>Tipo</th><th class="num">Saldo</th><th>Peso</th><th class="num">Pago mensual</th><th class="num">Costo al mes</th><th>Vence</th></tr></thead>
+        <thead><tr><th>#</th><th>Acreedor</th><th>Empresa</th><th>Tipo</th><th class="num">Saldo</th><th>Peso</th><th class="num">Pago mensual</th><th class="num">Costo al mes</th><th>Vence</th></tr></thead>
         <tbody>${filas.length ? filas.map((p, i) => `<tr class="clic" data-editar="${p.id}" tabindex="0">
           <td class="mut" data-l="#">${i + 1}</td>
           <td data-l="Acreedor"><b>${esc(p.acreedor || '—')}</b>${p.activo_ref && p.activo_ref !== 'General/Corporativo' ? `<small class="sub">${esc(p.activo_ref)}</small>` : ''}</td>
+          <td data-l="Empresa">${esc(empresaDe(p.empresa_id)?.nombre_corto || '—')}</td>
           <td data-l="Tipo" class="mut">${esc(p.tipo_pasivo || '—')}</td>
           <td data-l="Saldo" class="num fuerte">${p.moneda === 'USD' ? usd(num(p.saldo_actual)) : fmt(p.saldo_actual)}${p.fecha_saldo ? `<small class="sub">al ${fmtFecha(p.fecha_saldo)}</small>` : ''}</td>
           <td data-l="Peso"><div class="pz-pista mini"><span style="width:${total ? saldoMX(p) / total * 100 : 0}%"></span></div><small class="sub">${total ? pct(saldoMX(p) / total, 0) : ''}</small></td>
           <td data-l="Pago mensual" class="num">${p.pago_mensual ? (p.moneda === 'USD' ? usd(num(p.pago_mensual)) : fmt(p.pago_mensual)) : '<span class="mut">Sin pago</span>'}</td>
           <td data-l="Costo al mes" class="num">${costoMes(p) != null ? `<span class="${costoMes(p) >= .015 ? 'neg fuerte' : ''}">${pct(costoMes(p))}</span>` : p.tasa_interes != null ? `<span class="mut">tasa ${tasa(p.tasa_interes)}</span>` : '—'}</td>
           <td data-l="Vence">${p.fecha_vencimiento ? fmtFecha(p.fecha_vencimiento) : '<span class="mut">—</span>'}</td></tr>`).join('')
-          : '<tr><td colspan="8" class="vacio">Sin deudas</td></tr>'}</tbody>
+          : '<tr><td colspan="9" class="vacio">Sin deudas</td></tr>'}</tbody>
       </table></div>
       <p class="nota">Costo al mes = pago mensual ÷ saldo. Incluye capital e intereses; sirve para comparar cuál pesa más en el flujo. La deuda es de las empresas y no se resta del valor del patrimonio.</p>
     </section>`;
+  el.querySelectorAll('[data-empd]').forEach((b) => b.addEventListener('click', () => { st.empDeuda = b.dataset.empd; pintar(); }));
   conectarTabla(el, 'pasivos');
 }
 
@@ -447,12 +454,15 @@ function editar(tipo, id, contratoInicial = null) {
     if (t === 'select') return `<label>${et}<select name="${c}">${op.map((o) => `<option ${valor(c) === o ? 'selected' : ''}>${o}</option>`).join('')}</select></label>`;
     return `<label>${et}<input name="${c}" type="${t}" ${t === 'number' ? 'step="any" inputmode="decimal"' : ''} ${op ? `list="${op}"` : ''} value="${esc(valor(c))}"></label>`;
   };
+  const empresasTodas = estado.todasEmpresas.length ? estado.todasEmpresas : estado.empresas;
+  const empCampo = !esActivo ? `<label class="ancho">Empresa que debe<select name="empresa_id">${empresasTodas.map((e) =>
+    `<option value="${e.id}" ${e.id === (r.empresa_id || estado.foco || empresasTodas[0]?.id) ? 'selected' : ''}>${esc(e.nombre)}</option>`).join('')}</select></label>` : '';
   const plazaCampo = esActivo ? `<label class="ancho">Plaza / desarrollo<select name="centro_id"><option value="">Sin plaza</option>
     ${centros.map((c) => `<option value="${c.id}" ${c.id === r.centro_id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select></label>` : '';
   const titulo = esActivo ? (id ? nombreLargo(r) : 'Nuevo inmueble') : (id ? `Deuda · ${r.acreedor || ''}` : 'Nueva deuda');
   const modal = abrirModal({
     titulo, ancho: esActivo,
-    cuerpo: `<form id="pt-f" class="form" onsubmit="return false"><div class="form-2">${plazaCampo}${campos.map(campo).join('')}</div>
+    cuerpo: `<form id="pt-f" class="form" onsubmit="return false"><div class="form-2">${plazaCampo}${empCampo}${campos.map(campo).join('')}</div>
       ${esActivo ? `<div class="pz-ligar"><h4>Contratos en Rentas</h4><p class="sub-meta">La renta de este inmueble se toma de los contratos que marques aquí (se muestran los de la plaza elegida). Si un contrato incluye algo que no es de este inmueble, como un estacionamiento del edificio, escribe solo la parte que le corresponde.</p><div class="pz-cands" id="pt-contratos"></div></div>` : ''}
       ${datalists}</form>`,
     pie: `${id ? '<button class="btn btn-ghost peligro" id="pt-borrar">Eliminar</button>' : ''}<span style="flex:1"></span>
@@ -491,7 +501,10 @@ function editar(tipo, id, contratoInicial = null) {
       if (c?.empresa_id) datos.empresa_id = c.empresa_id;
       // La renta vive en Rentas: el dato viejo de Patrimonio se limpia en cuanto el inmueble queda ligado a un contrato
       if (marcados.size) { datos.ingreso_mensual = null; datos.inquilino = null; }
-    } else if (!datos.acreedor) return toast('Escribe el acreedor', true);
+    } else {
+      if (!datos.acreedor) return toast('Escribe el acreedor', true);
+      datos.empresa_id = f.empresa_id.value;
+    }
     const btn = ev.currentTarget; btn.disabled = true; btn.textContent = 'Guardando…';
     const res = id
       ? await db().from(tipo).update(datos).eq('id', id).select('id').single()
