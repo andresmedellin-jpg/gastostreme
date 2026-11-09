@@ -51,7 +51,7 @@ async function cargar(repintar = true) {
     db().from('activos').select('*').order('codigo'),
     db().from('pasivos').select('*').order('saldo_actual', { ascending: false }),
     db().from('contratos').select('id, centro_id, arrendatario, monto, moneda, activo').order('arrendatario'),
-    db().from('activo_contrato').select('activo_id, contrato_id'),
+    db().from('activo_contrato').select('activo_id, contrato_id, monto'),
   ]);
   const err = a.error || p.error || k.error || e.error;
   if (err) { toast('No se pudo cargar el patrimonio: ' + err.message, true); return false; }
@@ -121,13 +121,27 @@ const nombreActivo = (a) => a.identificador || a.tipo_unidad || a.codigo || 'Inm
 const nombreLargo = (a) => `${nombreActivo(a)} · ${plazaDe(a)}`;
 const contratosDe = (a) => enlaces.filter((x) => x.activo_id === a.id).map((x) => contratos.find((k) => k.id === x.contrato_id)).filter(Boolean);
 const activosDe = (k) => enlaces.filter((x) => x.contrato_id === k.id).map((x) => activos.find((a) => a.id === x.activo_id)).filter(Boolean);
-// Renta mensual del inmueble según Rentas, en pesos. Si un contrato cubre varios inmuebles se reparte según su valor.
+const enlace = (aid, kid) => enlaces.find((x) => x.activo_id === aid && x.contrato_id === kid);
+const fija = (aid, kid) => { const m = enlace(aid, kid)?.monto; return m == null || m === '' ? null : num(m); };
+// Parte de un contrato que corresponde a un inmueble, en la moneda del contrato: la parte fija si se capturó;
+// si no, lo que sobra del contrato se reparte según el valor de los inmuebles sin parte fija.
+function parteDe(a, k) {
+  const f = fija(a.id, k.id);
+  if (f != null) return f;
+  const grupo = activosDe(k), libres = grupo.filter((x) => fija(x.id, k.id) == null);
+  const resto = Math.max(0, num(k.monto) - grupo.reduce((t, x) => t + (fija(x.id, k.id) ?? 0), 0));
+  const total = libres.reduce((t, x) => t + valMX(x), 0);
+  return resto * (total ? valMX(a) / total : 1 / Math.max(1, libres.length));
+}
+// Lo que cobra un contrato y no corresponde a ningún inmueble (p. ej. el estacionamiento del edificio)
+function fueraDe(k) {
+  const grupo = activosDe(k);
+  if (!grupo.length || grupo.some((x) => fija(x.id, k.id) == null)) return 0;
+  return Math.max(0, num(k.monto) - grupo.reduce((t, x) => t + fija(x.id, k.id), 0));
+}
+// Renta mensual del inmueble según Rentas, en pesos
 function rentaDe(a) {
-  return contratosDe(a).filter((k) => k.activo).reduce((s, k) => {
-    const grupo = activosDe(k), total = grupo.reduce((t, x) => t + valMX(x), 0);
-    const parte = total ? valMX(a) / total : 1 / Math.max(1, grupo.length);
-    return s + aMXN(k.monto, k.moneda) * parte;
-  }, 0);
+  return contratosDe(a).filter((k) => k.activo).reduce((s, k) => s + aMXN(parteDe(a, k), k.moneda), 0);
 }
 const inquilinos = (a) => contratosDe(a).filter((k) => k.activo && num(k.monto)).map((k) => k.arrendatario);
 const rentado = (a) => rentaDe(a) > 0;
@@ -163,6 +177,7 @@ function pintarPanorama(el) {
   const total = valMxn + valUsd * tc.valor;
   const renta = activos.reduce((s, a) => s + rentaDe(a), 0);
   const rentaUsd = contratos.filter((k) => k.activo && k.moneda === 'USD' && activosDe(k).length).reduce((s, k) => s + num(k.monto), 0);
+  const fuera = contratos.filter((k) => k.activo).reduce((s, k) => s + aMXN(fueraDe(k), k.moneda), 0);
   const conRenta = activos.filter((a) => rentado(a) && valMX(a));
   const valRentado = conRenta.reduce((s, a) => s + valMX(a), 0);
   const rendProm = valRentado ? conRenta.reduce((s, a) => s + rentaDe(a) * 12, 0) / valRentado : 0;
@@ -202,7 +217,7 @@ function pintarPanorama(el) {
     <section class="pz-hero">
       <div class="pz-neto"><span>Valor total del patrimonio</span><strong>${corto(total)}</strong>
         <small>${corto(valMxn)} en México${valUsd ? ` + ${usd(valUsd)} en Estados Unidos (${corto(valUsd * tc.valor)})` : ''}</small></div>
-      <div class="pz-m"><span>Renta mensual</span><strong>${corto(renta)}</strong><small>según Rentas${rentaUsd ? ` · incluye ${usd(rentaUsd)}` : ''}</small></div>
+      <div class="pz-m"><span>Renta mensual</span><strong>${corto(renta)}</strong><small>según Rentas${rentaUsd ? ` · incluye ${usd(rentaUsd)}` : ''}${fuera ? ` · aparte ${corto(fuera)} de áreas del edificio` : ''}</small></div>
       <div class="pz-m"><span>Rendimiento anual</span><strong>${pct(rendProm)}</strong><small>de los ${conRenta.length} inmuebles rentados</small></div>
       <div class="pz-m"><span>Sin renta</span><strong>${corto(valParado)}</strong><small>${parados.length} inmueble${parados.length === 1 ? '' : 's'}</small></div>
       <div class="pz-m"><span>Deuda de las empresas</span><strong>${corto(deuda)}</strong><small>aparte, no se resta · pagos ${corto(pagos)}/mes</small></div>
@@ -420,6 +435,7 @@ function editar(tipo, id, contratoInicial = null) {
   const ligadosIni = new Set(id ? enlaces.filter((x) => x.activo_id === id).map((x) => x.contrato_id) : kIni ? [kIni.id] : []);
   if (!id) ligadosIni.clear();
   const marcados = new Set(id ? ligadosIni : kIni ? [kIni.id] : []);
+  const partes = new Map(id ? enlaces.filter((x) => x.activo_id === id).map((x) => [x.contrato_id, x.monto ?? null]) : []);
   const valor = (c) => { const v = r[c]; if (v == null) return ''; return c === 'tasa_interes' ? +(num(v) * 100).toFixed(4) : v; };
   const centros = (estado.centros.length ? estado.centros : estado.todosCentros).filter((c) => c.activo !== false || c.id === r.centro_id)
     .slice().sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
@@ -437,7 +453,7 @@ function editar(tipo, id, contratoInicial = null) {
   const modal = abrirModal({
     titulo, ancho: esActivo,
     cuerpo: `<form id="pt-f" class="form" onsubmit="return false"><div class="form-2">${plazaCampo}${campos.map(campo).join('')}</div>
-      ${esActivo ? `<div class="pz-ligar"><h4>Contratos en Rentas</h4><p class="sub-meta">La renta de este inmueble se toma de los contratos que marques aquí. Se muestran los de la plaza elegida.</p><div class="pz-cands" id="pt-contratos"></div></div>` : ''}
+      ${esActivo ? `<div class="pz-ligar"><h4>Contratos en Rentas</h4><p class="sub-meta">La renta de este inmueble se toma de los contratos que marques aquí (se muestran los de la plaza elegida). Si un contrato incluye algo que no es de este inmueble, como un estacionamiento del edificio, escribe solo la parte que le corresponde.</p><div class="pz-cands" id="pt-contratos"></div></div>` : ''}
       ${datalists}</form>`,
     pie: `${id ? '<button class="btn btn-ghost peligro" id="pt-borrar">Eliminar</button>' : ''}<span style="flex:1"></span>
       <button class="btn btn-ghost" id="pt-cancelar">Cancelar</button><button class="btn btn-primary" id="pt-ok">Guardar</button>`,
@@ -450,10 +466,13 @@ function editar(tipo, id, contratoInicial = null) {
     const opciones = contratos.filter((k) => marcados.has(k.id) || (plaza && k.centro_id === plaza && k.activo));
     box.innerHTML = opciones.length ? opciones.map((k) => {
       const otros = activosDe(k).filter((a) => a.id !== id);
-      return `<label class="pz-cand ${marcados.has(k.id) ? 'on' : ''}"><input type="checkbox" value="${k.id}" ${marcados.has(k.id) ? 'checked' : ''}>
-        <span><b>${esc(k.arrendatario)}</b><small>${k.moneda === 'USD' ? usd(num(k.monto)) : fmt(k.monto)}/mes${k.activo ? '' : ' · dado de baja'}${otros.length ? ` · también ${esc(otros.map(nombreActivo).join(', '))}` : ''}</small></span></label>`;
+      const parte = partes.get(k.id);
+      return `<div class="pz-cand pz-cand-k ${marcados.has(k.id) ? 'on' : ''}"><label><input type="checkbox" value="${k.id}" ${marcados.has(k.id) ? 'checked' : ''}>
+        <span><b>${esc(k.arrendatario)}</b><small>${k.moneda === 'USD' ? usd(num(k.monto)) : fmt(k.monto)}/mes${k.activo ? '' : ' · dado de baja'}${otros.length ? ` · también ${esc(otros.map(nombreActivo).join(', '))}` : ''}</small></span></label>
+        <label class="pz-parte">Parte de este inmueble<input type="number" step="any" inputmode="decimal" min="0" data-parte="${k.id}" placeholder="Todo el contrato" value="${parte ?? ''}"></label></div>`;
     }).join('') : `<div class="vacio">${plaza ? 'Esta plaza no tiene contratos activos en Rentas.' : 'Elige la plaza para ver sus contratos.'}</div>`;
-    box.querySelectorAll('input').forEach((c) => c.addEventListener('change', () => { c.checked ? marcados.add(c.value) : marcados.delete(c.value); c.closest('.pz-cand').classList.toggle('on', c.checked); }));
+    box.querySelectorAll('input[type=checkbox]').forEach((c) => c.addEventListener('change', () => { c.checked ? marcados.add(c.value) : marcados.delete(c.value); c.closest('.pz-cand').classList.toggle('on', c.checked); }));
+    box.querySelectorAll('[data-parte]').forEach((i) => i.addEventListener('input', () => partes.set(i.dataset.parte, i.value === '' ? null : Number(i.value))));
   };
   if (esActivo) { pintarContratos(); f.centro_id.addEventListener('change', pintarContratos); }
 
@@ -481,9 +500,12 @@ function editar(tipo, id, contratoInicial = null) {
     if (esActivo) {
       const aid = res.data.id;
       const quitar = [...ligadosIni].filter((k) => !marcados.has(k)), poner = [...marcados].filter((k) => !ligadosIni.has(k));
+      const parteDe_ = (k) => { const v = partes.get(k); return v == null || isNaN(v) ? null : v; };
+      const cambiar = [...marcados].filter((k) => ligadosIni.has(k) && parteDe_(k) !== (enlace(aid, k)?.monto == null ? null : num(enlace(aid, k).monto)));
       const ops = [];
       if (quitar.length) ops.push(db().from('activo_contrato').delete().eq('activo_id', aid).in('contrato_id', quitar));
-      if (poner.length) ops.push(db().from('activo_contrato').insert(poner.map((k) => ({ org_id: estado.miembro.org_id, activo_id: aid, contrato_id: k }))));
+      if (poner.length) ops.push(db().from('activo_contrato').insert(poner.map((k) => ({ org_id: estado.miembro.org_id, activo_id: aid, contrato_id: k, monto: parteDe_(k) }))));
+      cambiar.forEach((k) => ops.push(db().from('activo_contrato').update({ monto: parteDe_(k) }).eq('activo_id', aid).eq('contrato_id', k)));
       const e = (await Promise.all(ops)).find((x) => x.error);
       if (e) { btn.disabled = false; btn.textContent = 'Guardar'; return toast('Se guardó el inmueble, pero no sus contratos: ' + e.error.message, true); }
     }

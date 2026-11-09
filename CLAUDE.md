@@ -109,6 +109,8 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   × tipo de cambio del día (frankfurter, se puede fijar a mano; se guarda en el navegador); **la deuda es de las empresas: se muestra
   aparte y nunca se resta**. "Por revisar" lista contratos sin inmueble, inmuebles con renta vieja sin contrato, contratos de baja y
   sin plaza. Rentas muestra los locales de cada contrato vía `app.espacios_contratos()` (0031, solo nombres).
+  Parte fija (`activo_contrato.monto`, 0033): si un contrato incluye algo que no es inmueble del patrimonio (Lote de Autos:
+  $18,000 Local 20 + $22,000 estacionamiento del edificio), el inmueble lleva su parte y lo demás se muestra "aparte" en Panorama.
 - **Recibo de ingresos (09/11/2026):** "＋ Ingreso" de Inicio genera recibo PDF (casilla marcada por omisión) y los movimientos tienen
   botón "Recibo". MEDCO: "Desarrollos y Proyectos MEDCO", azul #1E4F9C, `img/logo-medco.png`, fila "Obra", IVA "No desglosado",
   saldo pendiente si abona a una cuenta de obra. Treme: formato de siempre. Folio `REC-AAAAMM-NNNN` por empresa con
