@@ -102,6 +102,17 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   días; 12 días = 2 semanas): se muestran en pesos (semanas × sueldo semanal); prima del 25 % solo a quien tiene `empleados.prima_vacacional`
   (Víctor, Bárbara, Victoria y Liz).
 - Reporte mensual de Elysium: sin CFE en egresos; suma todos los pagos del mes de cada unidad.
+- **Patrimonio ↔ Rentas (09/11/2026):** la renta de un inmueble NO se captura en Patrimonio; sale de sus contratos de Rentas
+  ligados en `app.activo_contrato` (0030; un contrato puede cubrir varios locales y se reparte por valor; un local puede tener
+  varios contratos). Rentas manda: si difieren, vale el contrato (lo cobrado). Cada inmueble tiene su plaza (`activos.centro_id`).
+  `activos.ingreso_mensual`/`inquilino` quedan solo como dato viejo y se limpian al ligar. Panorama: valor total = pesos + dólares
+  × tipo de cambio del día (frankfurter, se puede fijar a mano; se guarda en el navegador); **la deuda es de las empresas: se muestra
+  aparte y nunca se resta**. "Por revisar" lista contratos sin inmueble, inmuebles con renta vieja sin contrato, contratos de baja y
+  sin plaza. Rentas muestra los locales de cada contrato vía `app.espacios_contratos()` (0031, solo nombres).
+- **Recibo de ingresos (09/11/2026):** "＋ Ingreso" de Inicio genera recibo PDF (casilla marcada por omisión) y los movimientos tienen
+  botón "Recibo". MEDCO: "Desarrollos y Proyectos MEDCO", azul #1E4F9C, `img/logo-medco.png`, fila "Obra", IVA "No desglosado",
+  saldo pendiente si abona a una cuenta de obra. Treme: formato de siempre. Folio `REC-AAAAMM-NNNN` por empresa con
+  `app.siguiente_folio_empresa` (0032), guardado en `ingresos.folio` / `pagos.folio`; `siguiente_folio_cuota` también los cuenta.
 - Empleados dados de baja: se conservan por su historial de nómina, ocultos por defecto.
 - Contraseña mínima: 6 caracteres. Usuario sin correo: `usuario@usuarios.medco.mx`.
 - **Nunca** dar acceso a franciscosr971@gmail.com (fsrsalazar).
