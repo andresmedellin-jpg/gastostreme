@@ -146,6 +146,24 @@ function rentaDe(a) {
 const inquilinos = (a) => contratosDe(a).filter((k) => k.activo && num(k.monto)).map((k) => k.arrendatario);
 const rentado = (a) => rentaDe(a) > 0;
 const rend = (a) => valMX(a) && rentaDe(a) ? rentaDe(a) * 12 / valMX(a) : 0;
+// En uso propio (oficinas de MEDCO, casa de la familia): no se cuentan como renta posible
+const pesos = (v) => '$' + Math.round(v).toLocaleString('es-MX');
+const usoPropio = (a) => /operaci[oó]n medco|casa de mis/i.test(a.uso_actual || '') || /^casa$/i.test(a.tipo_unidad || '');
+const mediana = (l) => { const o = [...l].sort((x, y) => x - y), m = o.length >> 1; return o.length % 2 ? o[m] : (o[m - 1] + o[m]) / 2; };
+// Renta que podría dar un inmueble sin rentar, en pesos al mes: la capturada como "renta de mercado estimada";
+// si no hay, lo que se cobra por m² en inmuebles del mismo tipo y la misma plaza (mediana)
+function estimada(a) {
+  if (num(a.renta_mercado_estimada)) return { mx: aMXN(a.renta_mercado_estimada, a.moneda), base: 'Renta de mercado capturada' };
+  const m2 = num(a.superficie_m2);
+  if (!m2 || !a.centro_id) return null;
+  const comps = activos.filter((x) => x.id !== a.id && x.centro_id === a.centro_id && x.tipo_unidad === a.tipo_unidad && rentado(x) && num(x.superficie_m2));
+  if (!comps.length) return null;
+  const pm2 = mediana(comps.map((x) => rentaDe(x) / num(x.superficie_m2)));
+  const enUsd = a.moneda === 'USD';
+  const porM2 = enUsd ? `US$${(pm2 / tc.valor).toFixed(2)}` : pesos(pm2);
+  return { mx: pm2 * m2, base: comps.length === 1 ? `${porM2}/m², igual que ${nombreActivo(comps[0])} en ${plazaDe(a)}`
+    : `${porM2}/m², mediana de ${comps.length} inmuebles rentados del mismo tipo en ${plazaDe(a)}` };
+}
 const saldoMX = (p) => aMXN(p.saldo_actual, p.moneda), pagoMX = (p) => aMXN(p.pago_mensual, p.moneda);
 const costoMes = (p) => num(p.saldo_actual) && num(p.pago_mensual) ? num(p.pago_mensual) / num(p.saldo_actual) : null;
 
@@ -182,6 +200,10 @@ function pintarPanorama(el) {
   const valRentado = conRenta.reduce((s, a) => s + valMX(a), 0);
   const rendProm = valRentado ? conRenta.reduce((s, a) => s + rentaDe(a) * 12, 0) / valRentado : 0;
   const parados = activos.filter((a) => !rentado(a) && valMX(a));
+  const libres = activos.filter((a) => !rentado(a) && !usoPropio(a)).map((a) => ({ a, e: estimada(a) }))
+    .sort((x, y) => (plazaDe(x.a)).localeCompare(plazaDe(y.a), 'es') || String(x.a.identificador).localeCompare(String(y.a.identificador), 'es', { numeric: true }));
+  const propios = activos.filter((a) => !rentado(a) && usoPropio(a)).map((a) => ({ a, e: estimada(a) }));
+  const proyectado = libres.reduce((s, x) => s + (x.e?.mx || 0), 0);
   const valParado = parados.reduce((s, a) => s + valMX(a), 0);
   const deuda = pasivos.reduce((s, p) => s + saldoMX(p), 0), pagos = pasivos.reduce((s, p) => s + pagoMX(p), 0);
   const caras = pasivos.filter((p) => costoMes(p) != null).sort((a, b) => costoMes(b) - costoMes(a));
@@ -205,13 +227,13 @@ function pintarPanorama(el) {
   const ideas = [];
   if (nRev) ideas.push({ c: 'mal', t: `${nRev} diferencia${nRev === 1 ? '' : 's'} entre Patrimonio y Rentas`, d: 'Revísalas en el apartado "Por revisar" para que las dos pantallas digan lo mismo.' });
   if (parados.length) ideas.push({ c: 'aviso', t: `${corto(valParado)} en inmuebles sin renta`,
-    d: `${parados.length} inmueble${parados.length === 1 ? '' : 's'} no genera${parados.length === 1 ? '' : 'n'} ingreso (${pct(total ? valParado / total : 0, 0)} del valor). Rentados al rendimiento promedio darían unos ${fmt(valParado * rendProm / 12)} al mes.` });
+    d: `${parados.length} inmueble${parados.length === 1 ? '' : 's'} no genera${parados.length === 1 ? '' : 'n'} ingreso (${pct(total ? valParado / total : 0, 0)} del valor). ${proyectado ? `Rentando los disponibles recibirías unos ${pesos(proyectado)} más al mes (ver la proyección).` : ''}` });
   if (bajo.length) ideas.push({ c: '', t: `${bajo.length} inmueble${bajo.length === 1 ? '' : 's'} rinde${bajo.length === 1 ? '' : 'n'} muy por debajo del promedio`,
     d: `${bajo.slice(0, 3).map((a) => `${esc(nombreLargo(a))} (${pct(rend(a))})`).join(', ')}${bajo.length > 3 ? '…' : ''}. Candidatos a subir renta, cambiar de inquilino o vender.` });
   if (caras[0]) ideas.push({ c: '', t: `Deuda más cara: ${esc(caras[0].acreedor)}`,
     d: `${corto(saldoMX(caras[0]))} con pago de ${fmt(pagoMX(caras[0]))} al mes (${pct(costoMes(caras[0]))} del saldo). Es la primera que conviene liquidar o refinanciar.` });
-  if (!activos.some((a) => num(a.renta_mercado_estimada))) ideas.push({ c: '', t: 'Falta la renta de mercado',
-    d: 'Si capturas la renta de mercado estimada de cada inmueble, aquí verás cuánto se está dejando de cobrar contra el mercado.' });
+  if (libres.some((x) => !x.e)) ideas.push({ c: '', t: 'Falta la renta de mercado',
+    d: `${libres.filter((x) => !x.e).map((x) => esc(nombreActivo(x.a))).join(', ')} no ${libres.filter((x) => !x.e).length === 1 ? 'tiene' : 'tienen'} con qué compararse. Captura su renta de mercado estimada para incluirlos en la proyección.` });
 
   el.innerHTML = `
     <section class="pz-hero">
@@ -219,11 +241,12 @@ function pintarPanorama(el) {
         <small>${corto(valMxn)} en México${valUsd ? ` + ${usd(valUsd)} en Estados Unidos (${corto(valUsd * tc.valor)})` : ''}</small></div>
       <div class="pz-m"><span>Renta mensual</span><strong>${corto(renta)}</strong><small>según Rentas${rentaUsd ? ` · incluye ${usd(rentaUsd)}` : ''}${fuera ? ` · aparte ${corto(fuera)} de áreas del edificio` : ''}</small></div>
       <div class="pz-m"><span>Rendimiento anual</span><strong>${pct(rendProm)}</strong><small>de los ${conRenta.length} inmuebles rentados</small></div>
-      <div class="pz-m"><span>Sin renta</span><strong>${corto(valParado)}</strong><small>${parados.length} inmueble${parados.length === 1 ? '' : 's'}</small></div>
+      <div class="pz-m"><span>Sin renta</span><strong>${corto(valParado)}</strong><small>${parados.length} inmueble${parados.length === 1 ? '' : 's'}${proyectado ? ` · podrían rentar ${corto(proyectado)}/mes` : ''}</small></div>
       <div class="pz-m"><span>Deuda de las empresas</span><strong>${corto(deuda)}</strong><small>aparte, no se resta · pagos ${corto(pagos)}/mes</small></div>
     </section>
 
     ${nRev ? revisarHTML(rev) : ''}
+    ${libres.length ? proyeccionHTML(libres, propios, proyectado, renta) : ''}
 
     <div class="pz-grid">
       <section class="panel pz-ideas"><h3>Lectura para decidir</h3>
@@ -249,6 +272,24 @@ function pintarPanorama(el) {
   el.querySelectorAll('[data-nuevo-contrato]').forEach((b) => b.addEventListener('click', () => ligarContrato(b.dataset.nuevoContrato)));
   el.querySelectorAll('[data-ligar]').forEach((b) => b.addEventListener('click', () => editar('activos', b.dataset.ligar)));
   simulador(el.querySelector('#pz-sim'), { caras, sinPago, renta });
+}
+
+function proyeccionHTML(libres, propios, total, renta) {
+  const fila = (x) => `<tr class="clic" data-editar="${x.a.id}" tabindex="0">
+    <td data-l="Inmueble"><b>${esc(nombreActivo(x.a))}</b><small class="sub">${esc(plazaDe(x.a))}</small></td>
+    <td data-l="m²" class="num">${x.a.superficie_m2 ? num(x.a.superficie_m2).toLocaleString('es-MX') : '—'}</td>
+    <td data-l="Renta estimada" class="num fuerte">${x.e ? (x.a.moneda === 'USD' ? usd(x.e.mx / tc.valor) : pesos(x.e.mx)) : '—'}</td>
+    <td data-l="Cómo se calculó" class="mut">${x.e ? esc(x.e.base) : 'Sin con qué comparar: captura su renta de mercado'}</td></tr>`;
+  const totPropios = propios.reduce((s, x) => s + (x.e?.mx || 0), 0);
+  return `<section class="panel pz-proy"><div class="panel-head"><h3>Proyección: lo que no está rentado</h3>
+      <span class="sub-meta">${total ? `+${pesos(total)} al mes · ${renta ? pct(total / renta, 0) + ' más de lo que cobras hoy' : ''}` : ''}</span></div>
+    <p class="sub-meta">Cuánto recibirías al rentar cada inmueble disponible, según lo que ya cobras por m² en inmuebles del mismo tipo y plaza. Abre un inmueble y escribe su "renta de mercado estimada" para usar otra cifra.</p>
+    <div class="tabla-wrap"><table class="tabla tm"><thead><tr><th>Inmueble</th><th class="num">m²</th><th class="num">Renta estimada al mes</th><th>Cómo se calculó</th></tr></thead>
+      <tbody>${libres.map(fila).join('')}
+        <tr class="pz-total"><td colspan="2"><b>Total disponible</b></td><td class="num fuerte">${pesos(total)}</td><td class="mut">${pct(total * 12 / Math.max(1, libres.reduce((s, x) => s + (x.e ? valMX(x.a) : 0), 0)))} anual sobre su valor</td></tr>
+      </tbody></table></div>
+    ${propios.length ? `<p class="nota">No se cuentan por estar en uso propio: ${propios.map((x) => esc(nombreActivo(x.a))).join(', ')}${totPropios ? `. Si se rentaran darían unos ${pesos(totPropios)} al mes` : ''}.</p>` : ''}
+  </section>`;
 }
 
 function revisarHTML(rev) {

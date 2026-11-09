@@ -111,6 +111,8 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   sin plaza. Rentas muestra los locales de cada contrato vía `app.espacios_contratos()` (0031, solo nombres).
   Parte fija (`activo_contrato.monto`, 0033): si un contrato incluye algo que no es inmueble del patrimonio (Lote de Autos:
   $18,000 Local 20 + $22,000 estacionamiento del edificio), el inmueble lleva su parte y lo demás se muestra "aparte" en Panorama.
+  Proyección (Panorama): renta posible de lo no rentado = `renta_mercado_estimada` si se capturó; si no, mediana de $/m² de los
+  rentados del mismo tipo y plaza. No cuenta lo de uso propio (Operación MEDCO, casa de la familia).
 - **Recibo de ingresos (09/11/2026):** "＋ Ingreso" de Inicio genera recibo PDF (casilla marcada por omisión) y los movimientos tienen
   botón "Recibo". MEDCO: "Desarrollos y Proyectos MEDCO", azul #1E4F9C, `img/logo-medco.png`, fila "Obra", IVA "No desglosado",
   saldo pendiente si abona a una cuenta de obra. Treme: formato de siempre. Folio `REC-AAAAMM-NNNN` por empresa con

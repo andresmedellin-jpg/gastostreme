@@ -709,3 +709,7 @@ tr.rt-pagado td { color: var(--text-2); }
 .pz-parte { display: none; font-size: 11.5px; color: var(--text-3); padding-left: 26px; }
 .pz-cand-k.on .pz-parte { display: grid; gap: 4px; }
 .pz-parte input { height: 32px; font-size: 13px; }
+.pz-proy { margin-top: 16px; }
+.pz-proy > .sub-meta { margin: 4px 0 10px; }
+.tabla tr.pz-total td { border-top: 1.5px solid var(--ink); background: var(--surface-2); }
+@media (max-width: 760px) { .tabla tr.pz-total td[colspan] { display: block; } }
