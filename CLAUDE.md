@@ -46,6 +46,10 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
    Patrimonio (reorganizado 09/11/2026): Panorama = 4 cifras (valor total con dólares, renta, rendimiento, deuda aparte), "Por revisar"
    plegado, barra de ocupación (rentado / disponible / uso propio) con la proyección plegada, tabla por plaza o dueño legal (toca una
    plaza → sus inmuebles), "Para decidir" (máx. 3) y simulador de venta plegado · Inmuebles (por plaza) · Por cobrar · Deuda (por empresa).
+   **Rentas atrasadas = una sola regla en `js/adeudos-renta.js`** (Rentas > Adeudos y Patrimonio > Por cobrar la usan): adeudo
+   registrado (`adeudo_inicial`, cubre hasta `fecha_origen` o `creado_en`) + meses de los últimos 3 con día de pago vencido y sin
+   ningún pago, sin contar meses antes de `fecha_inicio` del contrato. Rentas también trata como "Inactivo" los meses antes del inicio.
+   Las obras de MEDCO (`venta`) NO se muestran en Por cobrar (decisión de Andrés: no sabe cuánto falta por gastar).
    Por cobrar = `v_saldos_cxc` (todas las cuentas por cobrar): saldos de unidades vendidas de Elysium que no han terminado de pagar (`tipo cartera_vencida`,
    abono = `pagos` concepto `cartera` con `cxc_id`), clientes de obra (`venta`) y rentas atrasadas (`adeudo_inicial`, se cobran en Rentas).
    "Te deben" se muestra aparte en el Panorama, no se suma al valor. Héctor Martínez (Oficina 601): saldo de compra + mantenimiento

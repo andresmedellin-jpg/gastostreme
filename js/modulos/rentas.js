@@ -3,6 +3,7 @@
 import { MESES, FORMAS_COBRO, MARCA } from '../config.js';
 import { pintarRecibo, abrirVentanaRecibo } from '../recibo.js';
 import { db, todo, estado, tieneRol, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal } from '../lib.js';
+import { mesesSinPago, nombreMeses } from '../adeudos-renta.js';
 
 const st = {
   tab: 'rentas',                                   // rentas | ocupacion | adeudos | historial | contratos
@@ -52,7 +53,7 @@ async function cargar() {
       .order('arrendatario'),
     todo(() => db().from('pagos').select('id, contrato_id, periodo, monto, moneda, forma_pago, fecha, folio, notas, capturado_por, creado_en')
       .eq('concepto', 'renta').order('fecha', { ascending: false })),
-    db().from('cuentas_por_cobrar').select('id, contrato_id, meses, monto_original, notas, creado_en').eq('tipo', 'adeudo_inicial'),
+    db().from('cuentas_por_cobrar').select('id, contrato_id, meses, monto_original, notas, creado_en, fecha_origen').eq('tipo', 'adeudo_inicial'),
     OCUPACION ? todo(() => db().from('unidades').select('id, centro_id, identificador, tipo, superficie_m2, activo')) : { data: [] },
     Promise.resolve(db().rpc('espacios_contratos')).catch(() => ({ data: [] })),
   ]);
@@ -67,6 +68,8 @@ async function cargar() {
 function estadoDe(r, y, m) {
   if (!r.activo) return 'inactivo';
   if (!Number(r.monto)) return 'sinm';
+  // Meses antes de que empiece el contrato no se cobran
+  if (r.fecha_inicio && periodo(y, m) < String(r.fecha_inicio).slice(0, 7) + '-01') return 'inactivo';
   const ps = pagos.filter((p) => p.contrato_id === r.id && p.periodo === periodo(y, m));
   if (ps.length) {
     if (!PARCIAL || abonado(r, y, m) >= Number(r.monto) - 1) return 'pagado';
@@ -422,11 +425,13 @@ function pintarAdeudos(el) {
     .sort((x, y) => Number(y.a.monto_original) - Number(x.a.monto_original));
   const sin = activos.filter((r) => !adeudos.some((a) => a.contrato_id === r.id));
   const total = con.reduce((s, x) => s + Number(x.a.monto_original), 0);
-  const hoy = new Date();
-  const atrasoAuto = (r) => [0, 1, 2].filter((i) => { const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
-    return estadoDe(r, d.getFullYear(), d.getMonth()) === 'atrasado'; }).length;
-  // Primero quien ya debe (registrado); abajo, solo quien tiene meses sin pago y aún no tiene adeudo registrado
-  const sugeridos = sin.map((r) => ({ r, n: atrasoAuto(r) })).filter((x) => x.n).sort((x, y) => y.n - x.n);
+  // Misma regla que Patrimonio > Por cobrar (js/adeudos-renta.js): meses vencidos sin pago, desde el inicio del contrato
+  // y después de lo que ya quedó dentro del adeudo registrado
+  const adeudoDe = (r) => adeudos.find((a) => a.contrato_id === r.id);
+  const atrasoAuto = (r) => mesesSinPago(r, pagos, adeudoDe(r)).length;
+  const sugeridos = activos.map((r) => ({ r, ms: mesesSinPago(r, pagos, adeudoDe(r)) })).filter((x) => x.ms.length)
+    .map((x) => ({ ...x, n: x.ms.length, falta: x.ms.reduce((s, m) => s + m.monto, 0) })).sort((x, y) => y.falta - x.falta);
+  const totalMeses = sugeridos.filter((x) => x.r.moneda !== 'USD').reduce((s, x) => s + x.falta, 0);
   el.innerHTML = `
     <section class="panel">
       <div class="panel-head"><h3>Adeudos registrados <small class="sub-meta">· ${con.length} · ${money(total)}</small></h3>
@@ -442,11 +447,13 @@ function pintarAdeudos(el) {
           <td class="num neg fuerte" data-l="Adeudo">${money(a.monto_original, r.moneda)}</td></tr>`).join('')}</tbody></table></div>`
         : '<div class="vacio">Sin adeudos registrados.</div>'}
     </section>
-    ${puedeCobrar() && sugeridos.length ? `<section class="panel"><div class="panel-head"><h3>Con meses sin pago y sin adeudo registrado <small class="sub-meta">· ${sugeridos.length}</small></h3></div>
-      <div class="tabla-wrap"><table class="tabla"><tbody>${sugeridos.map(({ r, n }) => `<tr>
-        <td data-l="Inquilino"><strong>${esc(r.arrendatario)}</strong> <span class="mut">· ${esc(nombreCentro(r.centro_id))}</span></td>
-        <td data-l="Atraso"><span class="rt-est atrasado">${n} mes${n === 1 ? '' : 'es'} sin pago</span></td>
-        <td class="acciones"><button class="btn btn-sm btn-ghost" data-adeudo="${r.id}">Registrar adeudo</button></td></tr>`).join('')}</tbody></table></div></section>` : ''}`;
+    ${sugeridos.length ? `<section class="panel"><div class="panel-head"><h3>Meses vencidos sin pago <small class="sub-meta">· ${sugeridos.length} · ${money(totalMeses)}</small></h3></div>
+      <div class="tabla-wrap"><table class="tabla tm"><tbody>${sugeridos.map(({ r, n, ms, falta }) => `<tr>
+        <td data-l="Inquilino"><strong>${esc(r.arrendatario)}</strong> <span class="mut">· ${esc(nombreCentro(r.centro_id))}</span>${adeudoDe(r) ? '<small class="sub">además del adeudo registrado</small>' : ''}</td>
+        <td data-l="Atraso"><span class="rt-est atrasado">${n} mes${n === 1 ? '' : 'es'}: ${nombreMeses(ms)}</span></td>
+        <td data-l="Debe" class="num neg fuerte">${money(falta, r.moneda)}</td>
+        <td class="acciones">${puedeCobrar() ? `<button class="btn btn-sm btn-ghost" data-adeudo="${r.id}">${adeudoDe(r) ? 'Editar adeudo' : 'Registrar adeudo'}</button>` : ''}</td></tr>`).join('')}</tbody></table></div>
+      <p class="nota">Se revisan los últimos 3 meses. Lo mismo aparece en Patrimonio, en Por cobrar.</p></section>` : ''}`;
   el.querySelector('#ad-nuevo')?.addEventListener('change', (e) => { const r = contratos.find((x) => x.id === e.target.value); if (r) editarAdeudo(r, atrasoAuto); e.target.value = ''; });
   el.querySelectorAll('[data-adeudo]').forEach((b) => b.addEventListener('click', () => {
     if (puedeCobrar()) editarAdeudo(contratos.find((r) => r.id === b.dataset.adeudo), atrasoAuto);
@@ -475,12 +482,12 @@ function editarAdeudo(r, atrasoAuto) {
     const meses = parseInt(f.meses.value) || 0, monto = Number(f.monto.value) || 0, notas = f.notas.value.trim() || null;
     let res;
     if (!meses && !monto) res = a ? await db().from('cuentas_por_cobrar').delete().eq('id', a.id) : { error: null };
-    else if (a) res = await db().from('cuentas_por_cobrar').update({ meses, monto_original: monto, notas }).eq('id', a.id);
+    else if (a) res = await db().from('cuentas_por_cobrar').update({ meses, monto_original: monto, notas, fecha_origen: new Date().toLocaleDateString('en-CA') }).eq('id', a.id);
     else res = await db().from('cuentas_por_cobrar').insert({
       org_id: estado.miembro.org_id, empresa_id: estado.centros.find((x) => x.id === r.centro_id)?.empresa_id
         || (estado.empresas.find((e) => e.nombre_corto === 'Treme') || estado.empresas[0])?.id,
       centro_id: r.centro_id, contrato_id: r.id, tipo: 'adeudo_inicial', cliente: r.arrendatario,
-      meses, monto_original: monto, moneda: r.moneda, notas });
+      meses, monto_original: monto, moneda: r.moneda, notas, fecha_origen: new Date().toLocaleDateString('en-CA') });
     if (res.error) { btn.disabled = false; return toast('No se pudo guardar: ' + res.error.message, true); }
     cerrarModal(); toast(!meses && !monto ? 'Adeudo saldado ✓' : 'Adeudo guardado ✓'); cargar();
   });

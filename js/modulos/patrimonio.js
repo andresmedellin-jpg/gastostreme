@@ -4,9 +4,10 @@
 // La deuda es de las empresas: se muestra aparte y no se resta del valor del patrimonio.
 import { db, estado, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal, normalizar } from '../lib.js';
 import { FORMAS_COBRO } from '../config.js';
+import { adeudoRenta, nombreMeses, MESES_REVISADOS } from '../adeudos-renta.js';
 
 const st = { vista: 'panorama', plaza: '', entidad: '', q: '' };
-let raiz, activos = [], pasivos = [], contratos = [], enlaces = [], cobrar = [];
+let raiz, activos = [], pasivos = [], contratos = [], enlaces = [], cobrar = [], pagosRenta = [];
 let tc = { valor: 18.5, fecha: null, fuente: 'aproximado' };
 
 const CAMPOS_ACTIVO = [
@@ -48,16 +49,18 @@ export async function render(view) {
 }
 
 async function cargar(repintar = true) {
-  const [a, p, k, e, c] = await Promise.all([
+  const hoy = new Date(), desde = new Date(hoy.getFullYear(), hoy.getMonth() - (MESES_REVISADOS - 1), 1).toLocaleDateString('en-CA');
+  const [a, p, k, e, c, pr] = await Promise.all([
     db().from('activos').select('*').order('codigo'),
     db().from('pasivos').select('*').order('saldo_actual', { ascending: false }),
-    db().from('contratos').select('id, centro_id, arrendatario, monto, moneda, activo').order('arrendatario'),
+    db().from('contratos').select('id, centro_id, arrendatario, monto, moneda, activo, dia_pago, fecha_inicio').order('arrendatario'),
     db().from('activo_contrato').select('activo_id, contrato_id, monto'),
     db().from('v_saldos_cxc').select('*').order('saldo', { ascending: false }),
+    db().from('pagos').select('contrato_id, periodo').eq('concepto', 'renta').gte('periodo', desde),
   ]);
-  const err = a.error || p.error || k.error || e.error || c.error;
+  const err = a.error || p.error || k.error || e.error || c.error || pr.error;
   if (err) { toast('No se pudo cargar el patrimonio: ' + err.message, true); return false; }
-  activos = a.data; pasivos = p.data; contratos = k.data; enlaces = e.data; cobrar = c.data;
+  activos = a.data; pasivos = p.data; contratos = k.data; enlaces = e.data; cobrar = c.data; pagosRenta = pr.data;
   if (repintar) pintar();
   return true;
 }
@@ -207,8 +210,8 @@ function pintarPanorama(el) {
   const proyectado = libres.reduce((s, x) => s + (x.e?.mx || 0), 0);
   const valLibre = libres.reduce((s, x) => s + valMX(x.a), 0), valPropio = propios.reduce((s, x) => s + valMX(x.a), 0);
   const deuda = pasivos.reduce((s, p) => s + saldoMX(p), 0), pagos = pasivos.reduce((s, p) => s + pagoMX(p), 0);
-  const vivas = cobrar.filter((x) => num(x.saldo) > 0.5);
-  const porCobrar = vivas.reduce((s, x) => s + aMXN(x.saldo, x.moneda), 0), deudores = vivas.length;
+  const vivas = cuentasCobro().filter((x) => num(x.saldo) > 0.5), rentasDeb = rentasDebidas();
+  const porCobrar = vivas.reduce((s, x) => s + aMXN(x.saldo, x.moneda), 0) + rentasDeb.reduce((s, x) => s + x.mx, 0), deudores = vivas.length + rentasDeb.length;
   const caras = pasivos.filter((p) => costoMes(p) != null).sort((a, b) => costoMes(b) - costoMes(a));
   const sinPago = pasivos.filter((p) => costoMes(p) == null);
   const bajo = conRenta.filter((a) => rend(a) < rendProm * 0.6).sort((a, b) => rend(a) - rend(b));
@@ -433,13 +436,30 @@ function pintarActivos(el) {
 
 // ================= POR COBRAR =================
 // Lo que le deben a las empresas: saldos de compra de unidades de Elysium, clientes de obra (MEDCO) y adeudos de renta.
+// Las obras no se muestran aquí (lo que falta por gastar en ellas cambia lo que realmente queda por cobrar).
+// Las rentas atrasadas se calculan con la misma regla que Rentas (js/adeudos-renta.js), no se capturan aparte.
+const cuentasCobro = () => cobrar.filter((x) => x.tipo !== 'venta' && x.tipo !== 'adeudo_inicial');
+function rentasDebidas() {
+  return contratos.filter((r) => r.activo && num(r.monto)).map((r) => {
+    const ad = cobrar.find((x) => x.tipo === 'adeudo_inicial' && x.contrato_id === r.id);
+    const d = adeudoRenta(r, pagosRenta, ad);
+    const lugar = [activosDe(r).map(nombreActivo).join(', '), centroDe(r.centro_id)?.nombre].filter(Boolean).join(' · ');
+    return { r, ...d, mx: aMXN(d.total, r.moneda), lugar };
+  }).filter((x) => x.total > 0.5).sort((a, b) => b.mx - a.mx);
+}
 const TIPOS_COBRO = { cartera_vencida: 'Unidades vendidas por terminar de pagar', venta: 'Clientes de obra', adeudo_inicial: 'Rentas atrasadas', otro: 'Otros' };
 function pintarCobrar(el) {
-  const filas = cobrar.filter((x) => !st.q || normalizar([x.cliente, x.referencia, x.notas, centroDe(x.centro_id)?.nombre].join(' ')).includes(normalizar(st.q)));
+  const filas = cuentasCobro().filter((x) => !st.q || normalizar([x.cliente, x.referencia, x.notas, centroDe(x.centro_id)?.nombre].join(' ')).includes(normalizar(st.q)));
+  const rentas = rentasDebidas().filter((x) => !st.q || normalizar([x.r.arrendatario, x.lugar].join(' ')).includes(normalizar(st.q)));
+  const totRentas = rentas.reduce((s, x) => s + x.mx, 0);
   const vivas = filas.filter((x) => num(x.saldo) > 0.5), pagadas = filas.filter((x) => num(x.saldo) <= 0.5);
-  const total = vivas.reduce((s, x) => s + aMXN(x.saldo, x.moneda), 0);
+  const totCuentas = vivas.reduce((s, x) => s + aMXN(x.saldo, x.moneda), 0), total = totCuentas + totRentas;
   const grupos = Object.keys(TIPOS_COBRO).map((t) => ({ t, l: vivas.filter((x) => (x.tipo || 'otro') === t) })).filter((g) => g.l.length);
-  const mayor = [...vivas].sort((a, b) => aMXN(b.saldo, b.moneda) - aMXN(a.saldo, a.moneda))[0];
+  const filaRenta = (x) => `<tr>
+      <td data-l="Inquilino"><b>${esc(x.r.arrendatario)}</b><small class="sub">${esc(x.lugar)}</small></td>
+      <td data-l="Detalle" class="mut" colspan="2">${[x.anterior ? `Adeudo anterior ${fmt(x.anterior)}` : '', x.meses.length ? `${x.meses.length} mes${x.meses.length === 1 ? '' : 'es'} sin pago (${nombreMeses(x.meses)})` : ''].filter(Boolean).join(' + ')}</td>
+      <td data-l="Debe" class="num fuerte">${x.r.moneda === 'USD' ? usd(x.total) : fmt(x.total)}</td>
+      <td class="acciones"><a class="btn btn-sm btn-ghost" href="#/treme/rentas">Cobrar en Rentas</a></td></tr>`;
   const fila = (x) => {
     const r = x.tipo === 'adeudo_inicial';
     return `<tr>
@@ -452,20 +472,21 @@ function pintarCobrar(el) {
   };
   el.innerHTML = `
     <div class="vc-cifras">
-      <div class="vc-cifra"><span>Te deben</span><strong>${corto(total)}</strong><small>${vivas.length} cuenta${vivas.length === 1 ? '' : 's'}</small></div>
+      <div class="vc-cifra"><span>Te deben</span><strong>${corto(total)}</strong><small>${vivas.length + rentas.length} cuenta${vivas.length + rentas.length === 1 ? '' : 's'}</small></div>
       ${grupos.slice(0, 2).map((g) => `<div class="vc-cifra"><span>${esc(TIPOS_COBRO[g.t])}</span><strong>${corto(g.l.reduce((s, x) => s + aMXN(x.saldo, x.moneda), 0))}</strong><small>${g.l.length} cuenta${g.l.length === 1 ? '' : 's'}</small></div>`).join('')}
-      ${mayor ? `<div class="vc-cifra"><span>La más grande</span><strong>${corto(aMXN(mayor.saldo, mayor.moneda))}</strong><small>${esc(mayor.cliente || '')}</small></div>` : ''}
+      <div class="vc-cifra"><span>Rentas atrasadas</span><strong>${corto(totRentas)}</strong><small>${rentas.length} inquilino${rentas.length === 1 ? '' : 's'} · igual que en Rentas</small></div>
     </div>
     <section class="panel" style="margin-top:16px">
       <div class="panel-head"><h3>Cuentas por cobrar</h3><input type="search" id="pt-q" placeholder="Buscar nombre o unidad…" value="${esc(st.q)}" aria-label="Buscar cuenta"></div>
       <div class="tabla-wrap"><table class="tabla tm">
         <thead><tr><th>Quién debe</th><th class="num">Original</th><th class="num">Abonado</th><th class="num">Saldo</th><th></th></tr></thead>
-        <tbody>${grupos.length ? grupos.map((g) => `<tr class="pz-grupo"><td colspan="5"><b>${esc(TIPOS_COBRO[g.t])}</b><span>${g.l.length} · ${corto(g.l.reduce((s, x) => s + aMXN(x.saldo, x.moneda), 0))}</span></td></tr>${g.l.map(fila).join('')}`).join('')
-          : '<tr><td colspan="5" class="vacio">Nadie te debe con este filtro.</td></tr>'}</tbody>
+        <tbody>${grupos.map((g) => `<tr class="pz-grupo"><td colspan="5"><b>${esc(TIPOS_COBRO[g.t])}</b><span>${g.l.length} · ${corto(g.l.reduce((s, x) => s + aMXN(x.saldo, x.moneda), 0))}</span></td></tr>${g.l.map(fila).join('')}`).join('')}
+          ${rentas.length ? `<tr class="pz-grupo"><td colspan="5"><b>Rentas atrasadas</b><span>${rentas.length} · ${corto(totRentas)} · mismo cálculo que Rentas</span></td></tr>${rentas.map(filaRenta).join('')}` : ''}
+          ${!grupos.length && !rentas.length ? '<tr><td colspan="5" class="vacio">Nadie te debe con este filtro.</td></tr>' : ''}</tbody>
       </table></div>
       ${pagadas.length ? `<details class="pz-mas"><summary>${pagadas.length} cuenta${pagadas.length === 1 ? '' : 's'} ya liquidada${pagadas.length === 1 ? '' : 's'}</summary>
         <ul class="pz-liq">${pagadas.map((x) => `<li><span>${esc(x.cliente)} · ${esc(x.referencia || '')}</span><b>${fmt(x.monto_original)}</b></li>`).join('')}</ul></details>` : ''}
-      <p class="nota">Lo que te deben no se suma al valor del patrimonio; se muestra aparte. Cada abono registrado aquí baja el saldo y cuenta como ingreso del mes.</p>
+      <p class="nota">Lo que te deben no se suma al valor del patrimonio; se muestra aparte. Las rentas atrasadas salen de Rentas (últimos ${MESES_REVISADOS} meses sin pago más el adeudo anterior registrado) y se cobran allá. Las obras de MEDCO no se incluyen.</p>
     </section>`;
   const q = el.querySelector('#pt-q');
   q.addEventListener('input', (e) => { st.q = e.target.value; const pos = e.target.selectionStart; pintar(); const n = raiz.querySelector('#pt-q'); n.focus(); n.setSelectionRange(pos, pos); });
@@ -506,7 +527,7 @@ function editarCobro(id) {
       <label>Quién debe<input name="cliente" value="${esc(x.cliente || '')}" maxlength="120"></label>
       <label>Unidad o concepto<input name="referencia" value="${esc(x.referencia || '')}" maxlength="120" placeholder="Ej. Departamento 1209"></label>
       <label>Monto que debe (original)<input name="monto" type="number" step="0.01" inputmode="decimal" value="${x.monto_original ?? ''}"></label>
-      <label>Tipo<select name="tipo">${Object.entries(TIPOS_COBRO).filter(([t]) => t !== 'adeudo_inicial' || x.tipo === t).map(([t, n]) => `<option value="${t}" ${x.tipo === t ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+      <label>Tipo<select name="tipo">${Object.entries(TIPOS_COBRO).filter(([t]) => !['adeudo_inicial', 'venta'].includes(t) || x.tipo === t).map(([t, n]) => `<option value="${t}" ${x.tipo === t ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
       <label class="ancho">Plaza / obra<select name="centro"><option value="">—</option>${centros.map((c) => `<option value="${c.id}" ${c.id === x.centro_id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select></label>
       <label class="ancho">Notas<textarea name="notas" rows="3">${esc(x.notas || '')}</textarea></label></div>
       ${id && num(x.pagado) ? `<p class="nota">Lleva ${fmt(x.pagado)} abonados; el saldo es el monto original menos los abonos.</p>` : ''}</form>`,

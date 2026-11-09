@@ -720,3 +720,6 @@ h4.grupo:first-of-type { margin-top: 4px; }
 .brand-logos .logo-treme { width: 52%; }
 .brand-logos .logo-medco { width: 46%; }
 .brand-logos-sep { flex: none; width: 1px; height: 30px; background: var(--border); }
+/* Rentas > Adeudos: el selector "Agregar adeudo a…" no debe salirse en celular */
+#ad-nuevo { max-width: 100%; min-width: 0; }
+.panel-head .filtros-sm { min-width: 0; max-width: 100%; }
