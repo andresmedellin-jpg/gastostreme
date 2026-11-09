@@ -21,7 +21,7 @@ const CAMPOS_ACTIVO = [
   ['notas', 'Notas', 'textarea'],
 ];
 const CAMPOS_PASIVO = [
-  ['acreedor', 'Acreedor', 'text'], ['tipo_pasivo', 'Tipo', 'select', ['Hipoteca', 'Línea de crédito', 'Crédito simple', 'Proveedor a largo plazo', 'Préstamo de socio', 'Otro']],
+  ['acreedor', 'Acreedor', 'text'], ['tipo_pasivo', 'Tipo', 'select', ['Hipoteca', 'Línea de crédito', 'Crédito simple', 'Proveedor a largo plazo', 'Préstamo de socio', 'Anticipo de compradores', 'Otro']],
   ['saldo_actual', 'Saldo actual', 'number'], ['fecha_saldo', 'Saldo al', 'date'],
   ['pago_mensual', 'Pago mensual', 'number'], ['tasa_interes', 'Tasa (%)', 'number'],
   ['moneda', 'Moneda', 'select', ['MXN', 'USD']], ['fecha_inicio', 'Inicio', 'date'],
