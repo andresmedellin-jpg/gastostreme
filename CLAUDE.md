@@ -43,8 +43,9 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
    (‹ semana ›, filtro por centro, días L–D para marcar faltas, sueldo, faltas, abono a préstamo editable, a pagar, Pagar);
    al pagar con abono: gasto de Nómina por el sueldo, `nomina_lineas.abono_prestamo` y un `prestamo_abonos`.
    Gastos: centros como botones con lo gastado en el mes (sin menú desplegable), también en el formulario.
-   Patrimonio: Panorama (neto, deuda/valor, flujo, rendimiento, costo de la deuda = pago mensual ÷ saldo, lectura para decidir,
-   simulador "¿Qué pasa si vendo…?" que paga primero la deuda más cara, rendimiento por inmueble, concentración) · Inmuebles · Deuda.
+   Patrimonio (reorganizado 09/11/2026): Panorama = 4 cifras (valor total con dólares, renta, rendimiento, deuda aparte), "Por revisar"
+   plegado, barra de ocupación (rentado / disponible / uso propio) con la proyección plegada, tabla por plaza o dueño legal (toca una
+   plaza → sus inmuebles), "Para decidir" (máx. 3) y simulador de venta plegado · Inmuebles (por plaza) · Deuda (por empresa).
 6. Prueba antes de publicar: Playwright con un Supabase falso (se sirve el repo en localhost y se reemplaza
    `supabase.min.js`), revisa escritorio y celular (390px), sin errores en consola.
 7. Commits como `-c user.name="Andrés Medellín" -c user.email="andres.medellin@medco.mx"`.

@@ -199,78 +199,88 @@ function pintarPanorama(el) {
   const conRenta = activos.filter((a) => rentado(a) && valMX(a));
   const valRentado = conRenta.reduce((s, a) => s + valMX(a), 0);
   const rendProm = valRentado ? conRenta.reduce((s, a) => s + rentaDe(a) * 12, 0) / valRentado : 0;
-  const parados = activos.filter((a) => !rentado(a) && valMX(a));
   const libres = activos.filter((a) => !rentado(a) && !usoPropio(a)).map((a) => ({ a, e: estimada(a) }))
     .sort((x, y) => (plazaDe(x.a)).localeCompare(plazaDe(y.a), 'es') || String(x.a.identificador).localeCompare(String(y.a.identificador), 'es', { numeric: true }));
   const propios = activos.filter((a) => !rentado(a) && usoPropio(a)).map((a) => ({ a, e: estimada(a) }));
   const proyectado = libres.reduce((s, x) => s + (x.e?.mx || 0), 0);
-  const valParado = parados.reduce((s, a) => s + valMX(a), 0);
+  const valLibre = libres.reduce((s, x) => s + valMX(x.a), 0), valPropio = propios.reduce((s, x) => s + valMX(x.a), 0);
   const deuda = pasivos.reduce((s, p) => s + saldoMX(p), 0), pagos = pasivos.reduce((s, p) => s + pagoMX(p), 0);
   const caras = pasivos.filter((p) => costoMes(p) != null).sort((a, b) => costoMes(b) - costoMes(a));
   const sinPago = pasivos.filter((p) => costoMes(p) == null);
-  const bajo = conRenta.filter((a) => rend(a) < rendProm * 0.7).sort((a, b) => rend(a) - rend(b));
+  const bajo = conRenta.filter((a) => rend(a) < rendProm * 0.6).sort((a, b) => rend(a) - rend(b));
   const rev = porRevisar();
   const nRev = rev.sinInmueble.length + rev.sinContrato.length + rev.contratoBaja.length + rev.sinPlaza.length;
 
-  const ranking = [...conRenta].sort((a, b) => rend(b) - rend(a));
-  const maxR = Math.max(0.0001, ...ranking.map(rend));
-  const grupoPor = (fn) => {
-    const m = new Map();
-    activos.forEach((a) => { const k = fn(a) || 'Sin asignar'; const x = m.get(k) || { k, val: 0, renta: 0, n: 0 }; x.val += valMX(a); x.renta += rentaDe(a); x.n++; m.set(k, x); });
-    return [...m.values()].sort((a, b) => b.val - a.val);
-  };
-  const COLS = ['#101216', '#8B1A1A', '#23408E', '#A15C07', '#0F7A4F', '#8A8F98', '#5B4B8A', '#B5651D', '#2E7D7A', '#C2B8A3'];
-  const barra = (lista) => `<div class="pz-stack">${lista.map((x, i) => `<span style="width:${total ? x.val / total * 100 : 0}%;background:${COLS[i % COLS.length]}" title="${esc(x.k)} · ${corto(x.val)}"></span>`).join('')}</div>
-    <ul class="pz-ley">${lista.map((x, i) => `<li><i style="background:${COLS[i % COLS.length]}"></i><span>${esc(x.k)}</span><b>${total ? pct(x.val / total, 0) : '—'}</b>
-      <small>${x.n} inmueble${x.n === 1 ? '' : 's'} · ${corto(x.val)} · ${x.renta ? `renta ${corto(x.renta)}/mes · ${pct(x.renta * 12 / Math.max(1, x.val))}` : 'sin renta'}</small></li>`).join('')}</ul>`;
+  // Agrupado por plaza (o por dueño legal)
+  st.agrupa ||= 'plaza';
+  const clave = st.agrupa === 'plaza' ? plazaDe : (a) => a.entidad_legal || 'Sin asignar';
+  const grupos = [...activos.reduce((m, a) => {
+    const k = clave(a), x = m.get(k) || { k, val: 0, renta: 0, n: 0, rent: 0, valRent: 0 };
+    x.val += valMX(a); x.n++;
+    if (rentado(a)) { x.rent++; x.renta += rentaDe(a); x.valRent += valMX(a); }
+    m.set(k, x); return m;
+  }, new Map()).values()].sort((a, b) => b.val - a.val);
+  const maxVal = Math.max(1, ...grupos.map((g) => g.val));
 
+  // Para decidir: solo lo más importante
   const ideas = [];
-  if (nRev) ideas.push({ c: 'mal', t: `${nRev} diferencia${nRev === 1 ? '' : 's'} entre Patrimonio y Rentas`, d: 'Revísalas en el apartado "Por revisar" para que las dos pantallas digan lo mismo.' });
-  if (parados.length) ideas.push({ c: 'aviso', t: `${corto(valParado)} en inmuebles sin renta`,
-    d: `${parados.length} inmueble${parados.length === 1 ? '' : 's'} no genera${parados.length === 1 ? '' : 'n'} ingreso (${pct(total ? valParado / total : 0, 0)} del valor). ${proyectado ? `Rentando los disponibles recibirías unos ${pesos(proyectado)} más al mes (ver la proyección).` : ''}` });
-  if (bajo.length) ideas.push({ c: '', t: `${bajo.length} inmueble${bajo.length === 1 ? '' : 's'} rinde${bajo.length === 1 ? '' : 'n'} muy por debajo del promedio`,
-    d: `${bajo.slice(0, 3).map((a) => `${esc(nombreLargo(a))} (${pct(rend(a))})`).join(', ')}${bajo.length > 3 ? '…' : ''}. Candidatos a subir renta, cambiar de inquilino o vender.` });
+  if (proyectado) ideas.push({ c: 'aviso', t: `Puedes ganar ${corto(proyectado)} más al mes`, d: `Rentando lo disponible, según lo que ya cobras por m² en cada plaza. El detalle está en "Ver la proyección de lo disponible".` });
+  if (bajo.length) ideas.push({ c: '', t: `${bajo.length} inmueble${bajo.length === 1 ? '' : 's'} rinde${bajo.length === 1 ? '' : 'n'} muy poco`,
+    d: `${bajo.slice(0, 3).map((a) => `${esc(nombreLargo(a))} (${pct(rend(a))})`).join(', ')}${bajo.length > 3 ? '…' : ''}. Candidatos a subir renta o vender.` });
   if (caras[0]) ideas.push({ c: '', t: `Deuda más cara: ${esc(caras[0].acreedor)}`,
-    d: `${corto(saldoMX(caras[0]))} con pago de ${fmt(pagoMX(caras[0]))} al mes (${pct(costoMes(caras[0]))} del saldo). Es la primera que conviene liquidar o refinanciar.` });
-  if (libres.some((x) => !x.e)) ideas.push({ c: '', t: 'Falta la renta de mercado',
-    d: `${libres.filter((x) => !x.e).map((x) => esc(nombreActivo(x.a))).join(', ')} no ${libres.filter((x) => !x.e).length === 1 ? 'tiene' : 'tienen'} con qué compararse. Captura su renta de mercado estimada para incluirlos en la proyección.` });
+    d: `${corto(saldoMX(caras[0]))}, con pago de ${fmt(pagoMX(caras[0]))} al mes (${pct(costoMes(caras[0]))} del saldo). Conviene liquidarla o refinanciarla primero.` });
+
+  const segOcup = [
+    { t: 'Rentado', v: valRentado, c: '#101216', d: `${conRenta.length} inmuebles · ${corto(renta)}/mes` },
+    { t: 'Disponible', v: valLibre, c: '#C2862F', d: `${libres.length} inmuebles · podrían dar ${corto(proyectado)}/mes` },
+    { t: 'Uso propio', v: valPropio, c: '#C9C5BB', d: `${propios.length} inmuebles · ${propios.map((x) => esc(nombreActivo(x.a))).join(', ')}` },
+  ].filter((x) => x.v > 0);
+  const valOcup = segOcup.reduce((s, x) => s + x.v, 0);
 
   el.innerHTML = `
-    <section class="pz-hero">
+    <section class="pz-hero pz-hero4">
       <div class="pz-neto"><span>Valor total del patrimonio</span><strong>${corto(total)}</strong>
-        <small>${corto(valMxn)} en México${valUsd ? ` + ${usd(valUsd)} en Estados Unidos (${corto(valUsd * tc.valor)})` : ''}</small></div>
-      <div class="pz-m"><span>Renta mensual</span><strong>${corto(renta)}</strong><small>según Rentas${rentaUsd ? ` · incluye ${usd(rentaUsd)}` : ''}${fuera ? ` · aparte ${corto(fuera)} de áreas del edificio` : ''}</small></div>
-      <div class="pz-m"><span>Rendimiento anual</span><strong>${pct(rendProm)}</strong><small>de los ${conRenta.length} inmuebles rentados</small></div>
-      <div class="pz-m"><span>Sin renta</span><strong>${corto(valParado)}</strong><small>${parados.length} inmueble${parados.length === 1 ? '' : 's'}${proyectado ? ` · podrían rentar ${corto(proyectado)}/mes` : ''}</small></div>
-      <div class="pz-m"><span>Deuda de las empresas</span><strong>${corto(deuda)}</strong><small>aparte, no se resta · pagos ${corto(pagos)}/mes</small></div>
+        <small>${corto(valMxn)} en México${valUsd ? ` + ${usd(valUsd)} en Estados Unidos` : ''}</small></div>
+      <div class="pz-m"><span>Renta mensual</span><strong>${corto(renta)}</strong><small>según Rentas${rentaUsd ? ` · incluye ${usd(rentaUsd)}` : ''}</small></div>
+      <div class="pz-m"><span>Rendimiento anual</span><strong>${pct(rendProm)}</strong><small>sobre lo rentado</small></div>
+      <div class="pz-m"><span>Deuda de las empresas</span><strong>${corto(deuda)}</strong><small>aparte, no se resta</small></div>
     </section>
 
-    ${nRev ? revisarHTML(rev) : ''}
-    ${libres.length ? proyeccionHTML(libres, propios, proyectado, renta) : ''}
+    ${nRev ? `<details class="pz-aviso"><summary><em><b>${nRev} pendiente${nRev === 1 ? '' : 's'} por revisar</b> entre Patrimonio y Rentas</em><span>Ver</span></summary>${revisarHTML(rev)}</details>` : ''}
+
+    <section class="panel pz-ocup">
+      <div class="panel-head"><h3>¿Qué tanto está trabajando tu patrimonio?</h3>${proyectado ? `<span class="pz-chip-ok">+${corto(proyectado)}/mes posibles</span>` : ''}</div>
+      <div class="pz-ocup-barra">${segOcup.map((x) => `<span style="flex:${x.v};background:${x.c}" title="${x.t} · ${corto(x.v)}"></span>`).join('')}</div>
+      <div class="pz-ocup-ley">${segOcup.map((x) => `<div><i style="background:${x.c}"></i><span>${x.t}</span><b>${valOcup ? pct(x.v / valOcup, 0) : '—'}</b><strong>${corto(x.v)}</strong><small>${x.d}</small></div>`).join('')}</div>
+      ${libres.length ? `<details class="pz-mas"><summary>Ver la proyección de lo disponible</summary>${proyeccionHTML(libres, propios, proyectado, renta)}</details>` : ''}
+    </section>
+
+    <section class="panel pz-grupos">
+      <div class="panel-head"><h3>Dónde está tu patrimonio</h3>
+        <div class="segmento" role="tablist"><button data-agrupa="plaza" class="${st.agrupa === 'plaza' ? 'activo' : ''}">Por plaza</button><button data-agrupa="dueno" class="${st.agrupa !== 'plaza' ? 'activo' : ''}">Por dueño legal</button></div></div>
+      <div class="tabla-wrap"><table class="tabla tm pz-tg">
+        <thead><tr><th>${st.agrupa === 'plaza' ? 'Plaza' : 'Dueño legal'}</th><th class="pz-tg-barra">Valor</th><th class="num">Rentados</th><th class="num">Renta al mes</th><th class="num">Rendimiento</th></tr></thead>
+        <tbody>${grupos.map((g) => `<tr class="${st.agrupa === 'plaza' ? 'clic' : ''}" ${st.agrupa === 'plaza' ? `data-plaza-ir="${esc(g.k)}" tabindex="0"` : ''}>
+          <td data-l="${st.agrupa === 'plaza' ? 'Plaza' : 'Dueño'}"><b>${esc(g.k)}</b></td>
+          <td data-l="Valor" class="pz-tg-barra"><div class="pz-tg-v"><span><i style="width:${g.val / maxVal * 100}%"></i></span><b>${corto(g.val)}</b><small>${total ? pct(g.val / total, 0) : ''}</small></div></td>
+          <td data-l="Rentados" class="num">${g.rent} de ${g.n}</td>
+          <td data-l="Renta al mes" class="num">${g.renta ? corto(g.renta) : '<span class="mut">—</span>'}</td>
+          <td data-l="Rendimiento" class="num fuerte">${g.valRent ? pct(g.renta * 12 / g.valRent) : '<span class="mut">—</span>'}</td></tr>`).join('')}</tbody>
+      </table></div>
+      ${st.agrupa === 'plaza' ? '<p class="nota">Toca una plaza para ver sus inmuebles.</p>' : ''}
+    </section>
 
     <div class="pz-grid">
-      <section class="panel pz-ideas"><h3>Lectura para decidir</h3>
-        <ul>${ideas.map((i) => `<li class="${i.c}"><strong>${i.t}</strong><p>${i.d}</p></li>`).join('') || '<li>Sin alertas.</li>'}</ul></section>
-      <section class="panel pz-sim" id="pz-sim"></section>
+      <section class="panel pz-ideas"><h3>Para decidir</h3>
+        <ul>${ideas.slice(0, 3).map((i) => `<li class="${i.c}"><strong>${i.t}</strong><p>${i.d}</p></li>`).join('') || '<li>Sin alertas.</li>'}</ul></section>
+      <section class="panel"><details class="pz-mas pz-sim-d"><summary><b>¿Qué pasa si vendo…?</b><span>Simula una venta y cómo baja la deuda</span></summary><div class="pz-sim" id="pz-sim"></div></details></section>
     </div>
-
-    <div class="grid-2">
-      <section class="panel"><h3>Por plaza</h3>${barra(grupoPor(plazaDe))}</section>
-      <section class="panel"><h3>Por dueño legal</h3>${barra(grupoPor((a) => a.entidad_legal))}</section>
-    </div>
-
-    <section class="panel" style="margin-top:16px"><div class="panel-head"><h3>Rendimiento por inmueble</h3><span class="sub-meta">renta anual ÷ valor · línea = promedio ${pct(rendProm)}</span></div>
-      <ul class="pz-rank">${ranking.map((a) => `<li class="clic" data-editar="${a.id}" tabindex="0">
-        <span class="pz-rn"><b>${esc(nombreActivo(a))}</b><small>${esc(plazaDe(a))}${inquilinos(a).length ? ' · ' + esc(inquilinos(a).join(', ')) : ''}</small></span>
-        <span class="pz-rb"><span class="${rend(a) < rendProm * .7 ? 'bajo' : rend(a) > rendProm * 1.3 ? 'alto' : ''}" style="width:${rend(a) / maxR * 100}%"></span><i style="left:${rendProm / maxR * 100}%"></i></span>
-        <span class="pz-rv"><b>${pct(rend(a))}</b><small>${corto(rentaDe(a))}/mes · ${corto(valMX(a))}</small></span></li>`).join('')}</ul>
-      ${parados.length ? `<h4 class="pz-sub">Sin renta · ${corto(valParado)}</h4><ul class="pz-parados">${parados.sort((a, b) => valMX(b) - valMX(a)).map((a) =>
-        `<li class="clic" data-editar="${a.id}" tabindex="0"><b>${esc(nombreActivo(a))}</b><span>${esc(plazaDe(a))} · ${esc(a.uso_actual && !/^rentado/i.test(a.uso_actual) ? a.uso_actual : 'Sin uso definido')}</span><strong>${corto(valMX(a))}</strong></li>`).join('')}</ul>` : ''}
-    </section>
-    <p class="nota">Los valores y rentas en dólares se convierten a pesos con el tipo de cambio indicado arriba. La deuda pertenece a las empresas y se muestra aparte.</p>`;
+    <p class="nota">Los dólares se convierten a pesos con el tipo de cambio de arriba. La deuda pertenece a las empresas y se muestra aparte.${fuera ? ` Además se cobran ${corto(fuera)} al mes por áreas del edificio que no son inmuebles del patrimonio.` : ''}</p>`;
   el.querySelectorAll('[data-editar]').forEach((tr) => activar(tr, () => editar('activos', tr.dataset.editar)));
   el.querySelectorAll('[data-nuevo-contrato]').forEach((b) => b.addEventListener('click', () => ligarContrato(b.dataset.nuevoContrato)));
   el.querySelectorAll('[data-ligar]').forEach((b) => b.addEventListener('click', () => editar('activos', b.dataset.ligar)));
+  el.querySelectorAll('[data-agrupa]').forEach((b) => b.addEventListener('click', () => { st.agrupa = b.dataset.agrupa; pintar(); }));
+  el.querySelectorAll('[data-plaza-ir]').forEach((tr) => activar(tr, () => { st.plaza = tr.dataset.plazaIr; st.entidad = ''; st.q = ''; st.vista = 'activos'; pintar(); window.scrollTo(0, 0); }));
   simulador(el.querySelector('#pz-sim'), { caras, sinPago, renta });
 }
 
@@ -281,15 +291,14 @@ function proyeccionHTML(libres, propios, total, renta) {
     <td data-l="Renta estimada" class="num fuerte">${x.e ? (x.a.moneda === 'USD' ? usd(x.e.mx / tc.valor) : pesos(x.e.mx)) : '—'}</td>
     <td data-l="Cómo se calculó" class="mut">${x.e ? esc(x.e.base) : 'Sin con qué comparar: captura su renta de mercado'}</td></tr>`;
   const totPropios = propios.reduce((s, x) => s + (x.e?.mx || 0), 0);
-  return `<section class="panel pz-proy"><div class="panel-head"><h3>Proyección: lo que no está rentado</h3>
-      <span class="sub-meta">${total ? `+${pesos(total)} al mes · ${renta ? pct(total / renta, 0) + ' más de lo que cobras hoy' : ''}` : ''}</span></div>
-    <p class="sub-meta">Cuánto recibirías al rentar cada inmueble disponible, según lo que ya cobras por m² en inmuebles del mismo tipo y plaza. Abre un inmueble y escribe su "renta de mercado estimada" para usar otra cifra.</p>
+  return `<div class="pz-proy">
+    <p class="sub-meta">${total ? `<b>+${pesos(total)} al mes</b>${renta ? `, ${pct(total / renta, 0)} más de lo que cobras hoy. ` : '. '}` : ''}Se calcula con lo que ya cobras por m² en inmuebles del mismo tipo y plaza. Abre un inmueble y escribe su "renta de mercado estimada" para usar otra cifra.</p>
     <div class="tabla-wrap"><table class="tabla tm"><thead><tr><th>Inmueble</th><th class="num">m²</th><th class="num">Renta estimada al mes</th><th>Cómo se calculó</th></tr></thead>
       <tbody>${libres.map(fila).join('')}
         <tr class="pz-total"><td colspan="2"><b>Total disponible</b></td><td class="num fuerte">${pesos(total)}</td><td class="mut">${pct(total * 12 / Math.max(1, libres.reduce((s, x) => s + (x.e ? valMX(x.a) : 0), 0)))} anual sobre su valor</td></tr>
       </tbody></table></div>
     ${propios.length ? `<p class="nota">No se cuentan por estar en uso propio: ${propios.map((x) => esc(nombreActivo(x.a))).join(', ')}${totPropios ? `. Si se rentaran darían unos ${pesos(totPropios)} al mes` : ''}.</p>` : ''}
-  </section>`;
+  </div>`;
 }
 
 function revisarHTML(rev) {
@@ -306,7 +315,7 @@ function revisarHTML(rev) {
       `<button class="btn btn-ghost btn-sm" data-ligar="${a.id}">Abrir</button>`)).join('')}</ul>`);
   if (rev.sinPlaza.length) bloques.push(`<h4>Inmuebles sin plaza asignada</h4><ul>${rev.sinPlaza.map((a) =>
     li(esc(nombreActivo(a)), esc(a.entidad_legal || ''), `<button class="btn btn-ghost btn-sm" data-ligar="${a.id}">Asignar plaza</button>`)).join('')}</ul>`);
-  return `<section class="panel pz-rev"><div class="panel-head"><h3>Por revisar</h3><span class="sub-meta">Diferencias entre Patrimonio y Rentas</span></div>${bloques.join('')}</section>`;
+  return `<div class="pz-rev">${bloques.join('')}</div>`;
 }
 
 // Contrato de Rentas sin inmueble: elegir un inmueble existente de esa plaza o crear uno nuevo ya ligado

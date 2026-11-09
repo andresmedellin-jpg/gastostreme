@@ -681,7 +681,7 @@ tr.rt-pagado td { color: var(--text-2); }
 .pz-tc { border: 1px solid var(--border); background: #fff; border-radius: 8px; height: 28px; padding: 0 10px; font: inherit; font-weight: 600;
   color: var(--text); cursor: pointer; font-variant-numeric: tabular-nums; }
 .pz-tc:hover { border-color: var(--border-2); }
-.pz-rev { margin-top: 16px; border-left: 3px solid var(--neg); }
+.pz-rev { padding: 0 16px 8px; }
 .pz-rev h4 { margin: 14px 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); }
 .pz-rev ul { list-style: none; margin: 0; padding: 0; }
 .pz-rev li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid #EFEDE7; }
@@ -713,3 +713,53 @@ tr.rt-pagado td { color: var(--text-2); }
 .pz-proy > .sub-meta { margin: 4px 0 10px; }
 .tabla tr.pz-total td { border-top: 1.5px solid var(--ink); background: var(--surface-2); }
 @media (max-width: 760px) { .tabla tr.pz-total td[colspan] { display: block; } }
+
+/* Panorama reorganizado (09/11/2026) */
+.pz-hero.pz-hero4 { grid-template-columns: 1.6fr repeat(3, 1fr); }
+.pz-aviso { margin-top: 16px; background: #fff; border: 1px solid var(--border); border-left: 3px solid var(--neg); border-radius: 14px; }
+.pz-aviso > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 13px 16px; font-size: 13.5px; color: var(--text-2); }
+.pz-aviso > summary::-webkit-details-marker { display: none; }
+.pz-aviso > summary b { color: var(--text); }
+.pz-aviso > summary span { margin-left: auto; font-size: 12.5px; font-weight: 600; color: var(--text); }
+.pz-aviso[open] > summary span { visibility: hidden; }
+.pz-ocup, .pz-grupos { margin-top: 16px; }
+.pz-chip-ok { font-size: 12.5px; font-weight: 600; color: #0F7A4F; background: #E6F4EC; padding: 4px 10px; border-radius: 99px; font-variant-numeric: tabular-nums; }
+.pz-ocup-barra { display: flex; gap: 3px; height: 14px; border-radius: 99px; overflow: hidden; margin: 14px 0 16px; }
+.pz-ocup-barra span { min-width: 6px; }
+.pz-ocup-ley { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.pz-ocup-ley > div { display: grid; grid-template-columns: 10px 1fr auto; column-gap: 8px; row-gap: 2px; align-items: center; }
+.pz-ocup-ley i { width: 10px; height: 10px; border-radius: 3px; }
+.pz-ocup-ley span { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.pz-ocup-ley b { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.pz-ocup-ley strong { grid-column: 2 / -1; font-size: 20px; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.pz-ocup-ley small { grid-column: 2 / -1; font-size: 12px; color: var(--text-3); line-height: 1.4; }
+.pz-mas { margin-top: 14px; border-top: 1px solid #EFEDE7; padding-top: 10px; }
+.pz-mas > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text); padding: 4px 0; }
+.pz-sim-d { margin: 0; border: 0; padding: 0; }
+.pz-sim-d > summary { display: flex; flex-direction: column; gap: 2px; list-style: none; }
+.pz-sim-d > summary::-webkit-details-marker { display: none; }
+.pz-sim-d > summary b { font-size: 15px; } .pz-sim-d > summary span { font-weight: 400; font-size: 12.5px; color: var(--text-3); }
+.pz-sim-d > summary::after { content: 'Abrir simulador'; align-self: flex-start; margin-top: 10px; font-size: 12.5px; border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; }
+.pz-sim-d[open] > summary::after { content: 'Cerrar'; }
+.pz-sim-d .pz-sim { margin-top: 12px; }
+.pz-sim-d .pz-sim > .panel-head h3 { display: none; }
+.pz-proy { margin-top: 8px; }
+.pz-tg .pz-tg-barra { width: 38%; }
+.pz-tg-v { display: grid; grid-template-columns: 1fr auto 40px; gap: 10px; align-items: center; }
+.pz-tg-v > span { height: 8px; border-radius: 99px; background: #EFEDE7; overflow: hidden; }
+.pz-tg-v > span i { display: block; height: 100%; background: var(--ink); border-radius: 99px; }
+.pz-tg-v b { font-weight: 600; font-variant-numeric: tabular-nums; } .pz-tg-v small { color: var(--text-3); text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 1100px) { .pz-hero.pz-hero4 { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 760px) {
+  .pz-hero.pz-hero4 { grid-template-columns: 1fr 1fr; }
+  .pz-ocup-ley { grid-template-columns: 1fr; }
+  .pz-tg .pz-tg-barra { width: auto; }
+  .pz-tg td[data-l="Valor"] { grid-column: 1 / -1; }
+  .pz-grupos .panel-head { flex-wrap: wrap; gap: 8px; }
+}
+.pz-aviso > summary em { font-style: normal; }
+@media (max-width: 760px) {
+  .pz-tg td[data-l="Rentados"]::after { content: ' rentados'; }
+  .pz-tg td[data-l="Renta al mes"]::after { content: '/mes'; }
+  .pz-tg td[data-l="Rendimiento"]::after { content: ' anual'; font-weight: 400; }
+}
