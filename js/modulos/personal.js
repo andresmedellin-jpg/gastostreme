@@ -455,7 +455,7 @@ async function nomina(el) {
       <thead><tr><th>Colaborador</th><th class="num">Sueldo</th>
         <th class="num">Faltas</th><th class="num">Préstamo</th><th class="num">A pagar</th><th class="ry-acc"></th></tr></thead>
       <tbody id="ry-filas"></tbody></table></div></section>
-    <p class="nota">Cada pago se registra como gasto de Nómina en el centro de la persona (por el sueldo de la semana). El abono a préstamo se descuenta de lo que se le entrega y se anota en su préstamo. Para corregir una falta, toca la cantidad en la columna Faltas.</p>
+    <p class="nota">Para descontar una falta, toca el día en el renglón de la persona: se pone en rojo y se descuenta solo; tócalo otra vez para quitarla. Cada pago se registra como gasto de Nómina en el centro de la persona. El abono a préstamo se descuenta de lo que se le entrega y se anota en su préstamo.</p>
   </div>`;
   el = el.querySelector('.ry');
 
@@ -469,7 +469,11 @@ async function nomina(el) {
         <small>${esc(e.puesto || '—')}${st.rayaCentro ? '' : ` · ${esc(nombreCentro(e.centro_id))}`}</small></div></div></td>
       <td class="num" data-l="Sueldo">${fmt(e.salario_semanal)}</td>
       <td class="num" data-l="Faltas">${p ? (faltas.length ? `<span class="neg">−${fmt(fDesc)}</span><small>${faltas.length} día${faltas.length === 1 ? '' : 's'}</small>` : '<span class="mut">—</span>')
-        : `<button class="ry-faltas ${faltas.length ? 'con' : ''}" data-faltas="${e.id}" title="Corregir faltas de la semana">${faltas.length ? `−${fmt(fDesc)}<small>${faltas.length} día${faltas.length === 1 ? '' : 's'}</small>` : '—'}</button>`}</td>
+        : `<div class="ry-dias" role="group" aria-label="Días que faltó ${esc(e.nombre)}">${dias.filter((d) => trabaja.includes(codigoDia(d)) || faltas.includes(d)).map((d) => {
+            const f = faltas.includes(d), fut = d > hoy, nom = DIAS_CORTO[(new Date(d + 'T12:00:00').getDay() + 6) % 7];
+            return `<button type="button" class="ry-dia ${f ? 'falta' : ''} ${d === hoy ? 'hoy' : ''} ${fut ? 'fut' : ''}" data-falta="${e.id}|${d}" aria-pressed="${f}"
+              title="${nom} ${fmtFecha(d)}: ${f ? 'faltó (toca para quitar)' : 'toca para marcar falta'}">${nom.slice(0, 1)}<i>${Number(d.slice(8))}</i></button>`; }).join('')}</div>
+          <small class="ry-dias-desc ${faltas.length ? 'neg' : ''}">${faltas.length ? `−${fmt(fDesc)} · ${faltas.length} falta${faltas.length === 1 ? '' : 's'}` : 'Sin faltas'}</small>`}</td>
       <td class="num" data-l="Préstamo">${p ? (Number(p.abono_prestamo) ? `<span class="neg">−${fmt(p.abono_prestamo)}</span>` : '<span class="mut">—</span>')
         : pr ? `<label class="ry-abono" title="Saldo del préstamo: ${fmt(saldoP(pr))}"><span>−</span><input type="number" min="0" step="50" max="${saldoP(pr).toFixed(2)}" data-abono="${e.id}" value="${descuento[e.id] || 0}"></label><small>debe ${fmt(saldoP(pr))}</small>`
         : '<span class="mut">—</span>'}</td>
@@ -563,14 +567,19 @@ async function nomina(el) {
       cerrarModal(); toast(`Pago a ${e.nombre} registrado`); pintarFilas();
     });
   });
-  // Las faltas se marcan en "Hoy"; aquí solo se corrigen antes de pagar
+  // Un clic en el día marca o quita la falta
+  el.addEventListener('click', (ev) => {
+    const d = ev.target.closest('.ry-dia[data-falta]'); if (!d) return;
+    d.checked = d.classList.contains('falta');
+    d.classList.toggle('falta'); cambiarFalta(d);
+  });
   el.addEventListener('click', (ev) => {
     const b = ev.target.closest('[data-faltas]'); if (!b) return;
     const e = porId(b.dataset.faltas);
     const trabaja = (e.dias_laborales || 'LUN,MAR,MIE,JUE,VIE,SAB').split(',');
     const dias = Array.from({ length: 7 }, (_, i) => sumarDias(sem, i)).filter((d) => trabaja.includes(codigoDia(d)) || faltasDe(e.id).includes(d));
     const modal = abrirModal({ titulo: `Faltas de la semana · ${e.nombre}`,
-      cuerpo: `<p class="nota">Las faltas se marcan en Hoy. Aquí puedes corregirlas antes de pagar. Cada falta descuenta ${fmt(diario(e))}.</p>
+      cuerpo: `<p class="nota">Marca los días que faltó esta semana. Cada día descuenta ${fmt(diario(e))} de su sueldo; el total se actualiza al momento.</p>
         <div class="ry-fdias">${dias.map((d) => `<label class="opcion opcion-linea"><input type="checkbox" data-falta="${e.id}|${d}" ${faltasDe(e.id).includes(d) ? 'checked' : ''}> ${DIAS_CORTO[(new Date(d + 'T12:00:00').getDay() + 6) % 7]} ${fmtFecha(d)}</label>`).join('')}</div>`,
       pie: '<button class="btn btn-primary" id="rf-ok">Listo</button>' });
     modal.querySelector('#rf-ok').addEventListener('click', cerrarModal);
@@ -590,7 +599,7 @@ async function nomina(el) {
     if (error) {
       if (ya) asis.data.push(ya); else asis.data.splice(asis.data.findIndex((a) => a.empleado_id === id && a.fecha === fecha && a.estado === 'falta'), 1);
       toast('No se pudo guardar la falta: ' + error.message, true);
-      b.checked = !b.checked;
+      if (b.type === 'checkbox') b.checked = !b.checked;
     }
     delete b.dataset.ocupado;
     repintarFila(e);
