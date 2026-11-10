@@ -496,18 +496,33 @@ async function nomina(el) {
       <div class="ry-avance"><div class="ry-pista"><span style="width:${pct}%"></span></div><small>${pct} % pagado</small></div>
       <div class="ry-todos">${pend.length ? `<select id="ry-forma" aria-label="Forma de pago">${METODOS.map((m) => `<option>${m}</option>`).join('')}</select>
         <button class="btn btn-primary" id="ry-todos">Pagar a ${pend.length} pendiente${pend.length === 1 ? '' : 's'}</button>` : lista.length ? '<span class="ry-listo">Semana pagada completa</span>' : ''}</div>`;
-    el.querySelector('#ry-todos')?.addEventListener('click', pagarTodos);
+    el.querySelector('#ry-todos')?.addEventListener('click', (ev) => pagarTodos(ev));
+  };
+  // Separado por centro de trabajo (cada bodega, oficina o plaza con su encabezado y subtotal)
+  const deCentro = (c) => visibles().filter((e) => (e.centro_id || '') === c);
+  const encabezado = (c) => {
+    const l = deCentro(c), pend = l.filter((e) => !pagoDe(e.id));
+    const total = l.reduce((s, e) => { const p = pagoDe(e.id); return s + (p ? pagadoDe(p) : netoDe(e)); }, 0);
+    const faltan = pend.reduce((s, e) => s + netoDe(e), 0);
+    return `<tr class="ry-grupo" data-grupo="${c}"><td colspan="6"><div class="ry-g">
+      <div class="ry-g-n"><b>${esc(nombreCentro(c))}</b><span>${l.length} persona${l.length === 1 ? '' : 's'}</span></div>
+      <div class="ry-g-c"><span>Raya <b>${fmt(total)}</b></span>${pend.length ? `<span>Falta <b>${fmt(faltan)}</b></span>` : '<span class="ry-g-ok">Pagado completo</span>'}
+        ${pend.length ? `<button class="btn btn-sm btn-ghost" data-pagar-grupo="${c}">Pagar ${pend.length === 1 ? 'a 1' : `a los ${pend.length}`}</button>` : ''}</div>
+    </div></td></tr>`;
   };
   const pintarFilas = () => {
-    const lista = visibles();
-    // orden: pendientes primero, por centro y nombre; los pagados al final
-    lista.sort((a, b) => (!!pagoDe(a.id) - !!pagoDe(b.id)) || nombreCentro(a.centro_id).localeCompare(nombreCentro(b.centro_id), 'es') || a.nombre.localeCompare(b.nombre, 'es'));
-    el.querySelector('#ry-filas').innerHTML = lista.map(fila).join('') || '<tr><td colspan="6" class="vacio">Sin colaboradores activos.</td></tr>';
+    const centros = [...new Set(visibles().map((e) => e.centro_id || ''))].sort((a, b) => nombreCentro(a).localeCompare(nombreCentro(b), 'es'));
+    // dentro de cada centro: pendientes primero y luego los pagados, por nombre
+    const orden = (a, b) => (!!pagoDe(a.id) - !!pagoDe(b.id)) || a.nombre.localeCompare(b.nombre, 'es');
+    el.querySelector('#ry-filas').innerHTML = centros.map((c) => encabezado(c) + deCentro(c).sort(orden).map(fila).join('')).join('')
+      || '<tr><td colspan="6" class="vacio">Sin colaboradores activos.</td></tr>';
     pintarResumen();
   };
   const repintarFila = (e) => {
     const tr = el.querySelector(`tr[data-emp="${e.id}"]`);
     if (tr) tr.outerHTML = fila(e);
+    const g = el.querySelector(`tr[data-grupo="${e.centro_id || ''}"]`);
+    if (g) g.outerHTML = encabezado(e.centro_id || '');
     pintarResumen();
   };
   pintarFilas();
@@ -615,11 +630,13 @@ async function nomina(el) {
     lineas.splice(lineas.indexOf(l), 1);
     toast('Pago deshecho'); pintarFilas();
   });
-  async function pagarTodos(ev) {
-    const pendientes = pendientesDe(), forma = el.querySelector('#ry-forma').value;
+  el.addEventListener('click', (ev) => { const b = ev.target.closest('[data-pagar-grupo]'); if (b) pagarTodos(ev, b.dataset.pagarGrupo); });
+  async function pagarTodos(ev, centro) {
+    const pendientes = centro == null ? pendientesDe() : deCentro(centro).filter((e) => !pagoDe(e.id));
+    const forma = el.querySelector('#ry-forma')?.value || METODOS[0];
     const suma = pendientes.reduce((s, e) => s + netoDe(e), 0);
-    if (!confirm(`¿Registrar el pago de ${pendientes.length} persona${pendientes.length === 1 ? '' : 's'} por ${fmt(suma)}, en ${forma.toLowerCase()} y con fecha de hoy?`)) return;
-    ev.currentTarget.disabled = true;
+    if (!confirm(`¿Registrar el pago de ${pendientes.length} persona${pendientes.length === 1 ? '' : 's'}${centro == null ? '' : ` de ${nombreCentro(centro)}`} por ${fmt(suma)}, en ${forma.toLowerCase()} y con fecha de hoy?`)) return;
+    const btn = ev.target.closest('button'); if (btn) btn.disabled = true;
     let ok = 0;
     for (const e of pendientes) {
       try { await registrar(e, forma, hoy, ''); ok++; } catch (err) { toast(`${e.nombre}: ${err.message}`, true); }
