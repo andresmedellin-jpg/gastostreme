@@ -118,6 +118,8 @@ export const PERFILES = [
     desc: 'Captura y consulta gastos de obra y oficina.' },
   { id: 'encargado', titulo: 'Encargado de sitio',         rol: 'encargado', roles: [],
     desc: 'Tareas, rondines, incidencias y asistencia de su personal, y las bodegas (material que entra y sale). No ve dinero.' },
+  { id: 'encargado_luz', titulo: 'Encargado de edificio + cobro de luz', rol: 'encargado', roles: ['cobranza'], modulos: ['personal', 'bodegas', 'luz'],
+    desc: 'Lo del encargado (equipo y bodegas) y además registra y revisa los cobros de luz. No ve el mantenimiento ni otro dinero.' },
   { id: 'equipo',    titulo: 'Equipo (vigilancia, limpieza)', rol: 'equipo', roles: [],
     desc: 'Desde su celular: checa con foto, hace su rondín, marca sus pendientes, recibe paquetes y busca placas. No ve dinero. Mejor dale acceso desde Nómina y equipo → Plantilla para ligarlo a su ficha.' },
   { id: 'admin',     titulo: 'Administración',             rol: 'administracion', roles: [],
@@ -127,7 +129,7 @@ export const PERFILES = [
 // Altas sugeridas (desaparecen al crearlas)
 export const SUGERIDOS = MARCA.demo || CLIENTE ? [] : [
   { nombre: 'Victoria Carrillo', usuario: 'victoria', perfil: 'captura',   empresas: 'todas' },
-  { nombre: 'Víctor Olazarán',   usuario: 'victor',   perfil: 'encargado', empresas: ['Treme'] },
+  { nombre: 'Víctor Olazarán',   usuario: 'victor',   perfil: 'encargado_luz', empresas: ['Treme'] },
   { nombre: 'Miguel Medellín',   usuario: 'miguel',   perfil: 'socio',     empresas: 'todas' },
   { nombre: 'Liz Lomelí',        usuario: 'liz',      perfil: 'mantenimiento', empresas: ['Treme'], centros: ['Torre Elysium'] },
   { nombre: 'Bárbara Wilson',    usuario: 'barby',    perfil: 'mantenimiento', empresas: ['Treme'], centros: ['Plaza Hudson', 'Plaza GM 202'] },
@@ -180,6 +182,6 @@ export const MUNDOS = [
     modulos: ['inicio', 'rentas', 'cobranza', 'servicios', 'lecturas', 'gastos', 'personal', 'bodegas', 'patrimonio'],
     titulos: { inicio: 'Resumen', cobranza: 'Mantenimiento', servicios: 'Luz, gas y agua', lecturas: 'Lecturas' } },
   { id: 'medco', nombre: 'MEDCO', sub: 'Desarrollos y Proyectos', empresa: /medco/i, color: '#23408E', logo: 'logo-medco',
-    modulos: ['inicio', 'obras', 'prospectos', 'cotizaciones', 'inventario', 'gastos', 'personal', 'bodegas', 'patrimonio'], titulos: { inicio: 'Resumen' } },
+    modulos: ['inicio', 'obras', 'prospectos', 'cotizaciones', 'inventario', 'gastos', 'personal', 'bodegas', 'patrimonio'], titulos: { inicio: 'Resumen', bodegas: 'Material de obra' } },
 ];
 export const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];

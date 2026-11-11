@@ -21,15 +21,24 @@ const tipoDe = (x) => x.tipo === 'salida' && x.regresa ? 'prestamo' : x.tipo;
 const signo = (x) => x.tipo === 'salida' ? -1 : 1;            // ajuste ya trae su signo
 const num = (n) => Number(n).toLocaleString('es-MX', { maximumFractionDigits: 2 });
 const almacen = () => almacenes.find((a) => a.id === st.almacenId);
+// En MEDCO el material vive en la obra misma (no hay bodegas): se elige la obra y su "almacén" se crea solo
+// la primera vez que se le registra material. En Treme sí hay bodegas dentro del edificio.
+const porObra = () => estado.mundo?.id === 'medco' || (estado.centros.length > 0 && estado.centros.every((c) => c.tipo === 'obra'));
+const lugar = (a) => porObra() ? (centroDe(a.centro_id)?.nombre || a.nombre) : a.nombre;
 const centroDe = (id) => (estado.todosCentros || estado.centros).find((c) => c.id === id);
 
 export async function render(view) {
   raiz = view;
   view.innerHTML = '<div class="cargando">Cargando…</div>';
   const ids = estado.centros.map((c) => c.id);
-  const { data, error } = await db().from('almacenes').select('id, empresa_id, centro_id, nombre, notas').eq('activo', true)
+  let { data, error } = await db().from('almacenes').select('id, empresa_id, centro_id, nombre, notas').eq('activo', true)
     .in('centro_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']).order('nombre');
   if (error) { view.innerHTML = `<div class="vacio">No se pudieron cargar las bodegas: ${esc(error.message)}</div>`; return; }
+  if (porObra()) {
+    // Una entrada por obra: su almacén si ya existe, o uno pendiente de crear (id con prefijo "nueva:")
+    const obras = estado.centros.filter((c) => c.tipo === 'obra');
+    data = obras.map((c) => data.find((a) => a.centro_id === c.id) || { id: 'nueva:' + c.id, empresa_id: c.empresa_id, centro_id: c.id, nombre: 'Material de obra' });
+  }
   almacenes = data.sort((a, b) => (centroDe(a.centro_id)?.nombre || '').localeCompare(centroDe(b.centro_id)?.nombre || '', 'es') || a.nombre.localeCompare(b.nombre, 'es', { numeric: true }));
   if (!almacenes.some((a) => a.id === st.almacenId)) st.almacenId = almacenes[0]?.id || null;
   // Nombres del personal para "¿quién se lo lleva?" (si no los puede ver, se escribe a mano)
@@ -39,7 +48,8 @@ export async function render(view) {
   }
   acciones();
   if (!almacenes.length) {
-    view.innerHTML = `<div class="vacio">Todavía no hay bodegas.${puede() ? '<br><button class="btn btn-primary" id="b-prim">＋ Crear la primera bodega</button>' : ''}</div>`;
+    view.innerHTML = porObra() ? '<div class="vacio">Todavía no hay obras dadas de alta.</div>'
+      : `<div class="vacio">Todavía no hay bodegas.${puede() ? '<br><button class="btn btn-primary" id="b-prim">＋ Crear la primera bodega</button>' : ''}</div>`;
     view.querySelector('#b-prim')?.addEventListener('click', nuevaBodega);
     return;
   }
@@ -48,13 +58,14 @@ export async function render(view) {
 
 function acciones() {
   document.getElementById('page-actions').innerHTML = puede()
-    ? `<button class="btn btn-ghost" id="b-bod">＋ Bodega</button>${almacenes.length ? '<button class="btn btn-primary" id="b-mat">＋ Material</button>' : ''}` : '';
+    ? `${porObra() ? '' : '<button class="btn btn-ghost" id="b-bod">＋ Bodega</button>'}${almacenes.length ? '<button class="btn btn-primary" id="b-mat">＋ Material</button>' : ''}` : '';
   document.getElementById('b-bod')?.addEventListener('click', nuevaBodega);
   document.getElementById('b-mat')?.addEventListener('click', () => editarMaterial(null));
 }
 
 async function cargar() {
   const a = almacen();
+  if (String(a.id).startsWith('nueva:')) { materiales = []; movs = []; return pintar(); }   // obra sin material todavía
   const [m, v] = await Promise.all([
     db().from('materiales').select('id, nombre, unidad, minimo, herramienta, notas').eq('almacen_id', a.id).eq('activo', true).order('nombre'),
     todo(() => db().from('material_movs').select('id, material_id, tipo, cantidad, quien, motivo, destino, regresa, prestamo_id, foto, fecha, capturado_por, creado_en')
@@ -90,12 +101,12 @@ function pintar() {
   const salidasMes = movs.filter((x) => x.tipo === 'salida' && x.fecha.startsWith(mes));
   const bajos = materiales.filter(bajo);
   raiz.innerHTML = `
-    ${almacenes.length > 1 ? `<div class="segmento bd-bodegas" role="tablist" aria-label="Bodega">${almacenes.map((x) =>
-      `<button class="${x.id === a.id ? 'activo' : ''}" data-alm="${x.id}">${esc(varios ? `${centroDe(x.centro_id)?.nombre || ''} · ${x.nombre}` : x.nombre)}</button>`).join('')}</div>` : ''}
+    ${almacenes.length > 1 ? `<div class="segmento bd-bodegas" role="tablist" aria-label="${porObra() ? 'Obra' : 'Bodega'}">${almacenes.map((x) =>
+      `<button class="${x.id === a.id ? 'activo' : ''}" data-alm="${x.id}">${esc(porObra() ? lugar(x) : varios ? `${centroDe(x.centro_id)?.nombre || ''} · ${x.nombre}` : x.nombre)}</button>`).join('')}</div>` : ''}
     <div class="kpis">
-      <div class="kpi"><span>${esc(a.nombre)}</span><strong>${materiales.length}</strong><small>${esc(centroDe(a.centro_id)?.nombre || '')} · artículos</small></div>
+      <div class="kpi"><span>${esc(lugar(a))}</span><strong>${materiales.length}</strong><small>${porObra() ? 'artículos en la obra' : esc(centroDe(a.centro_id)?.nombre || '') + ' · artículos'}</small></div>
       <div class="kpi"><span>Salidas del mes</span><strong>${salidasMes.length}</strong><small>${salidasMes.length ? 'última ' + hace(salidasMes[0].fecha) : 'ninguna'}</small></div>
-      <div class="kpi"><span>Prestado afuera</span><strong class="${abiertos.length ? 'neg' : ''}">${abiertos.length}</strong><small>${abiertos.length ? 'herramienta sin regresar' : 'todo está en la bodega'}</small></div>
+      <div class="kpi"><span>Prestado afuera</span><strong class="${abiertos.length ? 'neg' : ''}">${abiertos.length}</strong><small>${abiertos.length ? 'herramienta sin regresar' : porObra() ? 'nada prestado' : 'todo está en la bodega'}</small></div>
       <div class="kpi"><span>Por surtir</span><strong class="${bajos.length ? 'neg' : ''}">${bajos.length}</strong><small>en su mínimo o abajo</small></div>
     </div>
     <div class="sub-head"><div class="tabs" role="tablist">
@@ -132,7 +143,7 @@ function pintarExistencias(el) {
             <td class="acciones nowrap">${puede() ? `<button class="btn btn-sm btn-primary" data-sacar="${m.id}" ${hay > 0 ? '' : 'disabled'}>Sacar</button>
               <button class="btn btn-sm btn-ghost" data-meter="${m.id}">Meter</button>` : ''}
               <button class="btn btn-sm btn-ghost" data-hist="${m.id}">Historial</button></td></tr>`;
-        }).join('') || `<tr><td colspan="4" class="vacio">${materiales.length ? 'Nada con ese filtro' : 'Esta bodega no tiene material. Agrégalo con ＋ Material.'}</td></tr>`}</tbody>
+        }).join('') || `<tr><td colspan="4" class="vacio">${materiales.length ? 'Nada con ese filtro' : porObra() ? 'Esta obra todavía no tiene material registrado. Agrégalo con ＋ Material.' : 'Esta bodega no tiene material. Agrégalo con ＋ Material.'}</td></tr>`}</tbody>
       </table></div>
     </section>
     <p class="nota">Para sacar algo se anota quién se lo lleva y para qué. Las herramientas salen como préstamo y quedan en "Prestado" hasta que regresan.</p>`;
@@ -197,7 +208,7 @@ function pintarAfuera(el, abiertos) {
             <td class="nowrap ${d > 7 ? 'neg' : 'mut'}" data-l="Desde">${fmtFecha(p.fecha)} <small class="sub">${hace(p.fecha)}</small></td>
             <td class="mut" data-l="Para qué">${esc(p.motivo || '—')}${p.destino ? `<small class="sub">${esc(p.destino)}</small>` : ''}</td>
             <td class="acciones">${puede() ? `<button class="btn btn-sm btn-primary" data-reg="${p.id}">Regresó</button>` : ''}</td></tr>`; }).join('')}</tbody>
-      </table></div>` : '<div class="vacio">No hay nada prestado: todo está en la bodega.</div>'}
+      </table></div>` : `<div class="vacio">No hay nada prestado${porObra() ? '.' : ': todo está en la bodega.'}</div>`}
     </section>`;
   el.querySelectorAll('[data-reg]').forEach((b) => b.addEventListener('click', () => regreso(abiertos.find((x) => x.p.id === b.dataset.reg))));
 }
@@ -251,7 +262,7 @@ function sacar(m) {
   const modal = abrirModal({
     titulo: `Sacar · ${m.nombre}`,
     cuerpo: `<form class="form" id="bf" novalidate>
-      <p class="nota">Hay <strong>${num(hay)} ${esc(m.unidad)}</strong> en ${esc(almacen().nombre)}.</p>
+      <p class="nota">Hay <strong>${num(hay)} ${esc(m.unidad)}</strong> en ${esc(lugar(almacen()))}.</p>
       <div class="form-2">
         <label>¿Cuántos?<input type="number" name="cant" min="0.01" step="any" max="${hay}" value="1" inputmode="decimal" required></label>
         <label>Fecha<input type="date" name="fecha" value="${hoyISO()}" required></label>
@@ -288,7 +299,7 @@ function meter(m) {
         <label>¿Cuántos?<input type="number" name="cant" min="0.01" step="any" value="1" inputmode="decimal" required></label>
         <label>Fecha<input type="date" name="fecha" value="${hoyISO()}" required></label>
       </div>
-      <label>¿De dónde viene?<select name="motivo"><option>Compra</option><option>Sobró de un trabajo</option><option>Lo trajeron de otra bodega u obra</option><option>Otro</option></select></label>
+      <label>¿De dónde viene?<select name="motivo"><option>Compra</option><option>Sobró de un trabajo</option><option>${porObra() ? 'Lo trajeron de otra obra' : 'Lo trajeron de otra bodega u obra'}</option><option>Otro</option></select></label>
       <label>Detalle <small>(opcional: proveedor, factura, trabajo…)</small><input name="detalle" maxlength="160"></label>
       <label>¿Quién lo trajo? <small>(opcional)</small><input name="quien" list="b-personas" maxlength="80"></label>${listaPersonas()}
       ${campoFoto}
@@ -362,7 +373,7 @@ function contar(m) {
 function editarMaterial(m) {
   const nuevo = !m;
   const modal = abrirModal({
-    titulo: nuevo ? `Nuevo material · ${almacen().nombre}` : `Editar · ${m.nombre}`,
+    titulo: nuevo ? `Nuevo material · ${lugar(almacen())}` : `Editar · ${m.nombre}`,
     cuerpo: `<form class="form" id="bf" novalidate>
       <label>Nombre<input name="nombre" maxlength="120" required value="${esc(m?.nombre || '')}" placeholder="Ej. Codos 90° 1&quot; Tuboplus"></label>
       <div class="form-2">
@@ -383,7 +394,14 @@ function editarMaterial(m) {
     const btn = ev.currentTarget; btn.disabled = true;
     const datos = { nombre, unidad: f.unidad.value, minimo: f.minimo.value === '' ? null : Number(f.minimo.value), herramienta: f.herr.checked };
     if (nuevo) {
-      const { data, error } = await db().from('materiales').insert({ ...datos, org_id: estado.miembro.org_id, almacen_id: almacen().id }).select('id').single();
+      // Obra sin material todavía: primero se crea su almacén (invisible para el usuario)
+      const a = almacen();
+      if (String(a.id).startsWith('nueva:')) {
+        const r = await db().from('almacenes').insert({ org_id: estado.miembro.org_id, empresa_id: a.empresa_id, centro_id: a.centro_id, nombre: 'Material de obra', activo: true }).select('id').single();
+        if (r.error) { btn.disabled = false; return toast('No se pudo guardar: ' + r.error.message, true); }
+        a.id = st.almacenId = r.data.id;
+      }
+      const { data, error } = await db().from('materiales').insert({ ...datos, activo: true, org_id: estado.miembro.org_id, almacen_id: a.id }).select('id').single();
       if (error) { btn.disabled = false; return toast(error.code === '23505' ? 'Ya existe un material con ese nombre en esta bodega' : 'No se pudo guardar: ' + error.message, true); }
       const cant = Number(f.cant.value);
       if (cant > 0) await db().from('material_movs').insert({ org_id: estado.miembro.org_id, almacen_id: almacen().id, material_id: data.id,
@@ -413,7 +431,7 @@ function nuevaBodega() {
     if (!nombre) return toast('Escribe el nombre de la bodega', true);
     const c = lugares.find((x) => x.id === f.centro.value);
     ev.currentTarget.disabled = true;
-    const { data, error } = await db().from('almacenes').insert({ org_id: estado.miembro.org_id, empresa_id: c.empresa_id, centro_id: c.id, nombre }).select('id').single();
+    const { data, error } = await db().from('almacenes').insert({ org_id: estado.miembro.org_id, empresa_id: c.empresa_id, centro_id: c.id, nombre, activo: true }).select('id').single();
     if (error) { ev.currentTarget.disabled = false; return toast('No se pudo crear: ' + error.message, true); }
     st.almacenId = data.id; cerrarModal(); toast('Bodega creada ✓'); render(raiz);
   });

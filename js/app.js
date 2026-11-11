@@ -189,7 +189,9 @@ const rolLegible = (r) => ({ dueno: 'Dueño', socio: 'Socio', administracion: 'A
 // soloRoles: módulos que solo ve quien tiene ese rol (el dueño no los ve en su menú, p. ej. "Mi turno" del personal)
 // miembros.modulos (si lo tiene) limita las secciones de esa persona; p. ej. Liz y Barby solo ven Mantenimiento
 const modulosDelUsuario = () => MODULOS.filter((m) => (m.soloRoles ? misRoles().some((r) => m.soloRoles.includes(r)) : tieneRol(m.roles))
-  && (!estado.miembro?.modulos || estado.miembro.modulos.includes(m.vista || m.id)));
+  && (!estado.miembro?.modulos || estado.miembro.modulos.includes(m.vista || m.id) || (m.id === 'cobranza' && estado.miembro.modulos.includes('luz'))));
+// Quien solo cobra luz (Víctor) ve la sección con ese nombre
+const soloLuz = () => estado.miembro?.modulos?.includes('luz') && !estado.miembro.modulos.includes('cobranza');
 
 // Mundos: Grupo (todo junto), Treme y MEDCO. Cada uno con sus propias secciones y sus propios datos.
 const LOGOS = Object.fromEntries((MARCA.logos || []).map((l) => [l.clase, l]));
@@ -208,7 +210,7 @@ function mundosDelUsuario() {
   if (final.length) return final;
   return [{ id: 'grupo', nombre: MARCA.marca[0] || 'Inicio', mods: mios, titulos: {}, color: '#101216' }];   // marca sin mundos
 }
-const tituloEn = (w, m) => w.titulos?.[m.id] || m.titulo;
+const tituloEn = (w, m) => (m.id === 'cobranza' && soloLuz() ? 'Luz' : w.titulos?.[m.id] || m.titulo);
 
 function pintarNav(w, todos) {
   const unico = todos.length < 2;

@@ -29,16 +29,22 @@ const st = {
 let centro, edificios = [], unidades = [], cuotas = [], pagos = [], raiz;
 // ¿Este edificio cobra luz? (Torre Elysium sí; las plazas solo mantenimiento)
 const conLuz = () => cuotas.some((c) => c.concepto === 'luz' && c.en_padron);
-const conceptosDe = () => conLuz() ? ['mantenimiento', 'luz'] : ['mantenimiento'];
+// La base solo entrega las cuotas que la persona puede ver: Víctor ve la luz, no el mantenimiento
+const conMant = () => cuotas.some((c) => c.concepto === 'mantenimiento' && c.en_padron);
+const conceptosDe = () => [conMant() && 'mantenimiento', conLuz() && 'luz'].filter(Boolean);
 const esCondominio = () => centro?.nombre === CONDOMINIO;
 
 export async function render(view) {
   raiz = view;
   // Edificios con unidades que esta persona puede ver
   if (!edificios.length) {
-    const { data, error } = await db().from('unidades').select('centro_id').eq('activo', true);
+    // Edificios con cuotas que esta persona puede ver (Víctor: solo los que cobran luz)
+    const [uq, cq] = await Promise.all([db().from('unidades').select('id, centro_id').eq('activo', true),
+      todo(() => db().from('cuotas').select('unidad_id').eq('en_padron', true).in('concepto', ['mantenimiento', 'luz']))]);
+    const error = uq.error || cq.error;
     if (error) { view.innerHTML = `<div class="vacio">No se pudo cargar: ${esc(error.message)}</div>`; return; }
-    const ids = new Set((data || []).map((x) => x.centro_id));
+    const conCuota = new Set((cq.data || []).map((x) => x.unidad_id));
+    const ids = new Set((uq.data || []).filter((x) => conCuota.has(x.id)).map((x) => x.centro_id));
     edificios = estado.centros.filter((c) => ids.has(c.id))
       .sort((a, b) => (b.nombre === CONDOMINIO) - (a.nombre === CONDOMINIO) || a.nombre.localeCompare(b.nombre, 'es'));
   }
@@ -176,7 +182,7 @@ function pintarResumen(el) {
 // Estado de cuenta del año: una fila por unidad y una columna por mes; cada mes con dos marcas
 // (arriba mantenimiento, abajo luz). Tocar un mes abre el pago de ese mes.
 function pintarCuenta(el) {
-  const fm = padron('mantenimiento'), fl = padron('luz'), luz = conLuz();
+  const fm = padron('mantenimiento'), fl = padron('luz'), luz = conLuz(), mant = conMant(), dos = mant && luz;
   const hoy = new Date(), mesHoy = st.anio < hoy.getFullYear() ? 11 : st.anio > hoy.getFullYear() ? -1 : hoy.getMonth();
   const ids = [...new Set([...fm, ...fl].map((r) => r.u.id))];
   const filas = ids.map((id) => ({ u: unidades.find((x) => x.id === id), m: fm.find((r) => r.u.id === id), l: fl.find((r) => r.u.id === id) }))
@@ -188,22 +194,23 @@ function pintarCuenta(el) {
   if (st.soloDeben && !conAdeudo.length) st.soloDeben = false;
   const lista = st.soloDeben ? conAdeudo : filas;
   const sm = stats(fm, Math.max(0, mesHoy)), sl = stats(fl, Math.max(0, mesHoy));
+  const sp = mant ? sm : sl, nomP = mant ? 'Mantenimiento' : 'Luz';          // concepto principal del edificio
   const anual = (f) => f.reduce((s2, r) => s2 + r.porMes.flat().reduce((a, p) => a + Number(p.monto), 0), 0);
   const totalAdeudo = filas.reduce((s2, f) => s2 + adeudo(f.m) + adeudo(f.l), 0);
   const nomMes = mesHoy >= 0 ? MESES[mesHoy].toLowerCase() : '';
   el.innerHTML = `
     <section class="cb-resumen">
-      <div><span>Mantenimiento · ${nomMes}</span><strong>${sm.pct} %</strong><small>${sm.pagaron} de ${sm.n} unidades · ${fmt(sm.cobrado)}</small><div class="ry-pista"><span style="width:${sm.pct}%"></span></div></div>
-      ${luz ? `<div><span>Luz · ${nomMes}</span><strong>${sl.pct} %</strong><small>${sl.pagaron} de ${sl.n} unidades · ${fmt(sl.cobrado)}</small><div class="ry-pista"><span style="width:${sl.pct}%"></span></div></div>`
-        : `<div><span>Por cobrar · ${nomMes}</span><strong class="${sm.pendiente ? 'neg' : 'pos'}">${fmt(sm.pendiente)}</strong><small>${sm.n - sm.pagaron} unidad${sm.n - sm.pagaron === 1 ? '' : 'es'} sin pago</small></div>`}
-      <div><span>Cobrado en ${st.anio}</span><strong>${fmt(anual(fm) + anual(fl))}</strong><small>${luz ? `${fmt(anual(fm))} mantenimiento · ${fmt(anual(fl))} luz` : 'mantenimiento'}</small></div>
+      <div><span>${nomP} · ${nomMes}</span><strong>${sp.pct} %</strong><small>${sp.pagaron} de ${sp.n} unidades · ${fmt(sp.cobrado)}</small><div class="ry-pista"><span style="width:${sp.pct}%"></span></div></div>
+      ${dos ? `<div><span>Luz · ${nomMes}</span><strong>${sl.pct} %</strong><small>${sl.pagaron} de ${sl.n} unidades · ${fmt(sl.cobrado)}</small><div class="ry-pista"><span style="width:${sl.pct}%"></span></div></div>`
+        : `<div><span>Por cobrar · ${nomMes}</span><strong class="${sp.pendiente ? 'neg' : 'pos'}">${fmt(sp.pendiente)}</strong><small>${sp.n - sp.pagaron} unidad${sp.n - sp.pagaron === 1 ? '' : 'es'} sin pago</small></div>`}
+      <div><span>Cobrado en ${st.anio}</span><strong>${fmt(anual(fm) + anual(fl))}</strong><small>${dos ? `${fmt(anual(fm))} mantenimiento · ${fmt(anual(fl))} luz` : nomP.toLowerCase()}</small></div>
       <div><span>Adeudo del año</span><strong class="${totalAdeudo ? 'neg' : 'pos'}">${fmt(totalAdeudo)}</strong><small>${conAdeudo.length} unidad${conAdeudo.length === 1 ? '' : 'es'} con meses sin pago</small></div>
     </section>
     <section class="panel cb-hoja">
       <div class="panel-head">
         <div class="cb-ctl"><button class="icon-btn" data-anio="-1" aria-label="Año anterior">‹</button><strong>${st.anio}</strong><button class="icon-btn" data-anio="1" aria-label="Año siguiente">›</button>
           <div class="segmento"><button data-sd="0" class="${!st.soloDeben ? 'activo' : ''}">Todas · ${filas.length}</button><button data-sd="1" class="${st.soloDeben ? 'activo' : ''}">Con adeudo · ${conAdeudo.length}</button></div></div>
-        <div class="cb-ctl"><span class="cb-ley"><i class="ok"></i>Pagado <i class="no"></i>Sin pago <i class="na"></i>No aplica${luz ? ' · arriba mantenimiento, abajo luz' : ''}</span>
+        <div class="cb-ctl"><span class="cb-ley"><i class="ok"></i>Pagado <i class="no"></i>Sin pago <i class="na"></i>No aplica${dos ? ' · arriba mantenimiento, abajo luz' : ''}</span>
           <input type="search" id="c-q" placeholder="Buscar unidad u ocupante" value="${esc(st.q)}" aria-label="Buscar"></div>
       </div>
       <div class="tabla-wrap"><table class="tabla cb-tabla">
@@ -211,9 +218,9 @@ function pintarCuenta(el) {
         <tbody>${lista.map((f) => { const ad = adeudo(f.m) + adeudo(f.l);
           return `<tr>
             <td data-l="Unidad"><strong>${esc(etiquetaUnidad(f.u))}</strong><small class="sub">${esc(f.u.ocupante || '—')}</small>${ultimoPagado(f.u.id) >= 0 ? `<button class="btn btn-sm btn-ghost cb-rec-movil" data-rec="${f.u.id}">Recibo</button>` : ''}</td>
-            ${CORTO.map((nm, i) => `<td class="cb-m ${i === mesHoy ? 'hoy' : ''}"><button class="cb-cel" data-cel="${f.u.id}|${i}" title="${nm}: mantenimiento ${({ ok: 'pagado', no: 'sin pago', na: 'no aplica', fut: '—' })[marca(f.m, i)]}${luz ? ` · luz ${({ ok: 'pagado', no: 'sin pago', na: 'no aplica', fut: '—' })[marca(f.l, i)]}` : ''}">
-              <i class="${marca(f.m, i)}"></i>${luz ? `<i class="${marca(f.l, i)}"></i>` : ''}</button></td>`).join('')}
-            <td class="num mut" data-l="Cuota">${f.m && !f.m.exento ? fmt(f.m.cuota.monto) : '—'}${f.l && !f.l.exento ? `<small class="sub">luz ${fmt(f.l.cuota.monto)}</small>` : ''}</td>
+            ${CORTO.map((nm, i) => `<td class="cb-m ${i === mesHoy ? 'hoy' : ''}"><button class="cb-cel" data-cel="${f.u.id}|${i}" title="${nm}:${mant ? ` mantenimiento ${({ ok: 'pagado', no: 'sin pago', na: 'no aplica', fut: '—' })[marca(f.m, i)]}` : ''}${luz ? ` · luz ${({ ok: 'pagado', no: 'sin pago', na: 'no aplica', fut: '—' })[marca(f.l, i)]}` : ''}">
+              ${mant ? `<i class="${marca(f.m, i)}"></i>` : ''}${luz ? `<i class="${marca(f.l, i)}"></i>` : ''}</button></td>`).join('')}
+            <td class="num mut" data-l="Cuota">${mant ? (f.m && !f.m.exento ? fmt(f.m.cuota.monto) : '—') : ''}${f.l && !f.l.exento ? `<small class="sub">luz ${fmt(f.l.cuota.monto)}</small>` : (mant ? '' : '—')}</td>
             <td class="num ${ad ? 'neg fuerte' : 'mut'}" data-l="Adeudo">${ad ? fmt(ad) : 'Al corriente'}</td>
             <td class="acciones cb-rec-ancho">${ultimoPagado(f.u.id) >= 0 ? `<button class="btn btn-sm btn-ghost" data-rec="${f.u.id}" title="Recibo de pago de esta unidad">Recibo</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="16" class="vacio">Sin unidades</td></tr>'}</tbody>
       </table></div>
@@ -251,7 +258,7 @@ function pintarCuenta(el) {
 }
 
 function pintarConcepto(el, concepto) {
-  if (!conceptosDe().includes(concepto)) concepto = st.concepto = 'mantenimiento';
+  if (!conceptosDe().includes(concepto)) concepto = st.concepto = conceptosDe()[0] || 'mantenimiento';
   const m = st.mes;
   const todas = padron(concepto);
   const s = stats(todas, m);
@@ -263,7 +270,7 @@ function pintarConcepto(el, concepto) {
   });
   const puedeCapturar = tieneRol(['administracion', 'cobranza']);
   el.innerHTML = `
-    <div class="segmento cb-conc" ${conLuz() ? '' : 'hidden'}>${Object.entries(CONCEPTOS).map(([k, c]) => `<button data-conc="${k}" class="${k === concepto ? 'activo' : ''}">${c.titulo}</button>`).join('')}</div>
+    <div class="segmento cb-conc" ${conceptosDe().length > 1 ? '' : 'hidden'}>${Object.entries(CONCEPTOS).filter(([k]) => conceptosDe().includes(k)).map(([k, c]) => `<button data-conc="${k}" class="${k === concepto ? 'activo' : ''}">${c.titulo}</button>`).join('')}</div>
     <div class="kpis">
       <div class="kpi"><span>Unidades que pagan</span><strong>${s.n}</strong><small>${MESES[m]} ${st.anio}</small></div>
       <div class="kpi"><span>Pagaron</span><strong class="pos">${s.pagaron}</strong><small>${fmt(s.cobrado)} cobrado</small></div>

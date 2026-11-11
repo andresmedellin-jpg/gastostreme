@@ -36,7 +36,7 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
    (`CON_EMPRESA`); `estado.empresas`/`estado.centros` quedan solo con esa empresa (las completas en `todasEmpresas`/`todosCentros`).
    Grupo = Resumen del grupo, Patrimonio, Gastos consolidados, Importar, Usuarios. Treme = Resumen, Rentas, Mantenimiento (módulo `cobranza`:
    selector de edificio Torre Elysium · Plaza GM 202 · Plaza Hudson; Estado de cuenta anual unidad × mes, Pagos del mes, Deudores y,
-   solo en Elysium, Reporte mensual), Gastos, Nómina y equipo, Bodegas, Patrimonio. MEDCO también tiene Bodegas.
+   solo en Elysium, Reporte mensual), Gastos, Nómina y equipo, Bodegas, Patrimonio. MEDCO tiene "Material de obra" (mismo módulo `bodegas`).
    Selector de empresa sin burbujas: "Grupo" en texto y los dos logos; la activa con línea de su color.
    Rentas = hoja de cobranza del mes (historial de 6 meses por renta, avance por desarrollo, contratos por atender).
    Obras = franja por obra: cobrado vs costo (pagado / por pagar), curva acumulada, utilidad esperada y caja de la obra. MEDCO = Resumen, Obras, Prospectos, Gastos, Nómina y equipo, Patrimonio. Color de acento por mundo.
@@ -187,6 +187,9 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 - Perfiles (config.js `PERFILES`): `captura` = gastos y rentas (Victoria, sin mantenimiento); `mantenimiento` = solo la sección
   Mantenimiento de los edificios elegidos (`porEdificio`; Usuarios muestra "Edificios que cobra"). Función `usuarios` guarda centros y modulos;
   `app.usuarios_accesos()` los lista.
+- Conceptos de pago (0037, `app.puede_concepto`): mantenimiento → sección `cobranza`; luz → `cobranza` o `luz`; lo demás → sin lista o con
+  rentas/inicio/patrimonio/obras. Aplica a pagos y cuotas. `modulos` con 'luz' (sin 'cobranza') = la sección se llama "Luz" y solo muestra luz.
+  Víctor: rol encargado + cobranza, modulos personal, bodegas, luz (perfil `encargado_luz`): cobra y revisa la luz de Elysium con Liz y Andrés, no ve mantenimiento.
 - Este es el modelo para vender en Unaria: muchos colaboradores, cada uno con su parte, todo alimenta el Resumen de los dueños.
 
 ## Mantenimiento de edificios (Liz y Barby)
@@ -200,13 +203,14 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 ## Bodegas (0035, módulo `bodegas.js`)
 - `almacenes` (bodega de un centro: Elysium, obras de MEDCO…), `materiales` (unidad, mínimo, `herramienta`), `material_movs`
   (entrada, salida, salida con `regresa` = préstamo, devolución con `prestamo_id`, ajuste = conteo físico con su diferencia).
-  Existencia = suma de movimientos; nada se edita a mano. Cada salida pide quién se lo lleva y para qué; foto opcional (storage `comprobantes`).
+  Existencia = suma de movimientos; nada se edita a mano. En MEDCO no hay bodegas: la sección se llama "Material de obra", se elige
+  la obra y su almacén ("Material de obra") se crea solo al registrarle el primer material (las obras "Bodega Escobedo/Santa Catarina" son obras, no bodegas). Cada salida pide quién se lo lleva y para qué; foto opcional (storage `comprobantes`).
 - Pestañas: Existencias (Sacar / Meter / Historial), Movimientos, Prestado (Regresó). Roles: administración, operación y encargado
   (Víctor). Borrar movimientos: solo administración. Bodega #1 de Torre Elysium cargada con los 34 artículos del inventario de Víctor.
 
 ## Personas
 - Andrés: dueño. Miguel (hermano): socio. Victoria: captura gastos y rentas (ya no el mantenimiento de Elysium).
-  Víctor: encargado de Torre Elysium (equipo y bodegas). Liz Lomelí (`liz`): cobranza de mantenimiento y luz de Torre Elysium.
+  Víctor: encargado de Torre Elysium (equipo, bodegas y cobro de luz; no ve mantenimiento). Liz Lomelí (`liz`): cobranza de mantenimiento y luz de Torre Elysium.
   Bárbara Wilson, "Barby" (`barby`): cobranza de mantenimiento de Plaza Hudson y Plaza GM 202.
 
 ## Pendiente / ideas acordadas
