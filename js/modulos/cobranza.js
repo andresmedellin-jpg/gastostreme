@@ -196,7 +196,8 @@ function pintarCuenta(el) {
   const filas = ids.map((id) => ({ u: unidades.find((x) => x.id === id), m: fm.find((r) => r.u.id === id), l: fl.find((r) => r.u.id === id) }))
     .filter((f) => f.u && (!st.q || `${f.u.identificador} ${f.u.ocupante || ''}`.toLowerCase().includes(st.q)))
     .sort((a, b) => orden(a.u, b.u));
-  const marca = (r, i) => !r ? 'na' : r.exento ? 'na' : r.pagado(i) > 0 ? 'ok' : i > mesHoy ? 'fut' : 'no';
+  // Un pago registrado siempre se ve, aunque la unidad esté "sin cobro" (1402, 1403, luz de 1401/1406/1501…)
+  const marca = (r, i) => !r ? 'na' : r.pagado(i) > 0 ? 'ok' : r.exento ? 'na' : i > mesHoy ? 'fut' : 'no';
   const adeudo = (r) => { if (!r || r.exento) return 0; let t = 0; for (let i = 0; i <= mesHoy; i++) if (debe(r, i)) t += Number(r.cuota.monto); return t; };
   const conAdeudo = filas.filter((f) => adeudo(f.m) + adeudo(f.l) > 0);
   if (st.soloDeben && !conAdeudo.length) st.soloDeben = false;
@@ -282,7 +283,8 @@ function pintarCobro(el) {
   if (!ks.includes(st.concepto)) st.concepto = ks[0] || 'mantenimiento';
   const k = st.concepto, m = st.mes, puede = tieneRol(['administracion', 'cobranza']);
   const filtro = st.filtroCobro || 'pendientes';
-  const todas = padron(k).filter((r) => !r.exento);
+  // Las unidades "sin cobro" solo aparecen el mes en que sí pagaron algo
+  const todas = padron(k).filter((r) => !r.exento || r.pagado(m) > 0);
   const atrasos = (r) => { const ms = []; for (let i = 0; i <= m; i++) if (debe(r, i)) ms.push(i); return ms; };
   const pend = todas.filter((r) => debe(r, m)), pag = todas.filter((r) => !debe(r, m));
   const varios = todas.filter((r) => atrasos(r).length > 1).length;

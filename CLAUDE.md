@@ -204,6 +204,9 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 - **Quien cobra (Liz, Barby, Víctor; sin rol administración) no ve dinero acumulado:** solo "Cobro del mes" (cuántas pagaron / faltan /
   deben más de un mes, lista con "Ya pagó" que marca los meses que paga y "Guardar y sacar recibo") y "Estado de cuenta" sin cifras de
   cobrado (columna "Debe" en meses). Dueños y administración ven todo (cobrado, adeudos en pesos, Deudores, Reporte). `veDinero()` en cobranza.js.
+- Un pago registrado siempre se ve aunque la unidad esté "sin cobro" (marca verde en el estado de cuenta; en Cobro del mes aparece ese mes).
+  Revisión 11/11/2026: todo lo del sistema viejo (respaldo_20261012.pagos y catalogo_cobranza) está en app.pagos; lo único que no está
+  son 5 pagos de luz (locales 7 y 31 y 32) que Victoria borró y recapturó el 02/11 (bitácora), y meses del catálogo que ya tenían pago.
 - WhatsApp quitado a petición de Andrés (11/11/2026; lo verá más adelante). `unidades.telefono` se conserva (✎ de la unidad).
 - Plaza Hudson y Plaza GM 202: 11 locales cada una, importados del Excel de Barby (0036, `legacy_id 'barby:<plaza>:<local>'`),
   pagos 2026 con el comentario de cada celda en notas y fecha de pago tomada del comentario (si no, día 1). Totales: Hudson $194,224, GM 202 $242,512.
