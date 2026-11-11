@@ -183,17 +183,22 @@ function pintarCuenta(el) {
           <input type="search" id="c-q" placeholder="Buscar unidad u ocupante" value="${esc(st.q)}" aria-label="Buscar"></div>
       </div>
       <div class="tabla-wrap"><table class="tabla cb-tabla">
-        <thead><tr><th>Unidad</th>${CORTO.map((m, i) => `<th class="cb-m ${i === mesHoy ? 'hoy' : ''}">${m}</th>`).join('')}<th class="num">Cuota</th><th class="num">Adeudo</th></tr></thead>
+        <thead><tr><th>Unidad</th>${CORTO.map((m, i) => `<th class="cb-m ${i === mesHoy ? 'hoy' : ''}">${m}</th>`).join('')}<th class="num">Cuota</th><th class="num">Adeudo</th><th class="cb-rec-ancho"></th></tr></thead>
         <tbody>${lista.map((f) => { const ad = adeudo(f.m) + adeudo(f.l);
           return `<tr>
-            <td data-l="Unidad"><strong>${esc(etiquetaUnidad(f.u))}</strong><small class="sub">${esc(f.u.ocupante || '—')}</small></td>
+            <td data-l="Unidad"><strong>${esc(etiquetaUnidad(f.u))}</strong><small class="sub">${esc(f.u.ocupante || '—')}</small>${ultimoPagado(f.u.id) >= 0 ? `<button class="btn btn-sm btn-ghost cb-rec-movil" data-rec="${f.u.id}">Recibo</button>` : ''}</td>
             ${CORTO.map((nm, i) => `<td class="cb-m ${i === mesHoy ? 'hoy' : ''}"><button class="cb-cel" data-cel="${f.u.id}|${i}" title="${nm}: mantenimiento ${({ ok: 'pagado', no: 'sin pago', na: 'no aplica', fut: '—' })[marca(f.m, i)]} · luz ${({ ok: 'pagado', no: 'sin pago', na: 'no aplica', fut: '—' })[marca(f.l, i)]}">
               <i class="${marca(f.m, i)}"></i><i class="${marca(f.l, i)}"></i></button></td>`).join('')}
             <td class="num mut" data-l="Cuota">${f.m && !f.m.exento ? fmt(f.m.cuota.monto) : '—'}${f.l && !f.l.exento ? `<small class="sub">luz ${fmt(f.l.cuota.monto)}</small>` : ''}</td>
-            <td class="num ${ad ? 'neg fuerte' : 'mut'}" data-l="Adeudo">${ad ? fmt(ad) : 'Al corriente'}</td></tr>`; }).join('') || '<tr><td colspan="15" class="vacio">Sin unidades</td></tr>'}</tbody>
+            <td class="num ${ad ? 'neg fuerte' : 'mut'}" data-l="Adeudo">${ad ? fmt(ad) : 'Al corriente'}</td>
+            <td class="acciones cb-rec-ancho">${ultimoPagado(f.u.id) >= 0 ? `<button class="btn btn-sm btn-ghost" data-rec="${f.u.id}" title="Recibo de pago de esta unidad">Recibo</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="16" class="vacio">Sin unidades</td></tr>'}</tbody>
       </table></div>
     </section>
-    <p class="nota">Un mes cuenta como pagado si tiene al menos un pago. El adeudo se estima con la cuota de cada unidad, hasta el mes en curso. Toca un mes para registrar o ver su pago.</p>`;
+    <p class="nota">Un mes cuenta como pagado si tiene al menos un pago. El adeudo se estima con la cuota de cada unidad, hasta el mes en curso. Toca un mes para registrar o ver su pago; el botón Recibo de cada unidad genera el recibo del mes que elijas.</p>`;
+  el.querySelectorAll('[data-rec]').forEach((b) => b.addEventListener('click', () => {
+    const u = unidades.find((x) => x.id === b.dataset.rec);
+    pedirRecibo(u, ultimoPagado(u.id), 'mantenimiento');
+  }));
   el.querySelectorAll('[data-anio]').forEach((b) => b.addEventListener('click', () => { st.anio += +b.dataset.anio; const s2 = raiz.querySelector('#c-anio'); if (s2) s2.value = st.anio; cargar(); }));
   el.querySelectorAll('[data-sd]').forEach((b) => b.addEventListener('click', () => { st.soloDeben = b.dataset.sd === '1'; pintar(); }));
   const q = el.querySelector('#c-q');
@@ -206,11 +211,11 @@ function pintarCuenta(el) {
     if (!opciones.length) return;
     const pend = opciones.filter(([, r]) => debe(r, m));
     // un solo concepto pendiente: se abre directo; si no, se elige
-    if (opciones.length === 1) { const [k, r] = opciones[0]; return debe(r, m) && puede ? registrarPago(r, k, m) : verPagos(r, k, m); }
+    if (opciones.length === 1) { const [k, r] = opciones[0]; if (debe(r, m)) return puede ? registrarPago(r, k, m) : null; }
     const modal = abrirModal({ titulo: `${etiquetaUnidad(f.u)} · ${MESES[m]} ${st.anio}`,
       cuerpo: `<ul class="cb-op">${opciones.map(([k, r]) => `<li><div><strong>${CONCEPTOS[k].titulo}</strong><small>${debe(r, m) ? `Sin pago · cuota ${fmt(r.cuota.monto)}` : `Pagado ${fmt(r.pagado(m))}`}</small></div>
         ${debe(r, m) ? (puede ? `<button class="btn btn-sm btn-primary" data-op="pagar:${k}">Registrar pago</button>` : '') : `<button class="btn btn-sm btn-ghost" data-op="ver:${k}">Ver pago</button>`}</li>`).join('')}</ul>
-        ${opciones.some(([, r]) => !debe(r, m)) ? '<button class="btn btn-ghost" data-op="recibo:">Recibo de este mes</button>' : ''}`,
+        ${opciones.some(([, r]) => !debe(r, m)) ? '<button class="btn btn-primary" data-op="recibo:">Recibo de este mes</button>' : ''}`,
       pie: `${pend.length === 2 && puede ? '' : ''}<button class="btn btn-ghost" id="cb-x">Cerrar</button>` });
     modal.querySelector('#cb-x').addEventListener('click', cerrarModal);
     modal.querySelectorAll('[data-op]').forEach((x) => x.addEventListener('click', () => {
@@ -510,9 +515,19 @@ function abrirVentana() {
   return w;
 }
 
+// Último mes del año con algún pago de la unidad (el del recibo por omisión); -1 si no hay
+function ultimoPagado(unidadId) {
+  return pagos.filter((p) => p.unidad_id === unidadId).reduce((a, p) => Math.max(a, mesDe(p.periodo)), -1);
+}
+
 function pedirRecibo(u, m, concepto) {
   const pagados = ['mantenimiento', 'luz'].filter((k) => pagosDelMes(u.id, m, k).length);
-  if (!pagados.length) return toast('Esta unidad no tiene pagos en el mes', true);
+  if (!pagados.length) {
+    const otro = ultimoPagado(u.id);
+    if (otro >= 0 && otro !== m) return pedirRecibo(u, otro, concepto);
+    return toast('Esta unidad no tiene pagos registrados en ' + st.anio, true);
+  }
+  const mesesConPago = [...new Set(pagos.filter((p) => p.unidad_id === u.id).map((p) => mesDe(p.periodo)))].sort((a, b) => a - b);
   const puede = tieneRol(['administracion', 'cobranza']);
   const suma = (k) => pagosDelMes(u.id, m, k).reduce((s, p) => s + Number(p.monto), 0);
   const ultima = (ks) => pagos.filter((p) => p.unidad_id === u.id && mesDe(p.periodo) === m && ks.includes(p.concepto)).map((p) => p.fecha).sort().pop();
@@ -525,6 +540,7 @@ function pedirRecibo(u, m, concepto) {
   const modal = abrirModal({
     titulo: `Recibo · ${etiquetaUnidad(u)} · ${MESES[m]} ${st.anio}`,
     cuerpo: `<form class="form" id="rf" novalidate>
+      ${mesesConPago.length > 1 ? `<label>Mes<select name="mes">${mesesConPago.map((i) => `<option value="${i}" ${i === m ? 'selected' : ''}>${MESES[i]} ${st.anio}</option>`).join('')}</select></label>` : ''}
       <label>¿Qué recibo?<select name="cual">${opciones.map(([v, t]) => `<option value="${v}" ${v === elegido ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
       <label>Recibí de<input name="nombre" maxlength="120" required></label>
       <div class="form-2">
@@ -542,6 +558,8 @@ function pedirRecibo(u, m, concepto) {
   const llenar = () => { f.nombre.value = pagadorDe(u, ks()[0]); f.fecha.value = ultima(ks()); };
   llenar();
   f.cual.addEventListener('change', llenar);
+  // Otro mes: se vuelve a abrir la ventana con los pagos de ese mes
+  f.mes?.addEventListener('change', () => pedirRecibo(u, +f.mes.value, concepto));
   modal.querySelector('#rf-no').addEventListener('click', cerrarModal);
   modal.querySelector('#rf-si').addEventListener('click', async () => {
     const nombre = f.nombre.value.trim();

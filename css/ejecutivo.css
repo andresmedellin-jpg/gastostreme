@@ -814,3 +814,10 @@ tr.rt-pagado td { color: var(--text-2); }
   .ry-tabla tr.ry-grupo td::before { content: none; }
   .ry-g-c { gap: 12px; flex-wrap: wrap; }
 }
+
+/* Torre Elysium: botón Recibo de cada unidad (al final en computadora; debajo del nombre en celular, sin desplazar la tabla) */
+.cb-rec-movil { display: none; }
+@media (max-width: 760px) {
+  .cb-tabla .cb-rec-movil { display: inline-flex; margin-top: 6px; }
+  .cb-tabla .cb-rec-ancho { display: none !important; }
+}

@@ -94,7 +94,7 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 - Obras (módulo `obras.js`): centros tipo `obra`; valor = cuenta por cobrar tipo venta; costo = pagado + por pagar.
 - Recibos (rentas y Cobranza Elysium) usan `js/recibo.js`: formato Treme que Andrés entrega (Inter incrustada desde
   `fonts/`, rojo #8B1A1A, tamaño carta). Botón "Descargar PDF" guarda el archivo directo (html2pdf en `js/vendor/`,
-  nombre "Recibo <folio> <quien pagó>.pdf"); "Imprimir" aparte. Elysium: botón "Recibo" por unidad y mes, juntos (mantenimiento + luz) o
+  nombre "Recibo <folio> <quien pagó>.pdf"); "Imprimir" aparte. Elysium: botón "Recibo" en cada unidad del Estado de cuenta (al final del renglón; en celular debajo del nombre) que abre el último mes pagado con selector de mes; también al tocar un mes y en Pagos del mes. Juntos (mantenimiento + luz) o
   separados (el dueño paga mantenimiento, el inquilino la luz); quién paga cada concepto se guarda en `cuotas.pagador`.
   Folio `REC-AAAAMM-NNNN` vía `siguiente_folio_cuota`, guardado en los pagos. Rentas conserva su folio `REC-NNNN`.
   Siempre "Grupo Inmobiliario Treme" (nunca "Treme Grupo Inmobiliario"). Tipo de unidad `loft` existe (1204, 1406).
