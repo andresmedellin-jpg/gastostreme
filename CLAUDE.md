@@ -92,8 +92,8 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   correo en `comprobante_path`. Home Center Ferretera (RFC HCF141121TT3): crédito a 15 días; su deuda vieja vive en
   Patrimonio → pasivos.
 - Facturas pagadas en parcialidades (Vigu/Construmart manda "ReciboPag" = complemento de pago): un gasto por cada pago,
-  con fecha del pago y el UUID del complemento en `cfdi_uuid`. Anticipos de Concremóvil: el anticipo es el gasto; de la
-  factura que lo aplica solo se registra la diferencia. Victoria captura pagos (no facturas): revisar antes de agregar.
+  con fecha del pago y el UUID del complemento en `cfdi_uuid`. Anticipos de Concremóvil y de Prexon (concreto, RFC PPR1308302F5; Escobedo, cotización 26-1812 pagada de contado el 11/11/2026,
+  `legacy_id 'prexon:cot:<no>'`): el anticipo es el gasto; de la factura que lo aplica solo se registra la diferencia. Victoria captura pagos (no facturas): revisar antes de agregar.
 - Nómina estimada (antes de junio 2026): un gasto por semana (sábado), proveedor "Nómina estimada",
   `legacy_id = 'estimado:nomina:<sc|esc|elysium>:<fecha>'`. Santa Catarina desde 19/07/2025 a $32,500; Escobedo desde
   17/05/2025 a $21,161.40 (promedio real); Elysium ene–may 2026 a $34,900. Si llega la raya real, reemplazar.
