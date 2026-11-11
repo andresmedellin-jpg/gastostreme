@@ -829,3 +829,7 @@ tr.rt-pagado td { color: var(--text-2); }
 .link-fila:hover strong { text-decoration: underline; }
 .bd-tabla .tag { margin-left: 6px; }
 .bd-mini { grid-template-columns: repeat(2, 1fr) !important; margin-bottom: 12px; }
+/* Cobro del mes (quien cobra): tres cifras en una fila y "debe varios meses" en rojo */
+.cb-cobro-kpis { grid-template-columns: repeat(3, 1fr) !important; }
+.cb-cobro small.neg { color: var(--neg); font-weight: 600; }
+@media (max-width: 760px) { .cb-cobro-kpis .kpi { padding: 12px; } .cb-cobro-kpis .kpi > span { font-size: 9.5px; } }

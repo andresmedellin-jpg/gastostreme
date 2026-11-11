@@ -195,8 +195,10 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 ## Mantenimiento de edificios (Liz y Barby)
 - `cobranza.js` sirve a cualquier edificio con unidades: Elysium (mantenimiento + luz) y las plazas (solo mantenimiento: si el edificio
   no tiene cuotas de luz, se ocultan la luz y la segunda marca del estado de cuenta). Recibos con el nombre del edificio.
-- WhatsApp: botón en Pagos del mes (pendientes) y Deudores; abre wa.me con el mensaje formal de cobro (meses sin pago y total);
-  si la unidad no tiene `unidades.telefono` lo pide una vez y lo guarda. El teléfono también se edita en ✎ de la unidad.
+- **Quien cobra (Liz, Barby, Víctor; sin rol administración) no ve dinero acumulado:** solo "Cobro del mes" (cuántas pagaron / faltan /
+  deben más de un mes, lista con "Ya pagó" que marca los meses que paga y "Guardar y sacar recibo") y "Estado de cuenta" sin cifras de
+  cobrado (columna "Debe" en meses). Dueños y administración ven todo (cobrado, adeudos en pesos, Deudores, Reporte). `veDinero()` en cobranza.js.
+- WhatsApp quitado a petición de Andrés (11/11/2026; lo verá más adelante). `unidades.telefono` se conserva (✎ de la unidad).
 - Plaza Hudson y Plaza GM 202: 11 locales cada una, importados del Excel de Barby (0036, `legacy_id 'barby:<plaza>:<local>'`),
   pagos 2026 con el comentario de cada celda en notas y fecha de pago tomada del comentario (si no, día 1). Totales: Hudson $194,224, GM 202 $242,512.
 
