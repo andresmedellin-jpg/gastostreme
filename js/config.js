@@ -114,7 +114,9 @@ export const PERFILES = [
   { id: 'captura',   titulo: 'Captura: gastos y rentas', rol: 'cobranza',  roles: ['operacion'], modulos: ['gastos', 'rentas'],
     desc: 'Captura gastos de obra y oficina, y registra rentas. No ve el mantenimiento de los edificios, Casa, Socios, nómina ni patrimonio.' },
   { id: 'mantenimiento', titulo: 'Cobranza de mantenimiento', rol: 'cobranza', roles: [], modulos: ['cobranza'], porEdificio: true,
-    desc: 'Solo los edificios que elijas: registra pagos de mantenimiento (y luz donde aplique), saca recibos y manda el cobro por WhatsApp.' },
+    desc: 'Solo los edificios que elijas: registra pagos de mantenimiento (y luz donde aplique), y saca recibos.' },
+  { id: 'mantenimiento_limpieza', titulo: 'Cobranza de mantenimiento + pedidos de limpieza', rol: 'cobranza', roles: [], modulos: ['cobranza', 'pedidos'], porEdificio: true,
+    desc: 'Lo de cobranza de mantenimiento en los edificios que elijas, y además arma los pedidos de limpieza de cada centro.' },
   { id: 'cobranza',  titulo: 'Cobranza y rentas',          rol: 'cobranza',  roles: [],
     desc: MARCA.demo || CLIENTE ? 'Rentas, cobranza y adeudos. No ve gastos.' : 'Rentas, cobranza de Elysium y adeudos. No ve gastos.' },
   { id: 'gastos',    titulo: 'Solo gastos',                rol: 'operacion', roles: [],
@@ -135,7 +137,7 @@ export const SUGERIDOS = MARCA.demo || CLIENTE ? [] : [
   { nombre: 'Víctor Olazarán',   usuario: 'victor',   perfil: 'encargado_luz', empresas: ['Treme'] },
   { nombre: 'Miguel Medellín',   usuario: 'miguel',   perfil: 'socio',     empresas: 'todas' },
   { nombre: 'Liz Lomelí',        usuario: 'liz',      perfil: 'mantenimiento', empresas: ['Treme'], centros: ['Torre Elysium'] },
-  { nombre: 'Bárbara Wilson',    usuario: 'barby',    perfil: 'mantenimiento', empresas: ['Treme'], centros: ['Plaza Hudson', 'Plaza GM 202'] },
+  { nombre: 'Bárbara Wilson',    usuario: 'barby',    perfil: 'mantenimiento_limpieza', empresas: ['Treme'], centros: ['Plaza Hudson', 'Plaza GM 202'] },
 ];
 
 // Una sola lista de categorías de gasto para toda la plataforma (Gastos, Obras, Inicio, reportes).
