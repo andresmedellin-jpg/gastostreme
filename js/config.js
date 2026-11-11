@@ -32,6 +32,7 @@ const ICONOS = {
   importar:   svg('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v3h16v-3"/>'),
   prestamos:  svg('<path d="M3 10h18M5 10V20M19 10V20M9.5 10V20M14.5 10V20M2 21h20M12 3l9 5H3z"/>'),
   empleados:  svg('<rect x="3" y="4" width="18" height="16" rx="1"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 17a3.5 3.5 0 0 1 7 0M15 10h3M15 14h3"/>'),
+  bodegas:    svg('<path d="M3 21V9l9-6 9 6v12"/><path d="M7 21v-8h10v8M7 17h10"/>'),
   inventario: svg('<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>'),
   cotizaciones: svg('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 12h6M10 16h6M4 7v14h10" opacity=".9"/>'),
   prospectos: svg('<path d="M3 4h18l-7 8.5V19l-4 2v-8.5z"/>'),
@@ -80,6 +81,8 @@ export const MODULOS = [
   { id: 'obras',      grupo: 'Finanzas',  titulo: 'Obras',            icono: ICONOS.obras,      roles: ['dueno','administracion'], listo: true },
   { id: 'prospectos', grupo: 'Ventas',    titulo: 'Prospectos',       icono: ICONOS.prospectos, roles: ['dueno','administracion'], listo: true },
   { id: 'cotizaciones', grupo: 'Ventas',  titulo: 'Cotizaciones',     icono: ICONOS.cotizaciones, roles: ['dueno','administracion','cobranza'], listo: true, opcional: true },
+  // Bodegas: material de cada edificio u obra; quién saca qué, cuándo y para qué (Víctor en Torre Elysium; encargados de obra)
+  { id: 'bodegas',    grupo: 'Operación', titulo: 'Bodegas',          icono: ICONOS.bodegas,    roles: ['dueno','administracion','operacion','encargado'], listo: true },
   { id: 'inventario', grupo: 'Ventas',    titulo: 'Inventario',       icono: ICONOS.inventario, roles: ['dueno','administracion','operacion'], listo: true, opcional: true },
   { id: 'patrimonio', grupo: 'Finanzas',  titulo: 'Patrimonio',       icono: ICONOS.patrimonio, roles: ['dueno','socio'], listo: true },
   { id: 'personal',   grupo: 'Operación', titulo: 'Nómina y equipo',  icono: ICONOS.personal,   roles: ['dueno','administracion','encargado'], listo: true },
@@ -105,14 +108,16 @@ export const MODULOS = [
 export const PERFILES = [
   { id: 'socio',     titulo: 'Socio: todo',                rol: 'socio',     roles: [],
     desc: 'Ve y hace todo, igual que el dueño: Casa, Socios, nómina y patrimonio. Solo no puede dar de alta usuarios.' },
-  { id: 'captura',   titulo: 'Captura: gastos y cobranza', rol: 'cobranza',  roles: ['operacion'],
-    desc: 'Captura gastos de obra y oficina, y registra cobranza. No ve Casa, Socios, nómina ni patrimonio.' },
+  { id: 'captura',   titulo: 'Captura: gastos y rentas', rol: 'cobranza',  roles: ['operacion'], modulos: ['gastos', 'rentas'],
+    desc: 'Captura gastos de obra y oficina, y registra rentas. No ve el mantenimiento de los edificios, Casa, Socios, nómina ni patrimonio.' },
+  { id: 'mantenimiento', titulo: 'Cobranza de mantenimiento', rol: 'cobranza', roles: [], modulos: ['cobranza'], porEdificio: true,
+    desc: 'Solo los edificios que elijas: registra pagos de mantenimiento (y luz donde aplique), saca recibos y manda el cobro por WhatsApp.' },
   { id: 'cobranza',  titulo: 'Cobranza y rentas',          rol: 'cobranza',  roles: [],
     desc: MARCA.demo || CLIENTE ? 'Rentas, cobranza y adeudos. No ve gastos.' : 'Rentas, cobranza de Elysium y adeudos. No ve gastos.' },
   { id: 'gastos',    titulo: 'Solo gastos',                rol: 'operacion', roles: [],
     desc: 'Captura y consulta gastos de obra y oficina.' },
   { id: 'encargado', titulo: 'Encargado de sitio',         rol: 'encargado', roles: [],
-    desc: 'Tareas, rondines, incidencias y asistencia de su personal. No ve dinero.' },
+    desc: 'Tareas, rondines, incidencias y asistencia de su personal, y las bodegas (material que entra y sale). No ve dinero.' },
   { id: 'equipo',    titulo: 'Equipo (vigilancia, limpieza)', rol: 'equipo', roles: [],
     desc: 'Desde su celular: checa con foto, hace su rondín, marca sus pendientes, recibe paquetes y busca placas. No ve dinero. Mejor dale acceso desde Nómina y equipo → Plantilla para ligarlo a su ficha.' },
   { id: 'admin',     titulo: 'Administración',             rol: 'administracion', roles: [],
@@ -124,6 +129,8 @@ export const SUGERIDOS = MARCA.demo || CLIENTE ? [] : [
   { nombre: 'Victoria Carrillo', usuario: 'victoria', perfil: 'captura',   empresas: 'todas' },
   { nombre: 'Víctor Olazarán',   usuario: 'victor',   perfil: 'encargado', empresas: ['Treme'] },
   { nombre: 'Miguel Medellín',   usuario: 'miguel',   perfil: 'socio',     empresas: 'todas' },
+  { nombre: 'Liz Lomelí',        usuario: 'liz',      perfil: 'mantenimiento', empresas: ['Treme'], centros: ['Torre Elysium'] },
+  { nombre: 'Bárbara Wilson',    usuario: 'barby',    perfil: 'mantenimiento', empresas: ['Treme'], centros: ['Plaza Hudson', 'Plaza GM 202'] },
 ];
 
 // Una sola lista de categorías de gasto para toda la plataforma (Gastos, Obras, Inicio, reportes).
@@ -170,9 +177,9 @@ export const MUNDOS = [
   { id: 'grupo', nombre: 'Grupo', sub: 'Treme · MEDCO', empresa: null, color: '#101216',
     modulos: ['inicio', 'patrimonio', 'gastos', 'importar', 'usuarios'], titulos: { inicio: 'Resumen del grupo', gastos: 'Gastos consolidados', patrimonio: 'Patrimonio' } },
   { id: 'treme', nombre: 'Treme', sub: 'Grupo Inmobiliario', empresa: /treme/i, color: '#8B1A1A', logo: 'logo-treme',
-    modulos: ['inicio', 'rentas', 'cobranza', 'servicios', 'lecturas', 'gastos', 'personal', 'patrimonio'],
-    titulos: { inicio: 'Resumen', cobranza: 'Torre Elysium', servicios: 'Luz, gas y agua', lecturas: 'Lecturas' } },
+    modulos: ['inicio', 'rentas', 'cobranza', 'servicios', 'lecturas', 'gastos', 'personal', 'bodegas', 'patrimonio'],
+    titulos: { inicio: 'Resumen', cobranza: 'Mantenimiento', servicios: 'Luz, gas y agua', lecturas: 'Lecturas' } },
   { id: 'medco', nombre: 'MEDCO', sub: 'Desarrollos y Proyectos', empresa: /medco/i, color: '#23408E', logo: 'logo-medco',
-    modulos: ['inicio', 'obras', 'prospectos', 'cotizaciones', 'inventario', 'gastos', 'personal', 'patrimonio'], titulos: { inicio: 'Resumen' } },
+    modulos: ['inicio', 'obras', 'prospectos', 'cotizaciones', 'inventario', 'gastos', 'personal', 'bodegas', 'patrimonio'], titulos: { inicio: 'Resumen' } },
 ];
 export const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];

@@ -12,6 +12,7 @@ const vistas = {
   obras: () => import('./modulos/obras.js'),
   patrimonio: () => import('./modulos/patrimonio.js'),
   inventario: () => import('./modulos/inventario.js'),
+  bodegas: () => import('./modulos/bodegas.js'),
   cotizaciones: () => import('./modulos/cotizaciones.js'),
   prospectos: () => import('./modulos/prospectos.js'),
   lecturas: () => import('./modulos/lecturas.js'),
@@ -152,7 +153,7 @@ async function entrar(user) {
   entrando = (async () => {
     estado.user = user;
     const { data: miembro, error } = await db().from('miembros')
-      .select('org_id, nombre, rol, roles, empresas, debe_cambiar_password, empleado_id').eq('user_id', user.id).eq('activo', true).maybeSingle();
+      .select('org_id, nombre, rol, roles, empresas, centros, modulos, debe_cambiar_password, empleado_id').eq('user_id', user.id).eq('activo', true).maybeSingle();
 
     if (error || !miembro) {
       $('login').hidden = false; $('shell').hidden = true;
@@ -186,7 +187,9 @@ const rolLegible = (r) => ({ dueno: 'Dueño', socio: 'Socio', administracion: 'A
 
 // ================= NAVEGACIÓN =================
 // soloRoles: módulos que solo ve quien tiene ese rol (el dueño no los ve en su menú, p. ej. "Mi turno" del personal)
-const modulosDelUsuario = () => MODULOS.filter((m) => (m.soloRoles ? misRoles().some((r) => m.soloRoles.includes(r)) : tieneRol(m.roles)));
+// miembros.modulos (si lo tiene) limita las secciones de esa persona; p. ej. Liz y Barby solo ven Mantenimiento
+const modulosDelUsuario = () => MODULOS.filter((m) => (m.soloRoles ? misRoles().some((r) => m.soloRoles.includes(r)) : tieneRol(m.roles))
+  && (!estado.miembro?.modulos || estado.miembro.modulos.includes(m.vista || m.id)));
 
 // Mundos: Grupo (todo junto), Treme y MEDCO. Cada uno con sus propias secciones y sus propios datos.
 const LOGOS = Object.fromEntries((MARCA.logos || []).map((l) => [l.clase, l]));

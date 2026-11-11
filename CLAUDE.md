@@ -34,8 +34,9 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
    las secciones de ese mundo. Rutas `#/<mundo>/<módulo>` (las viejas `#/gastos` siguen sirviendo). En Treme o MEDCO,
    `estado.foco` = id de la empresa y `db()` (lib.js) agrega `.eq('empresa_id', foco)` a cada lectura de las tablas con empresa
    (`CON_EMPRESA`); `estado.empresas`/`estado.centros` quedan solo con esa empresa (las completas en `todasEmpresas`/`todosCentros`).
-   Grupo = Resumen del grupo, Patrimonio, Gastos consolidados, Importar, Usuarios. Treme = Resumen, Rentas, Torre Elysium (cobranza:
-   Estado de cuenta anual unidad × mes, Cobrar del mes, Deudores y Reporte mensual en la misma pantalla), Gastos, Nómina y equipo, Patrimonio.
+   Grupo = Resumen del grupo, Patrimonio, Gastos consolidados, Importar, Usuarios. Treme = Resumen, Rentas, Mantenimiento (módulo `cobranza`:
+   selector de edificio Torre Elysium · Plaza GM 202 · Plaza Hudson; Estado de cuenta anual unidad × mes, Pagos del mes, Deudores y,
+   solo en Elysium, Reporte mensual), Gastos, Nómina y equipo, Bodegas, Patrimonio. MEDCO también tiene Bodegas.
    Selector de empresa sin burbujas: "Grupo" en texto y los dos logos; la activa con línea de su color.
    Rentas = hoja de cobranza del mes (historial de 6 meses por renta, avance por desarrollo, contratos por atender).
    Obras = franja por obra: cobrado vs costo (pagado / por pagar), curva acumulada, utilidad esperada y caja de la obra. MEDCO = Resumen, Obras, Prospectos, Gastos, Nómina y equipo, Patrimonio. Color de acento por mundo.
@@ -179,8 +180,34 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   `asistencia_marcar` usa el turno del día si hay y deja al personal checar solo su entrada/salida.
 - Turnos: "volver a su horario normal" deja el renglón sin horas (no se borra).
 
+## Acceso por persona (11/11/2026, migración 0034) — un solo app.medco.mx, cada quien ve lo suyo
+- `miembros.centros` (uuid[], null = todos los de sus empresas): edificios que ve. La base lo hace valer con `app.en_mis_centros`
+  en centros, unidades, cuotas, pagos y bodegas. `miembros.modulos` (text[], null = los de su rol): secciones que ve
+  (app.js `modulosDelUsuario`); en la base, `app.puede_modulo(org,'cobranza')` cierra pagos de mantenimiento/luz a quien no la tiene.
+- Perfiles (config.js `PERFILES`): `captura` = gastos y rentas (Victoria, sin mantenimiento); `mantenimiento` = solo la sección
+  Mantenimiento de los edificios elegidos (`porEdificio`; Usuarios muestra "Edificios que cobra"). Función `usuarios` guarda centros y modulos;
+  `app.usuarios_accesos()` los lista.
+- Este es el modelo para vender en Unaria: muchos colaboradores, cada uno con su parte, todo alimenta el Resumen de los dueños.
+
+## Mantenimiento de edificios (Liz y Barby)
+- `cobranza.js` sirve a cualquier edificio con unidades: Elysium (mantenimiento + luz) y las plazas (solo mantenimiento: si el edificio
+  no tiene cuotas de luz, se ocultan la luz y la segunda marca del estado de cuenta). Recibos con el nombre del edificio.
+- WhatsApp: botón en Pagos del mes (pendientes) y Deudores; abre wa.me con el mensaje formal de cobro (meses sin pago y total);
+  si la unidad no tiene `unidades.telefono` lo pide una vez y lo guarda. El teléfono también se edita en ✎ de la unidad.
+- Plaza Hudson y Plaza GM 202: 11 locales cada una, importados del Excel de Barby (0036, `legacy_id 'barby:<plaza>:<local>'`),
+  pagos 2026 con el comentario de cada celda en notas y fecha de pago tomada del comentario (si no, día 1). Totales: Hudson $194,224, GM 202 $242,512.
+
+## Bodegas (0035, módulo `bodegas.js`)
+- `almacenes` (bodega de un centro: Elysium, obras de MEDCO…), `materiales` (unidad, mínimo, `herramienta`), `material_movs`
+  (entrada, salida, salida con `regresa` = préstamo, devolución con `prestamo_id`, ajuste = conteo físico con su diferencia).
+  Existencia = suma de movimientos; nada se edita a mano. Cada salida pide quién se lo lleva y para qué; foto opcional (storage `comprobantes`).
+- Pestañas: Existencias (Sacar / Meter / Historial), Movimientos, Prestado (Regresó). Roles: administración, operación y encargado
+  (Víctor). Borrar movimientos: solo administración. Bodega #1 de Torre Elysium cargada con los 34 artículos del inventario de Víctor.
+
 ## Personas
-- Andrés: dueño. Miguel (hermano): socio. Victoria: captura gastos y cobranza. Víctor: encargado de Torre Elysium.
+- Andrés: dueño. Miguel (hermano): socio. Victoria: captura gastos y rentas (ya no el mantenimiento de Elysium).
+  Víctor: encargado de Torre Elysium (equipo y bodegas). Liz Lomelí (`liz`): cobranza de mantenimiento y luz de Torre Elysium.
+  Bárbara Wilson, "Barby" (`barby`): cobranza de mantenimiento de Plaza Hudson y Plaza GM 202.
 
 ## Pendiente / ideas acordadas
 - **Conciliación bancaria** (Andrés la quiere): subir estados de cuenta de 3 cuentas; comparar cada movimiento con

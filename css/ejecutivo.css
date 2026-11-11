@@ -821,3 +821,11 @@ tr.rt-pagado td { color: var(--text-2); }
   .cb-tabla .cb-rec-movil { display: inline-flex; margin-top: 6px; }
   .cb-tabla .cb-rec-ancho { display: none !important; }
 }
+/* Mantenimiento: selector de edificio (Torre Elysium · Plaza GM 202 · Plaza Hudson) */
+.cb-edif { margin-bottom: 14px; max-width: 100%; overflow-x: auto; }
+/* Bodegas */
+.bd-bodegas { margin-bottom: 14px; max-width: 100%; overflow-x: auto; }
+.link-fila { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.link-fila:hover strong { text-decoration: underline; }
+.bd-tabla .tag { margin-left: 6px; }
+.bd-mini { grid-template-columns: repeat(2, 1fr) !important; margin-bottom: 12px; }

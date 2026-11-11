@@ -1,7 +1,8 @@
-// Cobranza de Torre Elysium: mantenimiento y luz por unidad y por mes.
-// Reemplaza la página "Cobranza Elysium".
+// Cobranza de mantenimiento (y luz donde aplica) por unidad y por mes, de cada edificio que cobra:
+// Torre Elysium (Liz), Plaza Hudson y Plaza GM 202 (Barby). Un edificio aparece aquí si tiene unidades;
+// cada persona ve solo los suyos (miembros.centros, en la base). Reemplaza la página "Cobranza Elysium".
 import { MESES, FORMAS_COBRO, MARCA } from '../config.js';
-// Edificio en condominio que cobra mantenimiento y luz: Torre Elysium en Treme; otra instalación lo dice en MARCA.condominio
+// El edificio que se abre primero (y el único con reporte mensual): Torre Elysium; otra instalación lo dice en MARCA.condominio
 const CONDOMINIO = MARCA.condominio || 'Torre Elysium';
 const EMISOR = MARCA.reciboEmpresa || 'Grupo Inmobiliario Treme';
 import { pintarRecibo, abrirVentanaRecibo } from '../recibo.js';
@@ -23,17 +24,34 @@ const st = {
   mes: new Date().getMonth(),
   filtro: 'todos',                        // todos | pagados | pendientes
   q: '',
+  centroId: null,                         // edificio abierto
 };
-let centro, unidades = [], cuotas = [], pagos = [], raiz;
+let centro, edificios = [], unidades = [], cuotas = [], pagos = [], raiz;
+// ¿Este edificio cobra luz? (Torre Elysium sí; las plazas solo mantenimiento)
+const conLuz = () => cuotas.some((c) => c.concepto === 'luz' && c.en_padron);
+const conceptosDe = () => conLuz() ? ['mantenimiento', 'luz'] : ['mantenimiento'];
+const esCondominio = () => centro?.nombre === CONDOMINIO;
 
 export async function render(view) {
   raiz = view;
-  centro = estado.centros.find((c) => c.nombre === CONDOMINIO);
-  if (!centro) { view.innerHTML = `<div class="vacio">No tienes acceso a ${esc(CONDOMINIO)}.</div>`; return; }
+  // Edificios con unidades que esta persona puede ver
+  if (!edificios.length) {
+    const { data, error } = await db().from('unidades').select('centro_id').eq('activo', true);
+    if (error) { view.innerHTML = `<div class="vacio">No se pudo cargar: ${esc(error.message)}</div>`; return; }
+    const ids = new Set((data || []).map((x) => x.centro_id));
+    edificios = estado.centros.filter((c) => ids.has(c.id))
+      .sort((a, b) => (b.nombre === CONDOMINIO) - (a.nombre === CONDOMINIO) || a.nombre.localeCompare(b.nombre, 'es'));
+  }
+  centro = edificios.find((c) => c.id === st.centroId) || edificios[0];
+  if (!centro) { view.innerHTML = '<div class="vacio">No tienes edificios asignados para cobrar mantenimiento.</div>'; return; }
+  st.centroId = centro.id;
+  if (!esCondominio() && st.vista === 'reporte') st.vista = 'cuenta';
   view.innerHTML = `
+    ${edificios.length > 1 ? `<div class="segmento cb-edif" role="tablist" aria-label="Edificio">${edificios.map((c) =>
+      `<button class="${c.id === centro.id ? 'activo' : ''}" data-edif="${c.id}">${esc(c.nombre)}</button>`).join('')}</div>` : ''}
     <div class="sub-head">
       <div class="tabs" role="tablist">
-        ${[['cuenta','Estado de cuenta'],['mes','Pagos del mes'],['deudores','Deudores'], ...(tieneRol(['administracion']) ? [['reporte','Reporte mensual']] : [])]
+        ${[['cuenta','Estado de cuenta'],['mes','Pagos del mes'],['deudores','Deudores'], ...(tieneRol(['administracion']) && esCondominio() ? [['reporte','Reporte mensual']] : [])]
           .map(([id, t]) => `<button role="tab" data-vista="${id}">${t}</button>`).join('')}
       </div>
 
@@ -45,6 +63,11 @@ export async function render(view) {
     </div>
     <div id="c-cuerpo"><div class="cargando">Cargando…</div></div>`;
   view.querySelector('#c-anio').value = st.anio;
+  view.querySelectorAll('[data-edif]').forEach((b) => b.addEventListener('click', () => {
+    if (b.dataset.edif === st.centroId) return;
+    st.centroId = b.dataset.edif; st.q = ''; st.filtro = 'todos'; st.concepto = 'mantenimiento';
+    render(view);
+  }));
   view.querySelector('#c-anio').addEventListener('change', (e) => { st.anio = +e.target.value; cargar(); });
   view.querySelectorAll('[data-vista]').forEach((b) => b.addEventListener('click', () => {
     if (st.vista !== b.dataset.vista) { st.q = ''; st.filtro = 'todos'; }
@@ -56,7 +79,7 @@ export async function render(view) {
 async function cargar() {
   const desde = `${st.anio}-01-01`, hasta = `${st.anio + 1}-01-01`;
   const [u, c, p] = await Promise.all([
-    db().from('unidades').select('id, identificador, tipo, ocupante, notas, activo').eq('centro_id', centro.id).eq('activo', true),
+    db().from('unidades').select('id, identificador, tipo, ocupante, notas, activo, telefono').eq('centro_id', centro.id).eq('activo', true),
     db().from('cuotas').select('id, unidad_id, concepto, monto, activo, en_padron, pagador').in('concepto', ['mantenimiento', 'luz']),
     todo(() => db().from('pagos').select('id, unidad_id, concepto, periodo, monto, forma_pago, fecha, notas, folio, capturado_por')
       .eq('centro_id', centro.id).in('concepto', ['mantenimiento', 'luz'])
@@ -153,7 +176,7 @@ function pintarResumen(el) {
 // Estado de cuenta del año: una fila por unidad y una columna por mes; cada mes con dos marcas
 // (arriba mantenimiento, abajo luz). Tocar un mes abre el pago de ese mes.
 function pintarCuenta(el) {
-  const fm = padron('mantenimiento'), fl = padron('luz');
+  const fm = padron('mantenimiento'), fl = padron('luz'), luz = conLuz();
   const hoy = new Date(), mesHoy = st.anio < hoy.getFullYear() ? 11 : st.anio > hoy.getFullYear() ? -1 : hoy.getMonth();
   const ids = [...new Set([...fm, ...fl].map((r) => r.u.id))];
   const filas = ids.map((id) => ({ u: unidades.find((x) => x.id === id), m: fm.find((r) => r.u.id === id), l: fl.find((r) => r.u.id === id) }))
@@ -171,15 +194,16 @@ function pintarCuenta(el) {
   el.innerHTML = `
     <section class="cb-resumen">
       <div><span>Mantenimiento · ${nomMes}</span><strong>${sm.pct} %</strong><small>${sm.pagaron} de ${sm.n} unidades · ${fmt(sm.cobrado)}</small><div class="ry-pista"><span style="width:${sm.pct}%"></span></div></div>
-      <div><span>Luz · ${nomMes}</span><strong>${sl.pct} %</strong><small>${sl.pagaron} de ${sl.n} unidades · ${fmt(sl.cobrado)}</small><div class="ry-pista"><span style="width:${sl.pct}%"></span></div></div>
-      <div><span>Cobrado en ${st.anio}</span><strong>${fmt(anual(fm) + anual(fl))}</strong><small>${fmt(anual(fm))} mantenimiento · ${fmt(anual(fl))} luz</small></div>
+      ${luz ? `<div><span>Luz · ${nomMes}</span><strong>${sl.pct} %</strong><small>${sl.pagaron} de ${sl.n} unidades · ${fmt(sl.cobrado)}</small><div class="ry-pista"><span style="width:${sl.pct}%"></span></div></div>`
+        : `<div><span>Por cobrar · ${nomMes}</span><strong class="${sm.pendiente ? 'neg' : 'pos'}">${fmt(sm.pendiente)}</strong><small>${sm.n - sm.pagaron} unidad${sm.n - sm.pagaron === 1 ? '' : 'es'} sin pago</small></div>`}
+      <div><span>Cobrado en ${st.anio}</span><strong>${fmt(anual(fm) + anual(fl))}</strong><small>${luz ? `${fmt(anual(fm))} mantenimiento · ${fmt(anual(fl))} luz` : 'mantenimiento'}</small></div>
       <div><span>Adeudo del año</span><strong class="${totalAdeudo ? 'neg' : 'pos'}">${fmt(totalAdeudo)}</strong><small>${conAdeudo.length} unidad${conAdeudo.length === 1 ? '' : 'es'} con meses sin pago</small></div>
     </section>
     <section class="panel cb-hoja">
       <div class="panel-head">
         <div class="cb-ctl"><button class="icon-btn" data-anio="-1" aria-label="Año anterior">‹</button><strong>${st.anio}</strong><button class="icon-btn" data-anio="1" aria-label="Año siguiente">›</button>
           <div class="segmento"><button data-sd="0" class="${!st.soloDeben ? 'activo' : ''}">Todas · ${filas.length}</button><button data-sd="1" class="${st.soloDeben ? 'activo' : ''}">Con adeudo · ${conAdeudo.length}</button></div></div>
-        <div class="cb-ctl"><span class="cb-ley"><i class="ok"></i>Pagado <i class="no"></i>Sin pago <i class="na"></i>No aplica · arriba mantenimiento, abajo luz</span>
+        <div class="cb-ctl"><span class="cb-ley"><i class="ok"></i>Pagado <i class="no"></i>Sin pago <i class="na"></i>No aplica${luz ? ' · arriba mantenimiento, abajo luz' : ''}</span>
           <input type="search" id="c-q" placeholder="Buscar unidad u ocupante" value="${esc(st.q)}" aria-label="Buscar"></div>
       </div>
       <div class="tabla-wrap"><table class="tabla cb-tabla">
@@ -187,8 +211,8 @@ function pintarCuenta(el) {
         <tbody>${lista.map((f) => { const ad = adeudo(f.m) + adeudo(f.l);
           return `<tr>
             <td data-l="Unidad"><strong>${esc(etiquetaUnidad(f.u))}</strong><small class="sub">${esc(f.u.ocupante || '—')}</small>${ultimoPagado(f.u.id) >= 0 ? `<button class="btn btn-sm btn-ghost cb-rec-movil" data-rec="${f.u.id}">Recibo</button>` : ''}</td>
-            ${CORTO.map((nm, i) => `<td class="cb-m ${i === mesHoy ? 'hoy' : ''}"><button class="cb-cel" data-cel="${f.u.id}|${i}" title="${nm}: mantenimiento ${({ ok: 'pagado', no: 'sin pago', na: 'no aplica', fut: '—' })[marca(f.m, i)]} · luz ${({ ok: 'pagado', no: 'sin pago', na: 'no aplica', fut: '—' })[marca(f.l, i)]}">
-              <i class="${marca(f.m, i)}"></i><i class="${marca(f.l, i)}"></i></button></td>`).join('')}
+            ${CORTO.map((nm, i) => `<td class="cb-m ${i === mesHoy ? 'hoy' : ''}"><button class="cb-cel" data-cel="${f.u.id}|${i}" title="${nm}: mantenimiento ${({ ok: 'pagado', no: 'sin pago', na: 'no aplica', fut: '—' })[marca(f.m, i)]}${luz ? ` · luz ${({ ok: 'pagado', no: 'sin pago', na: 'no aplica', fut: '—' })[marca(f.l, i)]}` : ''}">
+              <i class="${marca(f.m, i)}"></i>${luz ? `<i class="${marca(f.l, i)}"></i>` : ''}</button></td>`).join('')}
             <td class="num mut" data-l="Cuota">${f.m && !f.m.exento ? fmt(f.m.cuota.monto) : '—'}${f.l && !f.l.exento ? `<small class="sub">luz ${fmt(f.l.cuota.monto)}</small>` : ''}</td>
             <td class="num ${ad ? 'neg fuerte' : 'mut'}" data-l="Adeudo">${ad ? fmt(ad) : 'Al corriente'}</td>
             <td class="acciones cb-rec-ancho">${ultimoPagado(f.u.id) >= 0 ? `<button class="btn btn-sm btn-ghost" data-rec="${f.u.id}" title="Recibo de pago de esta unidad">Recibo</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="16" class="vacio">Sin unidades</td></tr>'}</tbody>
@@ -227,6 +251,7 @@ function pintarCuenta(el) {
 }
 
 function pintarConcepto(el, concepto) {
+  if (!conceptosDe().includes(concepto)) concepto = st.concepto = 'mantenimiento';
   const m = st.mes;
   const todas = padron(concepto);
   const s = stats(todas, m);
@@ -238,7 +263,7 @@ function pintarConcepto(el, concepto) {
   });
   const puedeCapturar = tieneRol(['administracion', 'cobranza']);
   el.innerHTML = `
-    <div class="segmento cb-conc">${Object.entries(CONCEPTOS).map(([k, c]) => `<button data-conc="${k}" class="${k === concepto ? 'activo' : ''}">${c.titulo}</button>`).join('')}</div>
+    <div class="segmento cb-conc" ${conLuz() ? '' : 'hidden'}>${Object.entries(CONCEPTOS).map(([k, c]) => `<button data-conc="${k}" class="${k === concepto ? 'activo' : ''}">${c.titulo}</button>`).join('')}</div>
     <div class="kpis">
       <div class="kpi"><span>Unidades que pagan</span><strong>${s.n}</strong><small>${MESES[m]} ${st.anio}</small></div>
       <div class="kpi"><span>Pagaron</span><strong class="pos">${s.pagaron}</strong><small>${fmt(s.cobrado)} cobrado</small></div>
@@ -267,6 +292,7 @@ function pintarConcepto(el, concepto) {
   el.querySelectorAll('[data-ver]').forEach((b) => b.addEventListener('click', () => verPagos(fila(b.dataset.ver), concepto, m)));
   el.querySelectorAll('[data-editar]').forEach((b) => b.addEventListener('click', () => editarUnidad(fila(b.dataset.editar), concepto)));
   el.querySelectorAll('[data-recibo]').forEach((b) => b.addEventListener('click', () => pedirRecibo(fila(b.dataset.recibo).u, m, concepto)));
+  el.querySelectorAll('[data-wa]').forEach((b) => b.addEventListener('click', () => cobrarWhatsApp(fila(b.dataset.wa), concepto, m)));
   // ✕ Eliminar pago: con un solo pago en el mes se borra aquí (con confirmación); con varios se abre la lista para elegir cuál
   el.querySelectorAll('[data-quitar]').forEach((b) => b.addEventListener('click', async () => {
     const r = fila(b.dataset.quitar), pagos = r.porMes[m] || [];
@@ -298,6 +324,7 @@ function filaConcepto(r, m, puedeCapturar) {
     <td data-l="Estado">${estado}</td>
     <td class="acciones">
       ${!r.exento && puedeCapturar && !pagado ? `<button class="btn btn-sm btn-primary" data-pagar="${r.cuota.id}">＋ Registrar pago</button>` : ''}
+      ${!r.exento && !pagado ? `<button class="btn btn-sm btn-ghost" data-wa="${r.cuota.id}" title="Mandar el cobro por WhatsApp">WhatsApp</button>` : ''}
       ${pagos.length ? `<button class="btn btn-sm btn-ghost" data-ver="${r.cuota.id}">${pagos.length > 1 ? pagos.length + ' pagos' : 'Ver'}</button>` : ''}
       ${pagos.length ? `<button class="btn btn-sm btn-ghost" data-recibo="${r.cuota.id}" title="Recibo de mantenimiento y luz de este mes">Recibo</button>` : ''}
       ${puedeCapturar && pagos.length ? `<button class="icon-btn peligro" data-quitar="${r.cuota.id}" title="Eliminar pago" aria-label="Eliminar pago">✕</button>` : ''}
@@ -314,7 +341,7 @@ const formaLegible = (f) => ({ Transfer: 'Transferencia' }[f] || f || '');
 
 function pintarDeudores(el) {
   const m = st.mes;
-  const bloques = ['mantenimiento', 'luz'].map((k) => {
+  const bloques = conceptosDe().map((k) => {
     const deben = padron(k).filter((r) => debe(r, m)).map((r) => {
       const atrasados = [];
       let total = 0;
@@ -326,17 +353,73 @@ function pintarDeudores(el) {
       <div class="panel-head"><h3>${CONCEPTOS[k].icono} ${CONCEPTOS[k].titulo}</h3>
         ${deben.length ? `<span class="mut">${deben.length} unidad${deben.length === 1 ? '' : 'es'} · adeudo estimado <strong>${fmt(suma)}</strong></span>` : ''}</div>
       ${deben.length ? `<div class="tabla-wrap"><table class="tabla tm">
-        <thead><tr><th>Unidad</th><th>Ocupante</th><th>Meses sin pago</th><th class="num">Cuota</th><th class="num">Adeudo</th></tr></thead>
+        <thead><tr><th>Unidad</th><th>Ocupante</th><th>Meses sin pago</th><th class="num">Cuota</th><th class="num">Adeudo</th><th></th></tr></thead>
         <tbody>${deben.map(({ r, atrasados, total }) => `<tr>
           <td data-l="Unidad"><strong>${esc(etiquetaUnidad(r.u))}</strong></td>
           <td class="mut" data-l="Ocupante">${esc(r.u.ocupante || '—')}</td>
           <td data-l="Meses"><strong>${atrasados.length}</strong> <span class="mut">${rangoMeses(atrasados)}</span></td>
           <td class="num mut" data-l="Cuota">${fmt(r.cuota.monto)}</td>
-          <td class="num neg fuerte" data-l="Adeudo">${fmt(total)}</td></tr>`).join('')}</tbody></table></div>`
+          <td class="num neg fuerte" data-l="Adeudo">${fmt(total)}</td>
+          <td class="acciones"><button class="btn btn-sm btn-ghost" data-wa="${k}|${r.cuota.id}" title="Mandar el cobro por WhatsApp">WhatsApp</button></td></tr>`).join('')}</tbody></table></div>`
         : `<div class="vacio">Todas las unidades pagaron ${MESES[m].toLowerCase()}</div>`}
     </section>`;
   });
-  el.innerHTML = `<p class="nota">Unidades sin pago en ${MESES[m].toLowerCase()} ${st.anio}, con los meses de este año que no tienen ningún pago. El adeudo se estima con la cuota registrada.</p>${bloques.join('')}`;
+  el.innerHTML = `<p class="nota">Unidades sin pago en ${MESES[m].toLowerCase()} ${st.anio}, con los meses de este año que no tienen ningún pago. El adeudo se estima con la cuota registrada. El botón WhatsApp abre el mensaje de cobro ya escrito.</p>${bloques.join('')}`;
+  el.querySelectorAll('[data-wa]').forEach((b) => b.addEventListener('click', () => {
+    const [k, id] = b.dataset.wa.split('|');
+    cobrarWhatsApp(padron(k).find((r) => r.cuota.id === id), k, m);
+  }));
+}
+
+// ---------- cobro por WhatsApp ----------
+// Abre WhatsApp con el mensaje de cobro ya escrito (meses sin pago del año hasta el mes elegido).
+// Si la unidad no tiene teléfono, se pide una vez y se guarda en la unidad.
+const telWa = (t) => {
+  const d = String(t || '').replace(/\D/g, '');
+  return d.length === 10 ? '52' + d : (d.length === 12 && d.startsWith('52')) || (d.length === 13 && d.startsWith('521')) ? d : null;
+};
+// "octubre", "octubre y noviembre", "enero a noviembre" (seguidos) o "marzo, junio y agosto"
+const listaMeses = (ms) => {
+  const n = (i) => MESES[i].toLowerCase();
+  if (ms.length === 1) return n(ms[0]);
+  if (ms.length > 2 && ms.every((x, k) => !k || x === ms[k - 1] + 1)) return `${n(ms[0])} a ${n(ms.at(-1))}`;
+  return ms.slice(0, -1).map(n).join(', ') + ' y ' + n(ms.at(-1));
+};
+function mensajeCobro(r, concepto, m) {
+  const ms = []; let total = 0;
+  for (let i = 0; i <= m; i++) if (debe(r, i)) { ms.push(i); total += Number(r.cuota.monto); }
+  const tipo = TIPO_RECIBO[r.u.tipo] || 'Unidad';
+  const art = ['Oficina', 'Bodega', 'Casa', 'Unidad'].includes(tipo) ? 'la' : 'el';
+  const nombre = pagadorDe(r.u, concepto) || '';
+  const que = concepto === 'luz' ? 'luz' : 'mantenimiento';
+  return `Buen día${nombre ? ', ' + nombre : ''}. Le saluda ${estado.miembro.nombre}, de la administración de ${centro.nombre}. `
+    + `Le recordamos que ${art} ${tipo.toLowerCase()} ${r.u.identificador} tiene pendiente el pago de ${que} de ${listaMeses(ms.length ? ms : [m])} de ${st.anio}, `
+    + `por ${fmt(total || r.cuota.monto)}. Al recibir su pago le enviamos su recibo. Muchas gracias.`;
+}
+function cobrarWhatsApp(r, concepto, m) {
+  if (!r) return;
+  const abrir = (tel) => window.open(`https://wa.me/${tel}?text=${encodeURIComponent(mensajeCobro(r, concepto, m))}`, '_blank');
+  const tel = telWa(r.u.telefono);
+  if (tel) return abrir(tel);
+  const modal = abrirModal({
+    titulo: `WhatsApp · ${etiquetaUnidad(r.u)}`,
+    cuerpo: `<form class="form" id="wf" novalidate>
+      <p class="nota">Esta unidad no tiene teléfono. Escríbelo una vez y queda guardado para la próxima.</p>
+      <label>Teléfono de ${esc(pagadorDe(r.u, concepto) || 'quien paga')} <small>(10 dígitos)</small><input name="tel" type="tel" inputmode="tel" maxlength="20" required></label>
+    </form>`,
+    pie: `<button class="btn btn-ghost" id="wf-no">Cancelar</button><button class="btn btn-primary" id="wf-si">Guardar y abrir WhatsApp</button>`,
+  });
+  modal.querySelector('#wf-no').addEventListener('click', cerrarModal);
+  modal.querySelector('#wf-si').addEventListener('click', () => {
+    const valor = modal.querySelector('[name=tel]').value.trim();
+    const n = telWa(valor);
+    if (!n) return toast('Escribe un teléfono de 10 dígitos', true);
+    abrir(n);                                       // primero WhatsApp (el navegador lo permite solo dentro del clic)
+    cerrarModal();
+    r.u.telefono = valor;
+    if (tieneRol(['administracion', 'cobranza'])) db().from('unidades').update({ telefono: valor }).eq('id', r.u.id)
+      .then(({ error }) => { if (error) toast('No se guardó el teléfono: ' + error.message, true); });
+  });
 }
 
 // ---------- acciones ----------
@@ -443,7 +526,10 @@ function editarUnidad(r, concepto) {
         <label>Unidad<input name="identificador" required maxlength="40" value="${esc(r?.u.identificador || '')}" placeholder="Ej. 1205"></label>
         <label>Tipo<select name="tipo">${Object.entries(TIPO_UNIDAD).map(([k, v]) => `<option value="${k}" ${r?.u.tipo === k ? 'selected' : ''}>${v || 'Otro'}</option>`).join('')}</select></label>
       </div>
-      <label>Ocupante / propietario<input name="ocupante" maxlength="120" value="${esc(r?.u.ocupante || '')}"></label>
+      <div class="form-2">
+        <label>Ocupante / propietario<input name="ocupante" maxlength="120" value="${esc(r?.u.ocupante || '')}"></label>
+        <label>Teléfono <small>(WhatsApp)</small><input name="telefono" type="tel" inputmode="tel" maxlength="20" value="${esc(r?.u.telefono || '')}"></label>
+      </div>
       <div class="form-2">
         <label>Cuota de ${CONCEPTOS[concepto].titulo.toLowerCase()}<input type="number" name="monto" min="0" step="0.01" value="${r ? Number(r.cuota.monto) : ''}" required></label>
         <label>Estado<select name="cobra"><option value="1">Cobra normal</option><option value="0" ${r?.exento ? 'selected' : ''}>Sin cobro (exento)</option></select></label>
@@ -463,7 +549,7 @@ function editarUnidad(r, concepto) {
     btn.disabled = true;
     try {
       let unidadId = r?.u.id;
-      const datos = { identificador, tipo: f.tipo.value, ocupante: f.ocupante.value.trim() || null };
+      const datos = { identificador, tipo: f.tipo.value, ocupante: f.ocupante.value.trim() || null, telefono: f.telefono.value.trim() || null };
       if (nueva) {
         const existente = unidades.find((u) => u.identificador.toLowerCase() === identificador.toLowerCase());
         if (existente) unidadId = existente.id;
@@ -616,11 +702,11 @@ async function generarRecibo(w, u, m, op) {
   await pintarRecibo(w, {
     titulo: `${nombre} - ${tipo} ${u.identificador} - ${textoConcepto} ${per}`,
     folio, fecha: op.fecha || ps.map((p) => p.fecha).sort().pop(),
-    info: [['Recibí de', nombre], [tipo, `${u.identificador} · ${CONDOMINIO}`], ['Concepto', textoConcepto], ['Periodo', per],
+    info: [['Recibí de', nombre], [tipo, `${u.identificador} · ${centro.nombre}`], ['Concepto', textoConcepto], ['Periodo', per],
       ['Recibido por', 'Administración — ' + EMISOR], ['Método de pago', formas]],
     lineas, total: lineas.reduce((s, l) => s + l.subtotal, 0), moneda: 'MXN',
     liquidado: lineas.every((l) => l.completo), notas,
-    aviso: `Este recibo ampara el pago de ${textoConcepto} correspondiente al periodo indicado, para ${art} ${tipo} ${u.identificador} de ${CONDOMINIO}, recibido a nombre de ${nombre}.`,
+    aviso: `Este recibo ampara el pago de ${textoConcepto} correspondiente al periodo indicado, para ${art} ${tipo} ${u.identificador} de ${centro.nombre}, recibido a nombre de ${nombre}.`,
   });
   pintar();
 }

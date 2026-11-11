@@ -59,6 +59,17 @@ Deno.serve(async (req) => {
     const { data } = await admin.from("empresas").select("id").eq("org_id", orgId).in("id", empresas as string[]);
     return (data?.length ?? 0) === empresas.length ? null : "Empresa inválida";
   };
+  // Edificios (centros) a los que se limita a la persona; null = todos los de sus empresas
+  const validarCentros = async (centros: unknown) => {
+    if (centros === null || centros === undefined) return null;
+    if (!Array.isArray(centros) || !centros.length) return "Elige al menos un edificio";
+    const { data } = await admin.from("centros").select("id").eq("org_id", orgId).in("id", centros as string[]);
+    return (data?.length ?? 0) === centros.length ? null : "Edificio inválido";
+  };
+  // Secciones que ve (ids de módulo); null = las de su rol
+  const validarModulos = (modulos: unknown) =>
+    modulos === null || modulos === undefined || (Array.isArray(modulos) && modulos.length && modulos.every((m) => typeof m === "string" && /^[a-z]{2,20}$/.test(m)))
+      ? null : "Secciones inválidas";
   const validarPassword = (p: unknown) =>
     typeof p === "string" && p.length >= 6 && p.length <= 72 ? null : "La contraseña debe tener entre 6 y 72 caracteres";
 
@@ -75,7 +86,8 @@ Deno.serve(async (req) => {
       const usuario = String(body.usuario ?? "").trim().toLowerCase();
       if (!nombre) return falla(req, "Escribe el nombre");
       if (!/^[a-z0-9._-]{3,30}$/.test(usuario)) return falla(req, "El usuario debe tener de 3 a 30 letras o números, sin espacios ni acentos");
-      const e1 = validarRoles(body.rol, body.roles ?? []) ?? validarPassword(body.password) ?? await validarEmpresas(body.empresas ?? null);
+      const e1 = validarRoles(body.rol, body.roles ?? []) ?? validarPassword(body.password) ?? await validarEmpresas(body.empresas ?? null)
+        ?? await validarCentros(body.centros ?? null) ?? validarModulos(body.modulos ?? null);
       if (e1) return falla(req, e1);
 
       // Personal del equipo: su usuario se liga a su ficha de empleado (para checar, su rondín y sus pendientes)
@@ -99,6 +111,7 @@ Deno.serve(async (req) => {
       const { error: e2 } = await admin.from("miembros").insert({
         org_id: orgId, user_id: creado.user.id, nombre, usuario,
         rol: body.rol, roles: body.roles ?? [], empresas: body.empresas ?? null,
+        centros: body.centros ?? null, modulos: body.modulos ?? null,
         activo: true, empleado_id: empleadoId,
         // al personal de piso no se le obliga a cambiarla: el administrador le da una fácil de recordar
         debe_cambiar_password: body.rol !== "equipo",
@@ -129,10 +142,12 @@ Deno.serve(async (req) => {
       if (m.user_id === miId || m.rol === "dueno") return falla(req, "No puedes cambiar los permisos del dueño");
       const nombre = String(body.nombre ?? "").trim();
       if (!nombre) return falla(req, "Escribe el nombre");
-      const e = validarRoles(body.rol, body.roles ?? []) ?? await validarEmpresas(body.empresas ?? null);
+      const e = validarRoles(body.rol, body.roles ?? []) ?? await validarEmpresas(body.empresas ?? null)
+        ?? await validarCentros(body.centros ?? null) ?? validarModulos(body.modulos ?? null);
       if (e) return falla(req, e);
       const { error } = await admin.from("miembros").update({
         nombre, rol: body.rol, roles: body.roles ?? [], empresas: body.empresas ?? null,
+        centros: body.centros ?? null, modulos: body.modulos ?? null,
       }).eq("user_id", m.user_id).eq("org_id", orgId);
       return error ? falla(req, error.message) : json(req, { ok: true });
     }

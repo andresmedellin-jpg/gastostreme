@@ -24,15 +24,21 @@ export async function render(view) {
 }
 
 async function cargar() {
-  const { data, error } = await db().rpc('usuarios_lista');
+  const [{ data, error }, acc] = await Promise.all([db().rpc('usuarios_lista'), db().rpc('usuarios_accesos')]);
   if (error) { toast('No se pudo cargar la lista: ' + error.message, true); return; }
-  lista = data || [];
+  // Edificios y secciones de cada quien (miembros.centros / miembros.modulos)
+  const accesos = new Map((acc.data || []).map((a) => [a.user_id, a]));
+  lista = (data || []).map((u) => ({ ...u, centros: accesos.get(u.user_id)?.centros ?? null, modulos: accesos.get(u.user_id)?.modulos ?? null }));
   pintar();
 }
 
 // ---------- utilidades ----------
-const perfilDe = (u) => PERFILES.find((p) => p.rol === u.rol &&
-  [...p.roles].sort().join() === [...(u.roles || [])].sort().join());
+const mismaLista = (a, b) => [...(a || [])].sort().join() === [...(b || [])].sort().join();
+const perfilDe = (u) => PERFILES.find((p) => p.rol === u.rol && mismaLista(p.roles, u.roles)
+  && (p.modulos ? mismaLista(p.modulos, u.modulos) : u.modulos == null));
+// Edificios que se pueden asignar a quien cobra mantenimiento: condominios y plazas
+const edificios = () => (estado.todosCentros || estado.centros).filter((c) => ['condominio', 'plaza'].includes(c.tipo));
+const nombresCentros = (ids) => ids.map((id) => (estado.todosCentros || []).find((c) => c.id === id)?.nombre || '?').join(', ');
 const etiquetaAcceso = (u) => u.rol === 'dueno' ? 'Dueño (todo)' : (perfilDe(u)?.titulo || 'Personalizado');
 const nombresEmpresas = (ids) => ids == null ? 'Todas'
   : ids.map((id) => estado.empresas.find((e) => e.id === id)?.nombre_corto || '?').join(', ');
@@ -62,13 +68,14 @@ function pintar() {
       <div class="sugeridos">${pendientes.map((s, i) => {
         const p = PERFILES.find((x) => x.id === s.perfil);
         return `<div class="sugerido">
-          <div><strong>${esc(s.nombre)}</strong><span>usuario: ${esc(s.usuario)}</span><span>${esc(p.titulo)} · ${esc(s.empresas === 'todas' ? 'Todas las empresas' : s.empresas.join(', '))}</span></div>
+          <div><strong>${esc(s.nombre)}</strong><span>usuario: ${esc(s.usuario)}</span><span>${esc(p.titulo)} · ${esc(s.centros ? s.centros.join(', ') : s.empresas === 'todas' ? 'Todas las empresas' : s.empresas.join(', '))}</span></div>
           <button class="btn btn-primary btn-sm" data-sug="${i}">Dar de alta</button></div>`;
       }).join('')}</div>
     </section>` : '';
   raiz.querySelectorAll('[data-sug]').forEach((b) => b.addEventListener('click', () => {
     const s = pendientes[+b.dataset.sug];
-    formulario(null, { nombre: s.nombre, usuario: s.usuario, perfil: s.perfil, empresas: idsEmpresas(s.empresas) });
+    formulario(null, { nombre: s.nombre, usuario: s.usuario, perfil: s.perfil, empresas: idsEmpresas(s.empresas),
+      centros: s.centros ? edificios().filter((c) => s.centros.includes(c.nombre)).map((c) => c.id) : null });
   }));
 
   const tbody = raiz.querySelector('#u-tbody');
@@ -80,7 +87,7 @@ function pintar() {
         ${u.debe_cambiar_password && u.activo ? ' <span class="tag tag-aviso" title="Todavía no cambia su contraseña temporal">temporal</span>' : ''}</td>
       <td class="mut" data-l="Usuario">${esc(u.usuario || u.correo)}</td>
       <td data-l="Acceso">${esc(etiquetaAcceso(u))}</td>
-      <td class="mut" data-l="Empresas">${esc(nombresEmpresas(u.empresas))}</td>
+      <td class="mut" data-l="Empresas">${esc(nombresEmpresas(u.empresas))}${u.centros ? `<small class="sub">${esc(nombresCentros(u.centros))}</small>` : ''}</td>
       <td class="mut nowrap" data-l="Último acceso">${esc(fechaHora(u.ultimo_acceso))}</td>
       <td class="acciones">
         <button class="btn btn-sm btn-ghost" data-pass="${u.user_id}">Contraseña</button>
@@ -99,6 +106,7 @@ function formulario(u = null, pre = {}) {
   const editando = !!u;
   const perfilActual = editando ? (perfilDe(u)?.id || PERFILES[0].id) : (pre.perfil || PERFILES[0].id);
   const empresasActuales = editando ? u.empresas : ('empresas' in pre ? pre.empresas : null);
+  const centrosActuales = (editando ? u.centros : pre.centros) || [];
   const modal = abrirModal({
     titulo: editando ? `Editar a ${u.nombre}` : 'Nuevo usuario',
     cuerpo: `
@@ -116,6 +124,9 @@ function formulario(u = null, pre = {}) {
           ${estado.empresas.map((e) => `<label class="opcion opcion-linea"><input type="checkbox" name="emp" value="${e.id}"
             ${empresasActuales == null || empresasActuales.includes(e.id) ? 'checked' : ''} ${empresasActuales == null ? 'disabled' : ''}> ${esc(e.nombre)}</label>`).join('')}
         </fieldset>
+        <fieldset class="opciones" id="uf-edif"><legend>Edificios que cobra</legend>
+          ${edificios().map((c) => `<label class="opcion opcion-linea"><input type="checkbox" name="cen" value="${c.id}" ${centrosActuales.includes(c.id) ? 'checked' : ''}> ${esc(c.nombre)}</label>`).join('')}
+        </fieldset>
         ${editando ? '' : `<label>Contraseña temporal <small>(se la das en persona; la cambia al entrar)</small>
           <div class="campo-boton"><input name="password" required minlength="6" value="${esc(generarPassword())}" spellcheck="false">
             <button type="button" class="btn btn-ghost btn-sm" id="uf-gen">Otra</button></div></label>`}
@@ -126,6 +137,10 @@ function formulario(u = null, pre = {}) {
   const form = modal.querySelector('#uf');
   modal.querySelector('#uf-cancelar').addEventListener('click', cerrarModal);
   modal.querySelector('#uf-gen')?.addEventListener('click', () => (form.password.value = generarPassword()));
+  // "Edificios que cobra" solo aplica al perfil de cobranza de mantenimiento
+  const verEdificios = () => { modal.querySelector('#uf-edif').hidden = !PERFILES.find((p) => p.id === form.perfil.value)?.porEdificio; };
+  form.querySelectorAll('[name=perfil]').forEach((r) => r.addEventListener('change', verEdificios));
+  verEdificios();
   form.todas.addEventListener('change', () => form.querySelectorAll('[name=emp]').forEach((c) => {
     c.disabled = form.todas.checked; if (form.todas.checked) c.checked = true;
   }));
@@ -141,8 +156,11 @@ function formulario(u = null, pre = {}) {
       nombre: form.nombre.value.trim(),
       usuario: editando ? undefined : form.usuario.value.trim().toLowerCase(),
       rol: perfil.rol, roles: perfil.roles, empresas,
+      modulos: perfil.modulos || null,
+      centros: perfil.porEdificio ? [...form.querySelectorAll('[name=cen]:checked')].map((c) => c.value) : null,
       password: editando ? undefined : form.password.value,
     };
+    if (perfil.porEdificio && !cuerpo.centros.length) return toast('Elige al menos un edificio', true);
     if (!cuerpo.nombre) return toast('Escribe el nombre', true);
     if (empresas && !empresas.length) return toast('Elige al menos una empresa', true);
     if (!editando && !/^[a-z0-9._-]{3,30}$/.test(cuerpo.usuario)) return toast('El usuario debe tener de 3 a 30 letras o números, sin espacios ni acentos', true);
