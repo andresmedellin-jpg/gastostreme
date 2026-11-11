@@ -32,6 +32,7 @@ const ICONOS = {
   importar:   svg('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v3h16v-3"/>'),
   prestamos:  svg('<path d="M3 10h18M5 10V20M19 10V20M9.5 10V20M14.5 10V20M2 21h20M12 3l9 5H3z"/>'),
   empleados:  svg('<rect x="3" y="4" width="18" height="16" rx="1"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 17a3.5 3.5 0 0 1 7 0M15 10h3M15 14h3"/>'),
+  pedidos:    svg('<path d="M6 7h12l-1 13H7z"/><path d="M9 7a3 3 0 0 1 6 0M9.5 12h5"/>'),
   bodegas:    svg('<path d="M3 21V9l9-6 9 6v12"/><path d="M7 21v-8h10v8M7 17h10"/>'),
   inventario: svg('<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>'),
   cotizaciones: svg('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 12h6M10 16h6M4 7v14h10" opacity=".9"/>'),
@@ -83,6 +84,8 @@ export const MODULOS = [
   { id: 'cotizaciones', grupo: 'Ventas',  titulo: 'Cotizaciones',     icono: ICONOS.cotizaciones, roles: ['dueno','administracion','cobranza'], listo: true, opcional: true },
   // Bodegas: material de cada edificio u obra; quién saca qué, cuándo y para qué (Víctor en Torre Elysium; encargados de obra)
   { id: 'bodegas',    grupo: 'Operación', titulo: 'Bodegas',          icono: ICONOS.bodegas,    roles: ['dueno','administracion','operacion','encargado'], listo: true },
+  // Pedidos de limpieza: Barby escoge del menú de cada centro y copia la cotización para el proveedor
+  { id: 'pedidos',    grupo: 'Operación', titulo: 'Pedidos de limpieza', icono: ICONOS.pedidos, roles: ['dueno','administracion','cobranza','operacion'], listo: true },
   { id: 'inventario', grupo: 'Ventas',    titulo: 'Inventario',       icono: ICONOS.inventario, roles: ['dueno','administracion','operacion'], listo: true, opcional: true },
   { id: 'patrimonio', grupo: 'Finanzas',  titulo: 'Patrimonio',       icono: ICONOS.patrimonio, roles: ['dueno','socio'], listo: true },
   { id: 'personal',   grupo: 'Operación', titulo: 'Nómina y equipo',  icono: ICONOS.personal,   roles: ['dueno','administracion','encargado'], listo: true },
@@ -179,15 +182,15 @@ export const MUNDOS = [
   { id: 'grupo', nombre: 'Grupo', sub: 'Treme · MEDCO', empresa: null, color: '#101216',
     modulos: ['inicio', 'patrimonio', 'gastos', 'importar', 'usuarios'], titulos: { inicio: 'Resumen del grupo', gastos: 'Gastos consolidados', patrimonio: 'Patrimonio' } },
   { id: 'treme', nombre: 'Treme', sub: 'Grupo Inmobiliario', empresa: /treme/i, color: '#8B1A1A', logo: 'logo-treme',
-    modulos: ['inicio', 'rentas', 'cobranza', 'servicios', 'lecturas', 'gastos', 'personal', 'bodegas', 'patrimonio'],
-    titulos: { inicio: 'Resumen', cobranza: 'Mantenimiento', servicios: 'Luz, gas y agua', lecturas: 'Lecturas' } },
+    modulos: ['inicio', 'rentas', 'cobranza', 'servicios', 'lecturas', 'gastos', 'personal', 'bodegas', 'pedidos', 'patrimonio'],
+    titulos: { inicio: 'Resumen', cobranza: 'Mantenimiento', pedidos: 'Limpieza', servicios: 'Luz, gas y agua', lecturas: 'Lecturas' } },
   { id: 'medco', nombre: 'MEDCO', sub: 'Desarrollos y Proyectos', empresa: /medco/i, color: '#23408E', logo: 'logo-medco',
     modulos: ['inicio', 'obras', 'prospectos', 'cotizaciones', 'inventario', 'gastos', 'personal', 'bodegas', 'patrimonio'], titulos: { inicio: 'Resumen', bodegas: 'Material de obra' } },
 ];
 // Secciones que se juntan en una sola del menú (con pestañas adentro). Solo se juntan si la persona ve dos o más.
 export const GRUPOS = MARCA.grupos || {
   treme: [{ id: 'cobro', titulo: 'Cobranza', icono: 'cobranza', subs: ['rentas', 'cobranza'] },
-          { id: 'edificio', titulo: 'Edificio', icono: 'personal', subs: ['personal', 'bodegas'], etiquetas: { personal: 'Equipo' } }],
+          { id: 'edificio', titulo: 'Edificio', icono: 'personal', subs: ['personal', 'bodegas', 'pedidos'], etiquetas: { personal: 'Equipo' } }],
   medco: [{ id: 'obra', titulo: 'Obra', icono: 'personal', subs: ['personal', 'bodegas'], etiquetas: { personal: 'Equipo' } }],
 };
 export const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];

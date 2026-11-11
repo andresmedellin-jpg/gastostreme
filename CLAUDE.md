@@ -219,6 +219,16 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 - Pestañas: Existencias (Sacar / Meter / Historial), Movimientos, Prestado (Regresó). Roles: administración, operación y encargado
   (Víctor). Borrar movimientos: solo administración. Bodega #1 de Torre Elysium cargada con los 34 artículos del inventario de Víctor.
 
+## Pedidos de limpieza (0038, módulo `pedidos.js`; en Treme dentro de Edificio como "Limpieza")
+- Barby escoge por centro (Torre Elysium · Plaza GM 202 · Plaza Hudson · Oficina = pedidos 1 a 4) de un menú con lo que siempre se pide
+  (`insumo_centro`: producto + cantidad de siempre), botones − / +, "Lo de siempre", "Repetir el último", "＋ Otro producto" (queda en el menú).
+  Arma un solo mensaje ("Buenos días Vero … Pedido 1 · Torre Elysium -1 paq de papel higiénico …") para copiar, o PDF (imprimir → guardar).
+  Saludo, nota ("favor de enviar las bolsas como se solicita…"), firma y proveedor se recuerdan en el navegador, igual que el borrador.
+  "Ya lo envié" guarda un `pedidos_insumos` por centro (líneas en jsonb) → Enviados: Llegó (recibido), Repetir, Ver/Copiar, Cancelar.
+  Sin precios: el pago lo captura Victoria en Gastos (Limpieza). Acceso `app.puede_pedidos`: administración, o cobranza/operación con la
+  sección 'pedidos' en `miembros.modulos` (Barby = cobranza + pedidos). Centros vía `app.pedidos_centros()` (no dependen de miembros.centros).
+- Barby también saca recibos de las plazas (Mantenimiento → Recibo), igual que Liz en Elysium.
+
 ## Personas
 - Andrés: dueño. Miguel (hermano): socio. Victoria: captura gastos y rentas (ya no el mantenimiento de Elysium).
   Víctor: encargado de Torre Elysium (equipo, bodegas y cobro de luz; no ve mantenimiento). Liz Lomelí (`liz`): cobranza de mantenimiento y luz de Torre Elysium.

@@ -282,5 +282,5 @@
     } },
   };
   window.supabase = { createClient: () => cliente };
-  window.__DEMO = { datos: D };
+  window.__DEMO = { datos: D, RPC };
 })();

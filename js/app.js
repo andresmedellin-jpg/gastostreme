@@ -13,6 +13,7 @@ const vistas = {
   patrimonio: () => import('./modulos/patrimonio.js'),
   inventario: () => import('./modulos/inventario.js'),
   bodegas: () => import('./modulos/bodegas.js'),
+  pedidos: () => import('./modulos/pedidos.js'),
   cotizaciones: () => import('./modulos/cotizaciones.js'),
   prospectos: () => import('./modulos/prospectos.js'),
   lecturas: () => import('./modulos/lecturas.js'),

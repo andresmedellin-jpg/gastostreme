@@ -919,3 +919,31 @@ tr.rt-pagado td { color: var(--text-2); }
 .cb-edif-sel { margin-left: auto; height: 38px; border-radius: 10px; border: 1px solid var(--border); background-color: #fff; padding: 0 34px 0 12px; font: inherit; font-size: 13.5px; font-weight: 500; }
 .bd-sel { height: 40px; border-radius: 10px; border: 1px solid var(--border); background-color: #fff; padding: 0 34px 0 12px; font: inherit; font-size: 14px; font-weight: 500; margin-bottom: 14px; max-width: 100%; }
 @media (max-width: 760px) { .cb-subhead .cb-edif, .cb-edif-sel { margin-left: 0; } }
+
+/* Pedidos de limpieza: menú del centro a la izquierda, el pedido armado a la derecha */
+.pd-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; align-items: start; }
+.pd-centros { max-width: 100%; overflow-x: auto; margin-bottom: 12px; }
+.pd-badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 4px; border-radius: 9px; background: var(--ink); color: #fff; font-size: 10.5px; font-weight: 700; }
+.pd-acciones { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.pd-lista { list-style: none; margin: 0; padding: 0; }
+.pd-lista li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 4px; border-bottom: 1px solid #EFEDE7; }
+.pd-lista li:last-child { border-bottom: 0; }
+.pd-lista li.con strong { color: var(--ink); }
+.pd-lista li:not(.con) strong { font-weight: 500; color: var(--text-2); }
+.pd-lista small { display: block; color: var(--text-3); font-size: 12px; margin-top: 2px; }
+.pd-paso { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #fff; flex: none; }
+.pd-paso button { width: 38px; height: 36px; border: 0; background: none; font-size: 18px; cursor: pointer; color: var(--ink); }
+.pd-paso button:hover:not(:disabled) { background: var(--surface-2); }
+.pd-paso button:disabled { color: #C9C6BE; cursor: default; }
+.pd-paso output { min-width: 32px; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pd-lista li.con .pd-paso { border-color: var(--ink); }
+.pd-resumen { position: sticky; top: 84px; }
+.pd-resumen h3 { margin: 0 0 10px; }
+.pd-bloque { margin-bottom: 12px; } .pd-bloque strong { font-size: 13px; }
+.pd-bloque ul, .pd-ver { margin: 4px 0 0; padding-left: 18px; font-size: 13px; color: var(--text-2); line-height: 1.6; }
+.pd-datos { margin: 10px 0 12px; font-size: 13px; } .pd-datos summary { cursor: pointer; color: var(--text-2); font-weight: 500; }
+.pd-datos label { display: grid; gap: 4px; margin-top: 10px; font-size: 12.5px; color: var(--text-2); }
+.pd-datos input, .pd-datos textarea { font: inherit; font-size: 13.5px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; resize: vertical; }
+.pd-botones { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-bottom: 8px; }
+.pd-texto { width: 100%; font: 13px/1.5 ui-monospace, Menlo, monospace; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
+@media (max-width: 900px) { .pd-grid { grid-template-columns: 1fr; } .pd-resumen { position: static; } }
