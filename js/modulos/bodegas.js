@@ -101,8 +101,8 @@ function pintar() {
   const salidasMes = movs.filter((x) => x.tipo === 'salida' && x.fecha.startsWith(mes));
   const bajos = materiales.filter(bajo);
   raiz.innerHTML = `
-    ${almacenes.length > 1 ? `<div class="segmento bd-bodegas" role="tablist" aria-label="${porObra() ? 'Obra' : 'Bodega'}">${almacenes.map((x) =>
-      `<button class="${x.id === a.id ? 'activo' : ''}" data-alm="${x.id}">${esc(porObra() ? lugar(x) : varios ? `${centroDe(x.centro_id)?.nombre || ''} · ${x.nombre}` : x.nombre)}</button>`).join('')}</div>` : ''}
+    ${almacenes.length > 1 ? `<select class="bd-sel" id="b-alm" aria-label="${porObra() ? 'Obra' : 'Bodega'}">${almacenes.map((x) =>
+      `<option value="${x.id}" ${x.id === a.id ? 'selected' : ''}>${esc(porObra() ? lugar(x) : varios ? `${centroDe(x.centro_id)?.nombre || ''} · ${x.nombre}` : x.nombre)}</option>`).join('')}</select>` : ''}
     <div class="kpis">
       <div class="kpi"><span>${esc(lugar(a))}</span><strong>${materiales.length}</strong><small>${porObra() ? 'artículos en la obra' : esc(centroDe(a.centro_id)?.nombre || '') + ' · artículos'}</small></div>
       <div class="kpi"><span>Salidas del mes</span><strong>${salidasMes.length}</strong><small>${salidasMes.length ? 'última ' + hace(salidasMes[0].fecha) : 'ninguna'}</small></div>
@@ -114,7 +114,7 @@ function pintar() {
         .map(([id, t]) => `<button role="tab" data-v="${id}" aria-selected="${st.vista === id}">${t}</button>`).join('')}
     </div></div>
     <div id="b-cuerpo"></div>`;
-  raiz.querySelectorAll('[data-alm]').forEach((b) => b.addEventListener('click', () => { st.almacenId = b.dataset.alm; st.q = ''; cargar(); }));
+  raiz.querySelector('#b-alm')?.addEventListener('change', (e) => { st.almacenId = e.target.value; st.q = ''; cargar(); });
   raiz.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => { st.vista = b.dataset.v; pintar(); }));
   const el = raiz.querySelector('#b-cuerpo');
   if (st.vista === 'movs') return pintarMovs(el);

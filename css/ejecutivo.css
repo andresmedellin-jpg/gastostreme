@@ -833,3 +833,89 @@ tr.rt-pagado td { color: var(--text-2); }
 .cb-cobro-kpis { grid-template-columns: repeat(3, 1fr) !important; }
 .cb-cobro small.neg { color: var(--neg); font-weight: 600; }
 @media (max-width: 760px) { .cb-cobro-kpis .kpi { padding: 12px; } .cb-cobro-kpis .kpi > span { font-size: 9.5px; } }
+
+/* ================= Encabezado de un solo renglón (11/11/2026) =================
+   Izquierda: la empresa (menú). Centro: secciones con píldora negra en la activa. Derecha: la persona (menú).
+   En celular las secciones bajan a una barra fija abajo, con íconos, como en una app. */
+.mx-top { background: rgba(255,255,255,.94) !important; backdrop-filter: saturate(1.6) blur(14px); border-bottom: 1px solid var(--border); box-shadow: none !important; }
+.mx-fila { height: 64px; min-height: 0 !important; padding: 0 28px !important; gap: 28px; flex-wrap: nowrap; }
+.mx-emp { position: relative; flex: none; display: flex; align-items: center; }
+.mx-emp-btn { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 10px 0 14px; border: 1px solid var(--border); border-radius: 12px;
+  background: #fff; cursor: pointer; box-shadow: 0 1px 2px rgba(16,18,22,.04); transition: border-color .15s, background .15s; font: inherit; }
+.mx-emp-btn:hover { border-color: #D6D3CA; background: #FBFAF7; }
+.mx-emp-btn.solo { border: 0; box-shadow: none; padding: 0; cursor: default; background: none; }
+.mx-emp-logo { display: block; height: 22px; width: auto; }
+.mx-emp-logo.logo-medco { height: 27px; }
+.mx-emp-txt { font-size: 15px; font-weight: 650; letter-spacing: -.01em; color: var(--ink); }
+.mx-chev { width: 16px; height: 16px; fill: none; stroke: var(--text-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s; }
+.mx-emp-btn[aria-expanded="true"] .mx-chev { transform: rotate(180deg); }
+.mx-menu { position: absolute; top: calc(100% + 10px); background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 6px; z-index: 40;
+  box-shadow: 0 22px 44px -18px rgba(16,18,22,.30), 0 2px 6px rgba(16,18,22,.05); min-width: 250px; animation: mx-aparece .14s ease-out; }
+@keyframes mx-aparece { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.mx-menu-emp { left: 0; }
+.mx-menu-emp a { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 3px 12px; padding: 11px 12px; border-radius: 10px; text-decoration: none; color: var(--text); }
+.mx-menu-emp a:hover { background: var(--surface-2); }
+.mx-menu-emp a.activo { background: color-mix(in srgb, var(--w) 6%, #fff); }
+.mx-emp-marca { grid-column: 1; display: flex; align-items: center; min-height: 26px; }
+.mx-emp-marca .mx-emp-logo { height: 20px; } .mx-emp-marca .mx-emp-logo.logo-medco { height: 25px; }
+.mx-emp-sub { grid-column: 1; font-size: 12px; color: var(--text-3); }
+.mx-ok { grid-column: 2; grid-row: 1 / 3; width: 18px; height: 18px; fill: none; stroke: var(--w); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+.mx-tabs { flex: 1; display: flex; align-items: center; gap: 4px; border: 0 !important; padding: 0 !important; margin: 0 !important; max-width: none; overflow-x: auto; }
+.mx-tabs a { display: flex; align-items: center; gap: 8px; padding: 8px 15px !important; border-radius: 10px; color: var(--text-2); font-size: 14px; font-weight: 500;
+  text-decoration: none; transition: background .15s, color .15s; }
+.mx-tabs a:hover { background: var(--surface-2); color: var(--text); }
+.mx-tabs a.active { background: var(--ink); color: #fff !important; font-weight: 600; }
+.mx-tabs a.active::after { display: none !important; }
+.mx-ico { display: none; }
+.mx-ico svg { width: 20px; height: 20px; }
+
+.mx-der { position: relative; margin-left: auto; display: flex; align-items: center; }
+.mx-yo { display: flex; align-items: center; gap: 10px; padding: 4px 12px 4px 4px; border: 0; border-radius: 999px; background: none; cursor: pointer; font: inherit; color: var(--text); transition: background .15s; }
+.mx-yo:hover, .mx-yo[aria-expanded="true"] { background: var(--surface-2); }
+.mx-yo .user-avatar { width: 34px; height: 34px; background: var(--ink) !important; color: #fff !important; font-size: 13px; font-weight: 600; }
+.mx-yo .user-txt { font-size: 13.5px; }
+.mx-menu-yo { right: 0; min-width: 230px; }
+.mx-menu-cab { display: grid; gap: 2px; padding: 10px 12px 12px; margin-bottom: 6px; border-bottom: 1px solid var(--border); }
+.mx-menu-cab strong { font-size: 14px; }
+.mx-menu-cab small { font-size: 12px; color: var(--text-3); }
+.mx-menu-yo button { display: block; width: 100%; text-align: left; padding: 10px 12px; border: 0; background: none; border-radius: 10px; font: inherit; font-size: 14px; color: var(--text); cursor: pointer; }
+.mx-menu-yo button:hover { background: var(--surface-2); }
+.mx-menu-yo #logout { color: var(--neg); }
+
+/* Pestañas de la sección (Cobranza: Rentas | Mantenimiento) bajo el título */
+.mx-sub { margin-top: 14px; }
+.mx-sub .segmento { display: inline-flex; }
+.mx-sub .segmento a { padding: 7px 18px; border-radius: 8px; font-size: 13.5px; font-weight: 500; color: var(--text-2); text-decoration: none; white-space: nowrap; }
+.mx-sub .segmento a:hover { color: var(--text); }
+.mx-sub .segmento a.activo { background: #fff; color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(16,18,22,.08), 0 0 0 1px rgba(16,18,22,.04); }
+
+@media (max-width: 760px) {
+  /* sin desenfoque: con él, la barra fija de abajo quedaría pegada al encabezado */
+  .mx-top { backdrop-filter: none !important; background: #fff !important; }
+  .mx-fila { height: 56px; padding: 0 14px !important; gap: 10px; }
+  .mx-emp-btn { height: 38px; padding: 0 8px 0 12px; }
+  .mx-emp-logo { height: 18px; } .mx-emp-logo.logo-medco { height: 22px; }
+  .mx-yo { padding: 0; } .mx-yo .user-txt { display: none; }
+  .mx-menu-emp { min-width: min(300px, calc(100vw - 28px)); }
+  body:not(.con-nav-abajo) .mx-tabs { display: none; }
+  body.con-nav-abajo .mx-tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 0;
+    background: rgba(255,255,255,.96); backdrop-filter: saturate(1.6) blur(16px); border-top: 1px solid var(--border) !important;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom)) !important; overflow: visible; }
+  body.con-nav-abajo .mx-tabs a { flex-direction: column; gap: 3px; padding: 4px 2px !important; font-size: 10.5px; font-weight: 500; min-width: 0; border-radius: 0; background: none !important; color: var(--text-3) !important; }
+  body.con-nav-abajo .mx-tabs a.active { color: var(--ink) !important; font-weight: 600; }
+  body.con-nav-abajo .mx-ico { display: grid; place-items: center; width: 48px; height: 30px; border-radius: 15px; transition: background .15s; }
+  body.con-nav-abajo .mx-tabs a.active .mx-ico { background: var(--ink); color: #fff; }
+  body.con-nav-abajo .mx-txt { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  body.con-nav-abajo .main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  body.con-nav-abajo .toast { bottom: calc(86px + env(safe-area-inset-bottom)); }
+  body.con-nav-abajo .demo-banda { bottom: calc(82px + env(safe-area-inset-bottom)); }
+  .mx-sub { margin-top: 12px; max-width: 100%; overflow-x: auto; }
+}
+
+/* Mantenimiento: el edificio va en el mismo renglón que sus pestañas (menos botones apilados) */
+.cb-subhead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.cb-subhead .cb-edif { margin: 0 0 0 auto; }
+.cb-edif-sel { margin-left: auto; height: 38px; border-radius: 10px; border: 1px solid var(--border); background-color: #fff; padding: 0 34px 0 12px; font: inherit; font-size: 13.5px; font-weight: 500; }
+.bd-sel { height: 40px; border-radius: 10px; border: 1px solid var(--border); background-color: #fff; padding: 0 34px 0 12px; font: inherit; font-size: 14px; font-weight: 500; margin-bottom: 14px; max-width: 100%; }
+@media (max-width: 760px) { .cb-subhead .cb-edif, .cb-edif-sel { margin-left: 0; } }

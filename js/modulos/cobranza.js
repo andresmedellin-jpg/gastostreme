@@ -57,15 +57,16 @@ export async function render(view) {
   if (!esCondominio() && st.vista === 'reporte') st.vista = 'cuenta';
   if (!st.vista) st.vista = veDinero() ? 'cuenta' : 'cobro';            // quien cobra entra directo a "Cobro del mes"
   if (!veDinero() && !['cobro', 'cuenta'].includes(st.vista)) st.vista = 'cobro';
+  const selEdif = edificios.length > 1 ? `<select class="cb-edif-sel" id="c-edif" aria-label="Edificio">${edificios.map((c) =>
+      `<option value="${c.id}" ${c.id === centro.id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select>` : '';
   view.innerHTML = `
-    ${edificios.length > 1 ? `<div class="segmento cb-edif" role="tablist" aria-label="Edificio">${edificios.map((c) =>
-      `<button class="${c.id === centro.id ? 'activo' : ''}" data-edif="${c.id}">${esc(c.nombre)}</button>`).join('')}</div>` : ''}
-    <div class="sub-head">
+    <div class="sub-head cb-subhead">
       <div class="tabs" role="tablist">
         ${(veDinero() ? [['cuenta','Estado de cuenta'],['mes','Pagos del mes'],['deudores','Deudores'], ...(esCondominio() ? [['reporte','Reporte mensual']] : [])]
           : [['cobro','Cobro del mes'],['cuenta','Estado de cuenta']])
           .map(([id, t]) => `<button role="tab" data-vista="${id}">${t}</button>`).join('')}
       </div>
+      ${selEdif}
 
     </div>
     <div class="periodo">
@@ -75,11 +76,10 @@ export async function render(view) {
     </div>
     <div id="c-cuerpo"><div class="cargando">Cargando…</div></div>`;
   view.querySelector('#c-anio').value = st.anio;
-  view.querySelectorAll('[data-edif]').forEach((b) => b.addEventListener('click', () => {
-    if (b.dataset.edif === st.centroId) return;
-    st.centroId = b.dataset.edif; st.q = ''; st.filtro = 'todos'; st.concepto = 'mantenimiento';
+  view.querySelector('#c-edif')?.addEventListener('change', (e) => {
+    st.centroId = e.target.value; st.q = ''; st.filtro = 'todos'; st.concepto = 'mantenimiento';
     render(view);
-  }));
+  });
   view.querySelector('#c-anio').addEventListener('change', (e) => { st.anio = +e.target.value; cargar(); });
   view.querySelectorAll('[data-vista]').forEach((b) => b.addEventListener('click', () => {
     if (st.vista !== b.dataset.vista) { st.q = ''; st.filtro = 'todos'; }

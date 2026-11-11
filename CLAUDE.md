@@ -30,6 +30,12 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
    en pantallas de administración (las categorías llevan un punto de color: `catIco` de `config.js`). **Solo modo claro.**
    Inicio = "Resumen ejecutivo": utilidad del mes (compara el mes en curso contra el mismo periodo del anterior), flujo de 6 meses,
    tarjeta por empresa, composición de ingresos y egresos, y solo los 8 movimientos más recientes (botón para ver todos).
+   **Encabezado de un solo renglón (11/11/2026):** a la izquierda la empresa como botón con menú (Grupo · Treme · MEDCO), al centro las
+   secciones (píldora negra en la activa), a la derecha la persona (menú: cambiar contraseña, salir). En celular las secciones van en una
+   barra fija abajo con íconos (`body.con-nav-abajo`). `GRUPOS` (config.js) junta secciones con pestañas bajo el título (`#subnav`):
+   Treme → Cobranza (Rentas | Mantenimiento) y Edificio (Equipo | Bodegas); MEDCO → Obra (Equipo | Material de obra). Solo se juntan si la
+   persona ve dos o más; las rutas siguen siendo las de cada módulo. En Mantenimiento el edificio es un selector en el renglón de pestañas;
+   en Bodegas/Material de obra la bodega u obra también es un selector.
    **Mundos (sin menú lateral):** barra superior negra con el selector Grupo · Treme · MEDCO (`MUNDOS` en `config.js`) y debajo
    las secciones de ese mundo. Rutas `#/<mundo>/<módulo>` (las viejas `#/gastos` siguen sirviendo). En Treme o MEDCO,
    `estado.foco` = id de la empresa y `db()` (lib.js) agrega `.eq('empresa_id', foco)` a cada lectura de las tablas con empresa

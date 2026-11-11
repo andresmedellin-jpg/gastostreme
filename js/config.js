@@ -184,4 +184,10 @@ export const MUNDOS = [
   { id: 'medco', nombre: 'MEDCO', sub: 'Desarrollos y Proyectos', empresa: /medco/i, color: '#23408E', logo: 'logo-medco',
     modulos: ['inicio', 'obras', 'prospectos', 'cotizaciones', 'inventario', 'gastos', 'personal', 'bodegas', 'patrimonio'], titulos: { inicio: 'Resumen', bodegas: 'Material de obra' } },
 ];
+// Secciones que se juntan en una sola del menú (con pestañas adentro). Solo se juntan si la persona ve dos o más.
+export const GRUPOS = MARCA.grupos || {
+  treme: [{ id: 'cobro', titulo: 'Cobranza', icono: 'cobranza', subs: ['rentas', 'cobranza'] },
+          { id: 'edificio', titulo: 'Edificio', icono: 'personal', subs: ['personal', 'bodegas'], etiquetas: { personal: 'Equipo' } }],
+  medco: [{ id: 'obra', titulo: 'Obra', icono: 'personal', subs: ['personal', 'bodegas'], etiquetas: { personal: 'Equipo' } }],
+};
 export const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];

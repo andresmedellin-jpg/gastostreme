@@ -1,4 +1,4 @@
-import { MODULOS_ACTIVOS as MODULOS, MARCA, CLIENTE, MUNDOS } from './config.js';
+import { MODULOS_ACTIVOS as MODULOS, MARCA, CLIENTE, MUNDOS, GRUPOS } from './config.js';
 import { sb, db, estado, esc, toast, abrirModal, cerrarModal, tieneRol, misRoles } from './lib.js';
 
 const vistas = {
@@ -132,6 +132,16 @@ sb.auth.onAuthStateChange((evento) => {
 });
 
 $('logout').addEventListener('click', () => sb.auth.signOut());
+// Menús del encabezado (empresa y persona): se abren con un toque y se cierran al tocar fuera
+function alternarMenu(boton, menu, abrir = menu.hidden) {
+  document.querySelectorAll('.mx-menu').forEach((m) => { if (m !== menu) m.hidden = true; });
+  document.querySelectorAll('[aria-expanded="true"]').forEach((b) => { if (b !== boton) b.setAttribute('aria-expanded', 'false'); });
+  menu.hidden = !abrir; boton.setAttribute('aria-expanded', String(abrir));
+}
+$('user-box').addEventListener('click', (e) => { e.stopPropagation(); alternarMenu($('user-box'), $('menu-yo')); });
+$('yo-pass').addEventListener('click', () => { alternarMenu($('user-box'), $('menu-yo'), false); pedirNuevaPassword(); });
+document.addEventListener('click', (e) => { if (!e.target.closest('.mx-menu')) document.querySelectorAll('.mx-menu').forEach((m) => { m.hidden = true; }); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.querySelectorAll('.mx-menu').forEach((m) => { m.hidden = true; }); });
 
 function mensajeLogin(t) { $('login-msg').textContent = t; }
 
@@ -172,8 +182,9 @@ async function entrar(user) {
     estado.todosCentros = estado.centros = cen.data || [];
 
     const etiquetas = [miembro.rol, ...(miembro.roles || [])].map(rolLegible);
+    $('yo-nombre').textContent = miembro.nombre || '';
     $('user-box').innerHTML = `<span class="user-avatar" aria-hidden="true">${esc((miembro.nombre || '?').trim().charAt(0).toUpperCase())}</span>
-      <span class="user-txt"><strong>${esc(miembro.nombre)}</strong></span>`;
+      <span class="user-txt"><strong>${esc((miembro.nombre || "").split(" ")[0])}</strong></span>`;
     $('login').hidden = true;
     $('shell').hidden = false;
     navegar();
@@ -212,16 +223,42 @@ function mundosDelUsuario() {
 }
 const tituloEn = (w, m) => (m.id === 'cobranza' && soloLuz() ? 'Luz' : w.titulos?.[m.id] || m.titulo);
 
+// Grupos del mundo con lo que esta persona ve (solo si ve dos o más de sus secciones)
+function gruposDe(w) {
+  return (GRUPOS[w.id] || []).map((g) => ({ ...g, mods: g.subs.map((id) => w.mods.find((m) => m.id === id)).filter(Boolean) }))
+    .filter((g) => g.mods.length > 1);
+}
+const ultimoDeGrupo = {};                                  // la pestaña que se usó la última vez en cada grupo
+const ICONO = (id) => MODULOS.find((m) => m.id === id)?.icono || '';
+
 function pintarNav(w, todos) {
+  // Empresa: botón con la activa y menú con las demás
+  const logoDe = (x) => x.logo && LOGOS[x.logo];
+  const marcaDe = (x) => logoDe(x) ? `<img src="${logoDe(x).src}" alt="${esc(x.nombre)}" class="mx-emp-logo ${x.logo}">` : `<strong class="mx-emp-txt">${esc(x.nombre)}</strong>`;
   const unico = todos.length < 2;
-  $('mundos').hidden = unico;
-  $('mundos').innerHTML = todos.map((x) => {
-    const logo = x.logo && LOGOS[x.logo];
-    return `<a href="#/${x.id}/${x.mods[0].id}" class="mx-mundo${x.id === w.id ? ' activo' : ''}" data-mundo="${x.id}" style="--w:${x.color}">
-      ${logo ? `<img src="${logo.src}" alt="" class="mx-mundo-logo ${x.logo}">` : '<span class="mx-mundo-ico" aria-hidden="true"></span>'}
-      <span class="mx-mundo-txt"><strong>${esc(x.nombre)}</strong>${x.sub ? `<small>${esc(x.sub)}</small>` : ''}</span></a>`;
-  }).join('');
-  $('nav').innerHTML = w.mods.map((m) => `<a href="#/${w.id}/${m.id}" data-mod="${m.id}">${esc(tituloEn(w, m))}</a>`).join('');
+  $('mundos').innerHTML = unico ? `<span class="mx-emp-btn solo" style="--w:${w.color}">${marcaDe(w)}</span>`
+    : `<button type="button" class="mx-emp-btn" id="emp-btn" aria-haspopup="menu" aria-expanded="false" style="--w:${w.color}">${marcaDe(w)}
+        <svg class="mx-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>
+      <div class="mx-menu mx-menu-emp" id="menu-emp" role="menu" hidden>
+        ${todos.map((x) => `<a role="menuitem" href="#/${x.id}/${x.mods[0].id}" class="${x.id === w.id ? 'activo' : ''}" style="--w:${x.color}">
+          <span class="mx-emp-marca">${marcaDe(x)}</span><span class="mx-emp-sub">${esc(x.sub || '')}</span>
+          ${x.id === w.id ? '<svg class="mx-ok" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : ''}</a>`).join('')}
+      </div>`;
+  $('emp-btn')?.addEventListener('click', (e) => { e.stopPropagation(); alternarMenu($('emp-btn'), $('menu-emp')); });
+  // Secciones: las de un grupo se muestran como una sola
+  const gs = gruposDe(w), vistos = new Set(), items = [];
+  w.mods.forEach((m) => {
+    const g = gs.find((x) => x.mods.includes(m));
+    if (!g) items.push({ id: m.id, href: `#/${w.id}/${m.id}`, titulo: tituloEn(w, m), icono: m.icono, mods: [m.id] });
+    else if (!vistos.has(g.id)) {
+      vistos.add(g.id);
+      const destino = g.mods.find((x) => x.id === ultimoDeGrupo[g.id]) || g.mods[0];
+      items.push({ id: g.id, href: `#/${w.id}/${destino.id}`, titulo: g.titulo, icono: ICONO(g.icono), mods: g.mods.map((x) => x.id) });
+    }
+  });
+  $('nav').innerHTML = items.map((it) => `<a href="${it.href}" data-mod="${it.mods[0]}" data-mods="${it.mods.join(',')}">
+    <span class="mx-ico" aria-hidden="true">${it.icono}</span><span class="mx-txt">${esc(it.titulo)}</span></a>`).join('');
+  document.body.classList.toggle('con-nav-abajo', items.length > 1);
 }
 
 // Contador en el menú de prospectos que llevan más de una hora sin respuesta (se revisa cada 5 minutos)
@@ -270,9 +307,15 @@ async function navegar() {
   document.body.dataset.mundo = w.id;
   pintarNav(w, todos);
   avisoProspectos();
-  document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('active', a.dataset.mod === mod.id));
+  document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('active', a.dataset.mods.split(',').includes(mod.id)));
+  // Pestañas del grupo (Cobranza: Rentas | Mantenimiento; Edificio: Equipo | Bodegas)
+  const grupo = gruposDe(w).find((g) => g.mods.some((x) => x.id === mod.id));
+  if (grupo) ultimoDeGrupo[grupo.id] = mod.id;
+  $('subnav').hidden = !grupo;
+  $('subnav').innerHTML = grupo ? `<div class="segmento" role="tablist">${grupo.mods.map((x) =>
+    `<a role="tab" href="#/${w.id}/${x.id}" class="${x.id === mod.id ? 'activo' : ''}" aria-selected="${x.id === mod.id}">${esc(grupo.etiquetas?.[x.id] || tituloEn(w, x))}</a>`).join('')}</div>` : '';
   document.querySelector('#nav a.active')?.scrollIntoView({ block: 'nearest', inline: 'center' });
-  const titulo = tituloEn(w, mod);
+  const titulo = grupo ? grupo.titulo : tituloEn(w, mod);
   $('page-title').textContent = titulo;
   $('page-eyebrow').textContent = w.emp ? `${w.nombre} · ${w.sub}` : (todos.length > 1 ? 'Grupo · Treme y MEDCO' : (mod.grupo || ''));
   document.title = `${titulo} · ${w.emp ? w.nombre : MARCA.nombre}`;
