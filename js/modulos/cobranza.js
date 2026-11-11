@@ -315,7 +315,7 @@ function pintarCobro(el) {
             <td class="num mut" data-l="Cuota">${fmt(r.cuota.monto)}</td>
             <td data-l="${MESES[m]}">${estado}${aviso}</td>
             <td class="acciones nowrap">${debe(r, m) ? (puede ? `<button class="btn btn-primary" data-ya="${r.cuota.id}">Ya pagó</button>` : '')
-              : `<button class="btn btn-sm btn-ghost" data-recibo="${r.cuota.id}">Recibo</button><button class="btn btn-sm btn-ghost" data-ver="${r.cuota.id}">Ver</button>`}</td></tr>`;
+              : `<button class="btn btn-sm btn-ghost" data-recibo="${r.cuota.id}">Recibo</button><button class="btn btn-sm btn-ghost" data-ver="${r.cuota.id}">${puede ? 'Ver / corregir' : 'Ver'}</button>`}</td></tr>`;
         }).join('') || `<tr><td colspan="4" class="vacio">${filtro === 'pendientes' ? `Todas pagaron ${MESES[m].toLowerCase()}` : 'Sin unidades'}</td></tr>`}</tbody>
       </table></div>
     </section>
@@ -573,13 +573,15 @@ function verPagos(r, concepto, m) {
     cuerpo: `<ul class="lista-pagos">${r.porMes[m].map((p) => `<li>
         <div><strong>${fmt(p.monto)}</strong> <span class="mut">${esc(formaLegible(p.forma_pago))} · ${fmtFecha(p.fecha)}</span>
           ${p.notas ? `<small>${esc(p.notas)}</small>` : ''}<small>Capturó: ${esc(p.capturado_por || '—')}</small></div>
-        ${puedeBorrar ? `<button class="btn btn-sm btn-ghost peligro" data-borrar="${p.id}">Eliminar</button>` : ''}</li>`).join('')}</ul>`,
+        ${puedeBorrar ? `<span class="nowrap"><button class="btn btn-sm btn-ghost" data-corregir="${p.id}">Corregir</button><button class="btn btn-sm btn-ghost peligro" data-borrar="${p.id}">Eliminar</button></span>` : ''}</li>`).join('')}</ul>
+      ${puedeBorrar ? '<p class="nota">Si te equivocaste (luz en vez de mantenimiento, otro mes u otro monto), toca "Corregir".</p>' : ''}`,
     pie: `<button class="btn btn-ghost" id="vp-rec">Recibo</button>${puedeBorrar
       ? `<button class="btn btn-ghost" id="vp-otro">＋ Registrar otro pago</button><button class="btn btn-primary" id="vp-ok">Listo</button>` : ''}`,
   });
   modal.querySelector('#vp-ok')?.addEventListener('click', cerrarModal);
   modal.querySelector('#vp-rec').addEventListener('click', () => pedirRecibo(r.u, m, concepto));
   modal.querySelector('#vp-otro')?.addEventListener('click', () => registrarPago(r, concepto, m));
+  modal.querySelectorAll('[data-corregir]').forEach((b) => b.addEventListener('click', () => corregirPago(r.porMes[m].find((x) => x.id === b.dataset.corregir), r, concepto)));
   modal.querySelectorAll('[data-borrar]').forEach((b) => b.addEventListener('click', async () => {
     const p = r.porMes[m].find((x) => x.id === b.dataset.borrar);
     if (!confirm(`¿Eliminar el pago de ${fmt(p.monto)}?\nQueda registrado en la bitácora.`)) return;
@@ -587,6 +589,47 @@ function verPagos(r, concepto, m) {
     if (error) return toast('No se pudo eliminar: ' + error.message, true);
     cerrarModal(); toast('Pago eliminado'); cargar();
   }));
+}
+
+// Corregir un pago ya guardado (mismo registro): concepto, mes, monto, fecha, forma y nota
+function corregirPago(p, r, concepto) {
+  const ks = conceptosDe();
+  const mesP = Number(String(p.periodo).slice(5, 7)) - 1, anioP = String(p.periodo).slice(0, 4);
+  const modal = abrirModal({
+    titulo: `Corregir pago · ${etiquetaUnidad(r.u)}`,
+    cuerpo: `<form class="form" id="cf" novalidate>
+      <p class="nota">${esc(r.u.ocupante || '')} · capturó ${esc(p.capturado_por || '—')}</p>
+      ${ks.length > 1 ? `<fieldset class="opciones"><legend>¿Qué pagó?</legend>${ks.map((x) => `<label class="opcion opcion-linea"><input type="radio" name="concepto" value="${x}" ${x === concepto ? 'checked' : ''}> ${CONCEPTOS[x].titulo}</label>`).join('')}</fieldset>` : ''}
+      <div class="form-2">
+        <label>Mes que paga<select name="mes">${MESES.map((t, i) => `<option value="${i}" ${i === mesP ? 'selected' : ''}>${t} ${anioP}</option>`).join('')}</select></label>
+        <label>Recibido<input type="number" name="monto" min="0.01" step="0.01" inputmode="decimal" value="${Number(p.monto)}" required></label>
+      </div>
+      <div class="form-2">
+        <label>Fecha<input type="date" name="fecha" value="${p.fecha || hoyISO()}" required></label>
+        <label>Cómo pagó<select name="forma">${[...new Set([...FORMAS_COBRO, p.forma_pago].filter(Boolean))].map((x) => `<option ${x === p.forma_pago ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label>
+      </div>
+      <label>Nota <small>(opcional)</small><input name="nota" maxlength="200" value="${esc(p.notas || '')}"></label>
+    </form>`,
+    pie: `<button class="btn btn-ghost" id="cf-no">Cancelar</button><button class="btn btn-primary" id="cf-si">Guardar corrección</button>`,
+  });
+  const f = modal.querySelector('#cf');
+  modal.querySelector('#cf-no').addEventListener('click', cerrarModal);
+  modal.querySelector('#cf-si').addEventListener('click', async (ev) => {
+    const monto = Number(f.monto.value);
+    if (!(monto > 0)) return toast('Escribe el monto', true);
+    const k = f.querySelector('[name=concepto]:checked')?.value || concepto;
+    const cambios = {
+      concepto: k, periodo: `${anioP}-${String(+f.mes.value + 1).padStart(2, '0')}-01`, monto,
+      fecha: f.fecha.value || p.fecha, forma_pago: f.forma.value, notas: f.nota.value.trim() || null,
+    };
+    if (k !== p.concepto) cambios.folio = null;            // el recibo de otro concepto lleva su propio folio
+    const btn = ev.currentTarget; btn.disabled = true; btn.textContent = 'Guardando…';
+    const { data, error } = await db().from('pagos').update(cambios).eq('id', p.id).select('id');
+    if (error || !data?.length) { btn.disabled = false; btn.textContent = 'Guardar corrección'; return toast('No se pudo corregir' + (error ? ': ' + error.message : ''), true); }
+    cerrarModal(); toast('Pago corregido ✓');
+    if (k !== concepto) st.concepto = k;
+    cargar();
+  });
 }
 
 function editarUnidad(r, concepto) {
