@@ -235,6 +235,19 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   Víctor: encargado de Torre Elysium (equipo, bodegas y cobro de luz; no ve mantenimiento). Liz Lomelí (`liz`): cobranza de mantenimiento y luz de Torre Elysium.
   Bárbara Wilson, "Barby" (`barby`): cobranza de mantenimiento de Plaza Hudson y Plaza GM 202.
 
+## Banco / conciliación (11/11/2026, 0039, módulo `banco.js`, en Grupo)
+- Cada mes Andrés sube el estado de cuenta PDF de BBVA ("Subir estado de cuenta"). Se lee en el navegador con pdf.js
+  (`js/vendor/pdfjs`) y `js/banco-bbva.js` (columnas cargos/abonos por posición; verifica contra "TOTAL IMPORTE CARGOS/ABONOS").
+  Tablas: `cuentas_banco` (banco, nombre, terminación de 4 dígitos, empresa), `banco_movs` (huella única por cuenta: no se duplica
+  al volver a subir; estado pendiente/conciliado/ignorado), `banco_ligas` (mov ↔ pago/ingreso/gasto; deshacer = activo false,
+  sin llaves foráneas a los registros). Solo dueño, socio y administración.
+- Cruce (`js/conciliar.js`): "Cuadran" = el texto menciona unidad/nombre y el monto coincide (solo o suma de hasta 4, con o sin IVA 16 %,
+  ±12 días); "Posibles" = mismo monto (o suma de 2) ±4 días sin pista; "Traspasos" = Treme/MEDCO/Miguel/Andrés, devoluciones, comisiones.
+  Nada se liga sin confirmar. Pestañas: Por revisar · Faltan capturar (Ligar… a mano / No aplica) · Conciliados (Deshacer) ·
+  Capturado sin banco (transferencias/depósitos capturados sin movimiento: otra cuenta o error de captura). Depósitos | Retiros.
+- Acordado: los pagos con IVA se capturan por lo que realmente depositan (con IVA). Hay efectivo depositado en BBVA y en Banregio
+  (Banregio aún no tiene lector: falta un estado de cuenta de muestra). Cuenta BBVA Maestra PyME Treme ····4972.
+
 ## Pendiente / ideas acordadas
 - **Conciliación bancaria** (Andrés la quiere): subir estados de cuenta de 3 cuentas; comparar cada movimiento con
   lo capturado (monto exacto, fecha ±2-3 días, tipo); estados ✅ registrado / 🟡 posible / 🔴 falta / ⚪ ignorar

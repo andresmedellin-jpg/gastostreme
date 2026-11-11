@@ -17,6 +17,7 @@ const vistas = {
   cotizaciones: () => import('./modulos/cotizaciones.js'),
   prospectos: () => import('./modulos/prospectos.js'),
   lecturas: () => import('./modulos/lecturas.js'),
+  banco: () => import('./modulos/banco.js'),
   importar: () => import('./modulos/importar.js'),
   turno: () => import('./modulos/turno.js'),
 };

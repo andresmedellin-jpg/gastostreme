@@ -37,6 +37,7 @@ const ICONOS = {
   inventario: svg('<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>'),
   cotizaciones: svg('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 12h6M10 16h6M4 7v14h10" opacity=".9"/>'),
   prospectos: svg('<path d="M3 4h18l-7 8.5V19l-4 2v-8.5z"/>'),
+  banco:      svg('<path d="M3 10 12 4l9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/>'),
 };
 
 // Marca de la plataforma. Por omisión, Treme / MEDCO. Otra instalación (o el demo, con ?demo) la cambia
@@ -103,6 +104,7 @@ export const MODULOS = [
   { id: 'servicios', grupo: 'Servicios', titulo: 'Luz, gas y agua',  icono: ICONOS.medidor,   roles: ['dueno','administracion','cobranza'], listo: true, opcional: true, vista: 'lecturas' },
   // La pantalla del celular del personal de piso (vigilancia, limpieza): solo la ve quien tiene el rol "equipo"
   { id: 'turno', grupo: 'Operación', titulo: 'Mi turno', icono: ICONOS.turno, roles: ['equipo'], soloRoles: ['equipo'], listo: true },
+  { id: 'banco',      grupo: 'Finanzas', titulo: 'Banco',            icono: ICONOS.banco,      roles: ['dueno','administracion'], listo: true },
   { id: 'importar',   grupo: 'Operación', titulo: 'Importar datos',  icono: ICONOS.importar,  roles: ['dueno','administracion'], listo: true, opcional: true },
   { id: 'usuarios',   grupo: 'Operación', titulo: 'Usuarios',         icono: ICONOS.usuarios,   roles: ['dueno'], listo: true },
 ];
@@ -182,7 +184,7 @@ if (MARCA.modulos) MODULOS_ACTIVOS.sort((a, b) => MARCA.modulos.indexOf(a.id) - 
 // empresa: cómo se reconoce la empresa por su nombre (null = todas). titulos: nombre de la sección dentro de ese mundo.
 export const MUNDOS = [
   { id: 'grupo', nombre: 'Grupo', sub: 'Treme · MEDCO', empresa: null, color: '#101216',
-    modulos: ['inicio', 'patrimonio', 'gastos', 'importar', 'usuarios'], titulos: { inicio: 'Resumen del grupo', gastos: 'Gastos consolidados', patrimonio: 'Patrimonio' } },
+    modulos: ['inicio', 'patrimonio', 'gastos', 'banco', 'importar', 'usuarios'], titulos: { inicio: 'Resumen del grupo', gastos: 'Gastos consolidados', patrimonio: 'Patrimonio' } },
   { id: 'treme', nombre: 'Treme', sub: 'Grupo Inmobiliario', empresa: /treme/i, color: '#8B1A1A', logo: 'logo-treme',
     modulos: ['inicio', 'rentas', 'cobranza', 'servicios', 'lecturas', 'gastos', 'personal', 'bodegas', 'pedidos', 'patrimonio'],
     titulos: { inicio: 'Resumen', cobranza: 'Mantenimiento', pedidos: 'Limpieza', servicios: 'Luz, gas y agua', lecturas: 'Lecturas' } },
