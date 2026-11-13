@@ -133,6 +133,9 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   botón "Recibo". MEDCO: "Desarrollos y Proyectos MEDCO", azul #1E4F9C, `img/logo-medco.png`, fila "Obra", IVA "No desglosado",
   saldo pendiente si abona a una cuenta de obra. Treme: formato de siempre. Folio `REC-AAAAMM-NNNN` por empresa con
   `app.siguiente_folio_empresa` (0032), guardado en `ingresos.folio` / `pagos.folio`; `siguiente_folio_cuota` también los cuenta.
+- **Recibo de abonos (13/11/2026):** Patrimonio > Por cobrar → Abono trae casilla "Generar recibo" (marcada); botón "Recibo" en cada cuenta
+  con abonos (también en las liquidadas) lista sus abonos. `js/recibo-ingreso.js` (compartido con Inicio): saldo = original − abonos hasta ese pago;
+  concepto "Abono a compra" / "Liquidación de compra" (cartera) o "Pago de obra"; folio por empresa si no tenía.
 - Empleados dados de baja: se conservan por su historial de nómina, ocultos por defecto.
 - Contraseña mínima: 6 caracteres. Usuario sin correo: `usuario@usuarios.medco.mx`.
 - **Nunca** dar acceso a franciscosr971@gmail.com (fsrsalazar).
