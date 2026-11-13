@@ -4,6 +4,7 @@
 // La deuda es de las empresas: se muestra aparte y no se resta del valor del patrimonio.
 import { db, estado, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal, normalizar } from '../lib.js';
 import { FORMAS_COBRO } from '../config.js';
+import { reciboDeAbono, abrirVentanaRecibo } from '../recibo-ingreso.js';
 import { adeudoRenta, nombreMeses, MESES_REVISADOS } from '../adeudos-renta.js';
 
 const st = { vista: 'panorama', plaza: '', entidad: '', q: '' };
@@ -467,7 +468,7 @@ function pintarCobrar(el) {
       <td data-l="Original" class="num mut">${fmt(x.monto_original)}</td>
       <td data-l="Abonado" class="num">${num(x.pagado) ? fmt(x.pagado) : '<span class="mut">—</span>'}</td>
       <td data-l="Saldo" class="num fuerte">${fmt(x.saldo)}</td>
-      <td class="acciones">${r ? '<span class="mut">Se cobra en Rentas</span>' : `<button class="btn btn-sm btn-primary" data-abono="${x.id}">Abono</button>`}
+      <td class="acciones">${r ? '<span class="mut">Se cobra en Rentas</span>' : `<button class="btn btn-sm btn-primary" data-abono="${x.id}">Abono</button>${num(x.pagado) ? `<button class="btn btn-sm btn-ghost" data-recibos="${x.id}">Recibo</button>` : ''}`}
         <button class="btn btn-sm btn-ghost" data-cobro="${x.id}">Editar</button></td></tr>`;
   };
   el.innerHTML = `
@@ -485,13 +486,31 @@ function pintarCobrar(el) {
           ${!grupos.length && !rentas.length ? '<tr><td colspan="5" class="vacio">Nadie te debe con este filtro.</td></tr>' : ''}</tbody>
       </table></div>
       ${pagadas.length ? `<details class="pz-mas"><summary>${pagadas.length} cuenta${pagadas.length === 1 ? '' : 's'} ya liquidada${pagadas.length === 1 ? '' : 's'}</summary>
-        <ul class="pz-liq">${pagadas.map((x) => `<li><span>${esc(x.cliente)} · ${esc(x.referencia || '')}</span><b>${fmt(x.monto_original)}</b></li>`).join('')}</ul></details>` : ''}
+        <ul class="pz-liq">${pagadas.map((x) => `<li><span>${esc(x.cliente)} · ${esc(x.referencia || '')}</span><b>${fmt(x.monto_original)}</b><button class="btn btn-sm btn-ghost" data-recibos="${x.id}">Recibo</button></li>`).join('')}</ul></details>` : ''}
       <p class="nota">Lo que te deben no se suma al valor del patrimonio; se muestra aparte. Las rentas atrasadas salen de Rentas (últimos ${MESES_REVISADOS} meses sin pago más el adeudo anterior registrado) y se cobran allá. Las obras de MEDCO no se incluyen.</p>
     </section>`;
   const q = el.querySelector('#pt-q');
   q.addEventListener('input', (e) => { st.q = e.target.value; const pos = e.target.selectionStart; pintar(); const n = raiz.querySelector('#pt-q'); n.focus(); n.setSelectionRange(pos, pos); });
   el.querySelectorAll('[data-abono]').forEach((b) => b.addEventListener('click', () => abonoCobro(b.dataset.abono)));
   el.querySelectorAll('[data-cobro]').forEach((b) => b.addEventListener('click', () => editarCobro(b.dataset.cobro)));
+  el.querySelectorAll('[data-recibos]').forEach((b) => b.addEventListener('click', () => recibosCuenta(b.dataset.recibos)));
+}
+
+// Abonos de una cuenta: elegir de cuál sacar el recibo (si solo hay uno, se abre directo)
+async function recibosCuenta(id) {
+  const x = cobrar.find((c) => c.id === id); if (!x) return;
+  const { data, error } = await db().from('pagos').select('id, fecha, monto, forma_pago, folio, creado_en').eq('cxc_id', id).order('fecha', { ascending: false }).order('creado_en', { ascending: false });
+  if (error) return toast('No se pudieron cargar los abonos: ' + error.message, true);
+  if (!data.length) return toast('Esta cuenta no tiene abonos registrados', true);
+  const modal = abrirModal({
+    titulo: `Recibos · ${x.cliente}`,
+    cuerpo: `<p class="sub-meta">${esc(x.referencia || '')}</p><div class="tabla-wrap"><table class="tabla tm"><thead><tr><th>Fecha</th><th>Forma</th><th class="num">Monto</th><th></th></tr></thead><tbody>
+      ${data.map((p) => `<tr><td data-l="Fecha">${fmtFecha(p.fecha)}${p.folio ? `<small class="sub">${esc(p.folio)}</small>` : ''}</td><td data-l="Forma">${esc(p.forma_pago || '—')}</td>
+        <td data-l="Monto" class="num">${fmt(p.monto)}</td><td class="acciones"><button class="btn btn-sm btn-primary" data-rec="${p.id}">Recibo</button></td></tr>`).join('')}</tbody></table></div>`,
+    pie: `<span style="flex:1"></span><button class="btn btn-ghost" id="rc-x">Cerrar</button>`,
+  });
+  modal.querySelector('#rc-x').addEventListener('click', cerrarModal);
+  modal.querySelectorAll('[data-rec]').forEach((b) => b.addEventListener('click', () => { reciboDeAbono(b.dataset.rec); cerrarModal(); cargar(); }));
 }
 
 function abonoCobro(id) {
@@ -502,18 +521,25 @@ function abonoCobro(id) {
       <div class="form-2"><label>Fecha<input type="date" name="fecha" value="${hoyISO()}"></label>
       <label>Monto<input type="number" name="monto" step="0.01" min="0.01" inputmode="decimal" required></label></div>
       <label>Forma de cobro<select name="forma">${FORMAS_COBRO.map((f) => `<option>${f}</option>`).join('')}</select></label>
-      <label>Notas<input name="notas" maxlength="200"></label></form>`,
+      <label>Notas <small>(opcional, salen en el recibo)</small><input name="notas" maxlength="200"></label>
+      <label class="check-linea"><input type="checkbox" name="recibo" checked> Generar recibo en PDF al guardar</label></form>`,
     pie: `<span style="flex:1"></span><button class="btn btn-ghost" id="ab-x">Cancelar</button><button class="btn btn-primary" id="ab-ok">Registrar abono</button>`,
   });
   modal.querySelector('#ab-x').addEventListener('click', cerrarModal);
   modal.querySelector('#ab-ok').addEventListener('click', async (ev) => {
     const f = modal.querySelector('#ab-f'), monto = Number(f.monto.value);
     if (!(monto > 0)) return toast('Escribe el monto del abono', true);
-    ev.currentTarget.disabled = true;
-    const { error } = await db().from('pagos').insert({ org_id: estado.miembro.org_id, empresa_id: x.empresa_id, centro_id: x.centro_id, cxc_id: x.id,
+    const btn = ev.currentTarget; btn.disabled = true;
+    // La ventana se abre al tocar el botón (si no, el navegador la bloquea) y se llena al guardar
+    const ventana = f.recibo.checked ? abrirVentanaRecibo() : null;
+    const { data: nuevo, error } = await db().from('pagos').insert({ org_id: estado.miembro.org_id, empresa_id: x.empresa_id, centro_id: x.centro_id, cxc_id: x.id,
       concepto: x.tipo === 'venta' ? 'venta' : 'cartera', fecha: f.fecha.value, monto, moneda: x.moneda || 'MXN', forma_pago: f.forma.value,
-      notas: [x.referencia, f.notas.value.trim()].filter(Boolean).join(' · ') || null, capturado_por: estado.miembro.nombre });
-    if (error) { ev.currentTarget.disabled = false; return toast('No se pudo registrar: ' + error.message, true); }
+      notas: [x.referencia, f.notas.value.trim()].filter(Boolean).join(' · ') || null, capturado_por: estado.miembro.nombre }).select('id').single();
+    if (error) { ventana?.close(); btn.disabled = false; return toast('No se pudo registrar: ' + error.message, true); }
+    if (f.recibo.checked) {
+      if (ventana) await reciboDeAbono(nuevo.id, ventana);
+      else toast('El navegador bloqueó la ventana del recibo. Permite ventanas emergentes para app.medco.mx.', true);
+    }
     cerrarModal(); toast('Abono registrado'); cargar();
   });
 }

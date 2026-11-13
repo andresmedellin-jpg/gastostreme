@@ -982,3 +982,6 @@ tr.rt-pagado td { color: var(--text-2); }
   .bk-tabla td[data-l="En el sistema"] { background: var(--surface-2, #F7F6F2); border-radius: 10px; padding: 8px 10px; margin: 4px 0; }
   .bk-tabla td.acciones { display: flex; gap: 8px; justify-content: flex-start; }
 }
+.pz-liq li { align-items: center; gap: 10px; }
+.pz-liq li b { margin-left: auto; }
+.form label.check-linea { display: inline-flex; flex-direction: row; align-items: center; gap: 8px; }

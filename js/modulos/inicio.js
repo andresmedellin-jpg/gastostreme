@@ -3,7 +3,8 @@
 // Gastos = todos los gastos, menos Casa y Socios (no son gasto de la empresa).
 import { MESES, FORMAS_COBRO, MARCA } from '../config.js';
 import { db, todo, estado, tieneRol, esAdmin, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal, normalizar } from '../lib.js';
-import { pintarRecibo, abrirVentanaRecibo } from '../recibo.js';
+import { abrirVentanaRecibo } from '../recibo.js';
+import { reciboIngreso, reciboDeAbono } from '../recibo-ingreso.js';
 
 const PRIVADOS = [];   // Casa y Socios sí son gasto de la empresa (todo sale de la empresa); Victoria no los ve por la base
 const FUENTES = {
@@ -106,16 +107,16 @@ async function cargar() {
       // Las cuotas cuentan en el mes que pagan (periodo); las ventas, el día que se cobraron
       const cuando = (r.periodo || r.fecha || '').slice(0, 10);
       const quien = r.concepto === 'renta' ? contratos.get(r.contrato_id)
-        : r.concepto === 'venta' ? clientes.get(r.cxc_id) : unidades.get(r.unidad_id);
+        : r.cxc_id ? clientes.get(r.cxc_id) : unidades.get(r.unidad_id);
       const titulo = r.concepto === 'venta' && esObra(r.centro_id) ? (MARCA.demo ? 'Pago de proyecto' : 'Pago de obra')
-        : ({ renta: 'Renta', mantenimiento: 'Mantenimiento', luz: 'Luz', venta: 'Venta' }[r.concepto] || r.concepto);
+        : ({ renta: 'Renta', mantenimiento: 'Mantenimiento', luz: 'Luz', venta: 'Venta', cartera: 'Abono de compra' }[r.concepto] || r.concepto);
       return { id: r.id, mes: cuando.slice(0, 7), fecha: r.fecha || cuando, empresa_id: r.empresa_id, centro: centroDe(r.centro_id)?.nombre,
         // Las "ventas" de MEDCO son bodegas que construye para sus clientes: cuentan como obra
         fuente: r.concepto === 'venta' && esObra(r.centro_id) ? 'construccion' : (FUENTES[r.concepto] ? r.concepto : 'manual'),
         monto: Number(r.monto),
         concepto: `${titulo}${quien ? ' — ' + quien : ''}`, forma: r.forma_pago, editable: false,
         // Abonos de clientes de obra: se puede volver a sacar su recibo
-        recibo: r.concepto === 'venta' ? { tabla: 'pagos', id: r.id, empresaId: r.empresa_id, centroId: r.centro_id, folio: r.folio, fecha: r.fecha,
+        recibo: (r.concepto === 'venta' || r.concepto === 'cartera') ? { tabla: 'pagos', id: r.id, empresaId: r.empresa_id, centroId: r.centro_id, folio: r.folio, fecha: r.fecha,
           monto: Number(r.monto), concepto: titulo, cliente: quien || '', forma: r.forma_pago, notas: r.notas || '', abono: !!r.cxc_id } : null };
     }),
     ...i.data.map((r) => ({ id: r.id, mes: r.fecha.slice(0, 7), fecha: r.fecha, empresa_id: r.empresa_id, centro: centroDe(r.centro_id)?.nombre,
@@ -481,32 +482,11 @@ function nuevoIngreso() {
   });
 }
 
-// Recibo de un ingreso con los datos de la empresa que cobra: MEDCO (azul, "Obra", cliente) o Treme (rojo vino)
-function reciboIngreso(w, d) {
-  const emp = (estado.todasEmpresas.length ? estado.todasEmpresas : estado.empresas).find((e) => e.id === d.empresaId) || {};
-  const esMedco = /medco/i.test(`${emp.nombre || ''} ${emp.nombre_corto || ''}`);
-  const emisor = esMedco ? 'Desarrollos y Proyectos MEDCO' : 'Grupo Inmobiliario Treme';
-  const centro = (estado.todosCentros.length ? estado.todosCentros : estado.centros).find((c) => c.id === d.centroId);
-  const abono = d.abono ?? d.saldo != null;
-  const info = [['Recibí de', d.cliente || '—']];
-  if (centro) info.push([esMedco ? 'Obra' : 'Inmueble', centro.nombre]);
-  info.push(['Concepto', d.concepto || 'Pago'], ['Recibido por', emisor], ['Método de pago', d.forma || '—']);
-  if (d.saldo != null) info.push(['Saldo pendiente', d.saldo > 0.5 ? `$${d.saldo.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN después de este pago` : 'Cuenta liquidada']);
-  return pintarRecibo(w, {
-    emisor, logo: esMedco ? 'img/logo-medco.png' : null, color: esMedco ? '#1E4F9C' : null,
-    titulo: `Recibo ${d.folio || ''} · ${d.cliente || emisor}`, folio: d.folio, fecha: d.fecha, info,
-    lineas: [{ concepto: d.concepto || 'Pago', detalle: centro ? centro.nombre : '', cantidad: 1, precio: d.monto, subtotal: d.monto }],
-    total: d.monto, moneda: 'MXN', ivaTexto: 'No desglosado',
-    estadoTexto: abono ? (d.saldo > 0.5 ? 'PAGO RECIBIDO — ABONO A CUENTA' : 'PAGO RECIBIDO — CUENTA LIQUIDADA EN SU TOTALIDAD') : 'PAGO RECIBIDO',
-    notas: d.notas || '',
-    aviso: `Este recibo ampara el pago recibido por ${emisor} de parte de ${d.cliente || 'el cliente'}${centro ? `, correspondiente a ${centro.nombre}` : ''}.`,
-  });
-}
-
 // Recibo de un ingreso ya guardado: usa su folio, o le asigna uno la primera vez
 async function volverARecibo(id) {
   const r = ingresos.find((x) => x.id === id)?.recibo;
   if (!r) return;
+  if (r.tabla === 'pagos' && r.abono) return reciboDeAbono(r.id);
   const w = abrirVentanaRecibo();
   if (!w) return toast('El navegador bloqueó la ventana del recibo. Permite ventanas emergentes para app.medco.mx.', true);
   if (!r.folio) {
