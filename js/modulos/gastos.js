@@ -76,12 +76,21 @@ function aniosDisponibles() {
 
 const nombreEmpresa = (id) => estado.empresas.find((e) => e.id === id)?.nombre_corto || '';
 const centro = (id) => estado.centros.find((c) => c.id === id);
+// En el formulario se ofrecen los centros de TODAS las empresas que la persona ve (Treme y MEDCO), aunque esté
+// parada en una sola: quien captura (Victoria) mete gastos de las obras de MEDCO y de los edificios de Treme desde el mismo lugar.
+// La empresa en la que está va primero; el gasto se guarda en la empresa del centro elegido.
+const empresasForm = () => {
+  const todas = estado.todasEmpresas?.length ? estado.todasEmpresas : estado.empresas;
+  return [...todas].sort((a, b) => (b.id === estado.foco) - (a.id === estado.foco));
+};
+const centrosForm = () => (estado.todosCentros?.length ? estado.todosCentros : estado.centros);
+const centroForm = (id) => centrosForm().find((c) => c.id === id);
 
 const opt = (c) => `<option value="${c.id}">${esc(c.nombre.replace(/^Socios - /, 'Socio: '))}</option>`;
 
 function opcionesCentro(conAgrupadores, incluir = '') {
-  const grupos = estado.empresas.map((e) => {
-    const cs = estado.centros.filter((c) => c.empresa_id === e.id && (c.en_gastos !== false || c.id === incluir));
+  const grupos = (conAgrupadores ? estado.empresas : empresasForm()).map((e) => {
+    const cs = (conAgrupadores ? estado.centros : centrosForm()).filter((c) => c.empresa_id === e.id && (c.en_gastos !== false || c.id === incluir));
     if (!cs.length) return '';
     return `<optgroup label="${esc(e.nombre_corto)}">
       ${conAgrupadores ? `<option value="emp:${e.id}">Todo ${esc(e.nombre_corto)}</option>` : ''}${cs.map(opt).join('')}</optgroup>`;
@@ -389,9 +398,9 @@ function abrirFormulario(g = null) {
   if (g) form.centro_id.innerHTML = opcionesCentro(false, g.centro_id);   // si el gasto viejo está en un centro oculto
   form.centro_id.value = centroInicial;
   const pintarCentrosForm = () => {
-    const actual = form.centro_id.value, varias = estado.empresas.length > 1;
-    modal.querySelector('#gf-centros').innerHTML = estado.empresas.map((e) => {
-      const cs = [...form.centro_id.querySelectorAll('option')].filter((o) => o.value && centro(o.value)?.empresa_id === e.id);
+    const actual = form.centro_id.value, emps = empresasForm(), varias = emps.length > 1;
+    modal.querySelector('#gf-centros').innerHTML = emps.map((e) => {
+      const cs = [...form.centro_id.querySelectorAll('option')].filter((o) => o.value && centroForm(o.value)?.empresa_id === e.id);
       if (!cs.length) return '';
       return `<div class="cx-grupo">${varias ? `<span class="cx-eti" style="--e:${/medco/i.test(e.nombre) ? 'var(--medco)' : 'var(--treme)'}">${esc(e.nombre_corto)}</span>` : ''}
         ${cs.map((o) => `<button type="button" class="cx-chip ${o.value === actual ? 'activo' : ''}" data-fc="${o.value}"><span>${esc(o.textContent)}</span></button>`).join('')}</div>`;
@@ -478,7 +487,7 @@ function abrirFormulario(g = null) {
 
     btn.disabled = true; btn.textContent = 'Guardando…';
     try {
-      const c = centro(v.centro_id);
+      const c = centroForm(v.centro_id);
       const pendiente = v.estado === 'por_pagar';
       const campos = {
         empresa_id: c.empresa_id, centro_id: c.id,
@@ -497,7 +506,9 @@ function abrirFormulario(g = null) {
             comprobante_path: campos.comprobante_path || null, capturado_por: estado.miembro.nombre });
       if (error) throw error;
       cerrarModal();
-      toast(g ? 'Gasto corregido ✓' : pendiente ? 'Pedido registrado como por pagar ✓' : 'Gasto registrado ✓');
+      const otra = estado.foco && c.empresa_id !== estado.foco
+        ? ` en ${empresasForm().find((e) => e.id === c.empresa_id)?.nombre_corto || 'la otra empresa'} (se ve en su sección de Gastos)` : '';
+      toast((g ? 'Gasto corregido' : pendiente ? 'Pedido registrado como por pagar' : 'Gasto registrado') + otra + ' ✓');
       const fd = new Date(v.fecha + 'T12:00:00');
       if (fd.getMonth() !== f.mes || fd.getFullYear() !== f.anio) { f.mes = fd.getMonth(); f.anio = fd.getFullYear(); render(raiz); }
       else cargar();

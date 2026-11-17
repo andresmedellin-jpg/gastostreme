@@ -74,6 +74,8 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   los ve (lo impide `puede_ver_centro` en la base). Menús de centro en Gastos: solo centros con `centros.en_gastos`
   (false: Calzada San Pedro, Barton Creek, Ellion, Platino, Por asignar, Plazas (general); siguen en Rentas).
   Nómina pagada crea su gasto (categoría Nómina).
+  **Formulario de gasto (17/11/2026):** ofrece los centros de las DOS empresas aunque la persona esté en Treme o en MEDCO
+  (la suya primero); el gasto se guarda en la empresa del centro. Antes Victoria, parada en Treme, no veía las obras de MEDCO.
 - Corregir/borrar gastos: botón ✎ "Corregir gasto" (mismo registro) para administración y operación. Borrar (✕):
   administración cualquiera; operación (Victoria) solo los que ella capturó (`capturado_por` = su nombre, RLS 0020).
   Los 415 viejos con `capturado_por = 'Victoria'` del sistema anterior solo los borra administración.
