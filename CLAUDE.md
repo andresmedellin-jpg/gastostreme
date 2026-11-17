@@ -76,6 +76,8 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   Nómina pagada crea su gasto (categoría Nómina).
   **Formulario de gasto (17/11/2026):** ofrece los centros de las DOS empresas aunque la persona esté en Treme o en MEDCO
   (la suya primero); el gasto se guarda en la empresa del centro. Antes Victoria, parada en Treme, no veía las obras de MEDCO.
+  En Gastos de Treme o MEDCO, la fila de centros de arriba también muestra los de la otra empresa (gris, sin cifra); al tocar uno
+  cambia a esa empresa con ese centro elegido (antes del 11/11 el selector Grupo · Treme · MEDCO estaba a la vista y Victoria lo usaba).
 - Corregir/borrar gastos: botón ✎ "Corregir gasto" (mismo registro) para administración y operación. Borrar (✕):
   administración cualquiera; operación (Victoria) solo los que ella capturó (`capturado_por` = su nombre, RLS 0020).
   Los 415 viejos con `capturado_por = 'Victoria'` del sistema anterior solo los borra administración.

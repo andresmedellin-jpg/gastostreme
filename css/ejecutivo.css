@@ -312,6 +312,7 @@ tr.ry-pagado .ry-neto { color: var(--ok); }
 .cx-chip.activo { background: var(--ink); border-color: var(--ink); color: #fff; }
 .cx-chip.activo b { color: rgba(255,255,255,.6); }
 .cx-emp { font-weight: 600; }
+.cx-otra-eti { font-size: 10.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--e); margin-right: 2px; }
 .cx-eti { width: 100%; font-size: 10.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--e); margin-top: 4px; }
 @media (max-width: 760px) {
   .cx { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding: 0 14px 2px; }

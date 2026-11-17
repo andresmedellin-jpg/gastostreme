@@ -61,7 +61,11 @@ export async function render(view) {
 
   sel('g-mes').addEventListener('change', (e) => { f.mes = +e.target.value; cargar(); });
   sel('g-anio').addEventListener('change', (e) => { f.anio = +e.target.value; cargar(); });
-  sel('g-centro').addEventListener('click', (e) => { const b = e.target.closest('[data-cx]'); if (!b) return; f.centro = b.dataset.cx; pintar(); });
+  sel('g-centro').addEventListener('click', (e) => {
+    const ir = e.target.closest('[data-ir]');
+    if (ir) { const [mundo, id] = ir.dataset.ir.split('|'); f.centro = id; location.hash = `#/${mundo}/gastos`; return; }
+    const b = e.target.closest('[data-cx]'); if (!b) return; f.centro = b.dataset.cx; pintar();
+  });
   sel('g-q').addEventListener('input', (e) => { f.q = e.target.value.toLowerCase(); pintarTabla(); });
   sel('g-cat').addEventListener('change', (e) => { f.categoria = e.target.value; pintarTabla(); });
   sel('g-forma').addEventListener('change', (e) => { f.forma = e.target.value; pintarTabla(); });
@@ -114,7 +118,16 @@ function refrescarSelectorCentro() {
     return `<div class="cx-grupo">${varias ? chip('emp:' + e.id, 'Todo ' + e.nombre_corto, suma((g) => g.empresa_id === e.id), 'cx-emp') : ''}
       ${cs.map(({ c, m }) => chip(c.id, nombreCorto(c), m)).join('')}</div>`;
   }).join('');
-  s.innerHTML = chip('todos', varias ? 'Todo el grupo' : 'Todos los centros', suma(() => true), 'cx-todos') + bloques;
+  // Parada en Treme o en MEDCO: también se muestran los centros de la otra empresa (sin cifra); al tocar uno se cambia
+  // a esa empresa con ese centro elegido. Así quien captura (Victoria) llega a cualquier obra o edificio desde aquí.
+  const otras = estado.foco ? empresasForm().filter((e) => e.id !== estado.foco).map((e) => {
+    const cs = centrosForm().filter((c) => c.empresa_id === e.id && c.en_gastos !== false);
+    if (!cs.length) return '';
+    const mundo = /medco/i.test(e.nombre) ? 'medco' : 'treme';
+    return `<div class="cx-grupo cx-otra"><span class="cx-otra-eti" style="--e:var(--${mundo})">${esc(e.nombre_corto)}</span>
+      ${cs.map((c) => `<button class="cx-chip cero" data-ir="${mundo}|${c.id}" title="Ver los gastos de ${esc(nombreCorto(c))} en ${esc(e.nombre_corto)}"><span>${esc(nombreCorto(c))}</span></button>`).join('')}</div>`;
+  }).join('') : '';
+  s.innerHTML = chip('todos', varias ? 'Todo el grupo' : 'Todos los centros', suma(() => true), 'cx-todos') + bloques + otras;
 }
 const fmtCorto = (n) => n >= 1e6 ? `$${(n / 1e6).toFixed(1)} M` : n >= 1e3 ? `$${Math.round(n / 1e3)} mil` : fmt(n);
 
