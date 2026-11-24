@@ -115,13 +115,15 @@ async function cargar() {
         fuente: r.concepto === 'venta' && esObra(r.centro_id) ? 'construccion' : (FUENTES[r.concepto] ? r.concepto : 'manual'),
         monto: Number(r.monto),
         concepto: `${titulo}${quien ? ' — ' + quien : ''}`, forma: r.forma_pago, editable: false,
+        // Los abonos de obra o de compra se corrigen aquí; rentas, mantenimiento y luz en su propio módulo
+        corregir: (r.concepto === 'venta' || r.concepto === 'cartera') ? { tabla: 'pagos', raw: r, titulo: `${titulo}${quien ? ' — ' + quien : ''}` } : null,
         // Abonos de clientes de obra: se puede volver a sacar su recibo
         recibo: (r.concepto === 'venta' || r.concepto === 'cartera') ? { tabla: 'pagos', id: r.id, empresaId: r.empresa_id, centroId: r.centro_id, folio: r.folio, fecha: r.fecha,
           monto: Number(r.monto), concepto: titulo, cliente: quien || '', forma: r.forma_pago, notas: r.notas || '', abono: !!r.cxc_id } : null };
     }),
     ...i.data.map((r) => ({ id: r.id, mes: r.fecha.slice(0, 7), fecha: r.fecha, empresa_id: r.empresa_id, centro: centroDe(r.centro_id)?.nombre,
       fuente: fuenteDeCategoria(r.categoria), monto: Number(r.monto), concepto: r.concepto + (r.cliente ? ' — ' + r.cliente : ''), forma: r.forma_pago,
-      categoria: r.categoria, notas: r.notas, editable: true,
+      categoria: r.categoria, notas: r.notas, editable: true, corregir: { tabla: 'ingresos', raw: r, titulo: r.concepto },
       recibo: { tabla: 'ingresos', id: r.id, empresaId: r.empresa_id, centroId: r.centro_id, folio: r.folio, fecha: r.fecha, monto: Number(r.monto),
         concepto: r.concepto, cliente: r.cliente || '', forma: r.forma_pago, notas: r.notas || '' } })),
   ].filter((r) => r.mes >= desde.slice(0, 7) && r.mes < fin.slice(0, 7));
@@ -244,7 +246,7 @@ function pintar() {
           <td data-l="Fuente"><span class="ex-fuente"><i style="background:${FUENTES[r.fuente].c}"></i>${FUENTES[r.fuente].t}</span></td>
           <td data-l="Forma">${esc(r.forma || '—')}</td>
           <td data-l="Monto" class="num fuerte">${fmt(r.monto)}</td>
-          <td class="acciones">${r.recibo && esAdmin() ? `<button class="btn btn-ghost btn-sm" data-recibo="${r.id}" title="Recibo en PDF">Recibo</button>` : ''}${r.editable && esAdmin() ? `<button class="icon-btn peligro" data-borrar="${r.id}" aria-label="Eliminar ingreso" title="Eliminar">${X}</button>` : ''}</td>
+          <td class="acciones">${r.recibo && esAdmin() ? `<button class="btn btn-ghost btn-sm" data-recibo="${r.id}" title="Recibo en PDF">Recibo</button>` : ''}${r.corregir && esAdmin() ? `<button class="btn btn-ghost btn-sm" data-corregir="${r.id}" title="Corregir monto, fecha o forma">Corregir</button>` : ''}${r.editable && esAdmin() ? `<button class="icon-btn peligro" data-borrar="${r.id}" aria-label="Eliminar ingreso" title="Eliminar">${X}</button>` : ''}</td>
         </tr>`).join('') : '<tr><td colspan="7" class="vacio">Sin movimientos para este filtro.</td></tr>'}</tbody>
       </table></div>
       ${filas.length > 8 ? `<div class="ex-mas"><button type="button" class="btn btn-ghost btn-sm" id="i-todos">${st.todos ? 'Mostrar solo los más recientes' : `Ver los ${Math.min(filas.length, 400)} movimientos`}</button></div>` : ''}
@@ -269,6 +271,7 @@ function pintar() {
   }));
   cuerpo.querySelectorAll('[data-borrar]').forEach((b) => b.addEventListener('click', () => borrar(b.dataset.borrar)));
   cuerpo.querySelectorAll('[data-recibo]').forEach((b) => b.addEventListener('click', () => volverARecibo(b.dataset.recibo)));
+  cuerpo.querySelectorAll('[data-corregir]').forEach((b) => b.addEventListener('click', () => corregir(b.dataset.corregir)));
 }
 
 const X = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
@@ -494,6 +497,58 @@ async function volverARecibo(id) {
     if (data) { r.folio = data; await db().from(r.tabla).update({ folio: data }).eq('id', r.id); }
   }
   reciboIngreso(w, { ...r, saldo: null });
+}
+
+// Corregir un ingreso ya guardado (mismo registro): monto, fecha, forma y nota; en los capturados a mano también concepto, cliente y categoría.
+// Si es abono a una obra o a una compra, el saldo del cliente se ajusta solo.
+function corregir(id) {
+  const fila = ingresos.find((x) => x.id === id);
+  const c = fila?.corregir;
+  if (!c) return;
+  const r = c.raw, esIng = c.tabla === 'ingresos';
+  const formas = [...new Set([...FORMAS_COBRO, r.forma_pago].filter(Boolean))];
+  const modal = abrirModal({
+    titulo: 'Corregir ingreso',
+    cuerpo: `<form id="f-cor" class="form" novalidate>
+      <p class="sub-meta">${esc(c.titulo)}${fila.centro ? ' · ' + esc(fila.centro) : ''}${r.folio ? ' · Folio ' + esc(r.folio) : ''}</p>
+      <div class="form-2">
+        <label>Fecha<input type="date" name="fecha" value="${r.fecha || ''}" required></label>
+        <label>Monto<input type="number" name="monto" min="0.01" step="0.01" inputmode="decimal" value="${Number(r.monto)}" required></label>
+      </div>
+      ${esIng ? `<label>Concepto<input name="concepto" required maxlength="200" value="${esc(r.concepto || '')}"></label>
+      <div class="form-2">
+        <label>Cliente<input name="cliente" maxlength="120" value="${esc(r.cliente || '')}"></label>
+        <label>Categoría<select name="categoria">${[...new Set([...CATEGORIAS_INGRESO, r.categoria].filter(Boolean))].map((x) => `<option ${x === r.categoria ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label>
+      </div>` : ''}
+      <label>Forma de cobro<select name="forma">${formas.map((x) => `<option ${x === r.forma_pago ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label>
+      <label>Notas<textarea name="notas" rows="2">${esc(r.notas || '')}</textarea></label>
+      ${!esIng ? '<p class="nota">Es un abono a la cuenta del cliente: al guardar se ajusta su saldo en Obras.</p>' : ''}
+    </form>`,
+    pie: `<button class="btn btn-ghost" id="cor-del" style="margin-right:auto;color:var(--neg)">Eliminar</button>
+      <button class="btn btn-ghost" data-cerrar>Cancelar</button><button class="btn btn-primary" id="cor-ok">Guardar corrección</button>`,
+  });
+  modal.querySelector('[data-cerrar]').addEventListener('click', cerrarModal);
+  const f = modal.querySelector('#f-cor');
+  modal.querySelector('#cor-ok').addEventListener('click', async (ev) => {
+    if (!f.reportValidity()) return;
+    const monto = Number(f.monto.value);
+    if (!(monto > 0)) return toast('Escribe el monto', true);
+    const cambios = { fecha: f.fecha.value, monto, forma_pago: f.forma.value, notas: f.notas.value.trim() || null };
+    if (esIng) Object.assign(cambios, { concepto: f.concepto.value.trim(), cliente: f.cliente.value.trim() || null, categoria: f.categoria.value });
+    const btn = ev.currentTarget; btn.disabled = true; btn.textContent = 'Guardando…';
+    const { data, error } = await db().from(c.tabla).update(cambios).eq('id', r.id).select('id');
+    if (error || !data?.length) { btn.disabled = false; btn.textContent = 'Guardar corrección'; return toast('No se pudo corregir' + (error ? ': ' + error.message : ''), true); }
+    cerrarModal(); toast('Ingreso corregido');
+    cargar();
+  });
+  const del = modal.querySelector('#cor-del');
+  del.addEventListener('click', async () => {
+    if (!del.dataset.seguro) { del.dataset.seguro = '1'; del.textContent = `¿Eliminar ${fmt(r.monto)}? Toca otra vez`; return; }
+    del.disabled = true;
+    const { data, error } = await db().from(c.tabla).delete().eq('id', r.id).select('id');
+    if (error || !data?.length) { del.disabled = false; return toast('No se pudo eliminar' + (error ? ': ' + error.message : ''), true); }
+    cerrarModal(); toast('Ingreso eliminado'); cargar();
+  });
 }
 
 async function borrar(id) {
