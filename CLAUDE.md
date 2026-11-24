@@ -137,6 +137,9 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   botón "Recibo". MEDCO: "Desarrollos y Proyectos MEDCO", azul #1E4F9C, `img/logo-medco.png`, fila "Obra", IVA "No desglosado",
   saldo pendiente si abona a una cuenta de obra. Treme: formato de siempre. Folio `REC-AAAAMM-NNNN` por empresa con
   `app.siguiente_folio_empresa` (0032), guardado en `ingresos.folio` / `pagos.folio`; `siguiente_folio_cuota` también los cuenta.
+- **Corregir ingresos (24/11/2026):** en Resumen, "Corregir" en cada movimiento de ingreso a mano (`ingresos`: fecha, monto, concepto, cliente,
+  categoría, forma, notas) y en abonos de obra/compra (`pagos` venta/cartera: fecha, monto, forma, notas; el saldo del cliente se ajusta solo).
+  Dentro trae Eliminar (doble toque). Rentas, mantenimiento y luz se corrigen en su módulo.
 - **Recibo de abonos (13/11/2026):** Patrimonio > Por cobrar → Abono trae casilla "Generar recibo" (marcada); botón "Recibo" en cada cuenta
   con abonos (también en las liquidadas) lista sus abonos. `js/recibo-ingreso.js` (compartido con Inicio): saldo = original − abonos hasta ese pago;
   concepto "Abono a compra" / "Liquidación de compra" (cartera) o "Pago de obra"; folio por empresa si no tenía.
