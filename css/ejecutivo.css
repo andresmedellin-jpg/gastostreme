@@ -171,7 +171,8 @@ input[type="checkbox"], input[type="radio"] { box-shadow: none; height: auto; ac
 .view:focus, .view:focus-visible { outline: none; }
 
 /* ---------- Nómina y equipo: raya semanal ---------- */
-.ry { display: grid; gap: 16px; }
+.ry { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+.ry > * { min-width: 0; }
 .ry-barra { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .ry-semana { display: flex; align-items: center; gap: 10px; }
 .ry-semana > div { display: grid; line-height: 1.2; min-width: 170px; text-align: center; }
@@ -269,6 +270,7 @@ tr.ry-pagado .ry-neto { color: var(--ok); }
 }
 @media (max-width: 760px) {
   .ry-semana { width: 100%; justify-content: space-between; }
+  .ry-empresas { width: 100%; } .ry-empresas button { flex: 1; }
   .ry-centros { flex-wrap: nowrap; overflow-x: auto; width: 100%; padding-bottom: 2px; scrollbar-width: none; }
   .ry-centros .pill { flex: none; }
   .ry-resumen { grid-template-columns: 1fr 1fr; padding: 16px; }
@@ -802,6 +804,10 @@ tr.rt-pagado td { color: var(--text-2); }
 /* Raya semanal separada por centro (10/11/2026) */
 .ry-tabla tr.ry-grupo td { background: linear-gradient(180deg, #F7F5F1, #F1EFEA); border-top: 1px solid var(--border); padding: 12px 20px; }
 .ry-tabla tr.ry-grupo:first-child td { border-top: 0; }
+.ry-tabla tr.ry-emp td { background: #fff; border-top: 2px solid var(--ink, #101216); padding: 14px 20px 10px; font-size: 15px; }
+.ry-tabla tr.ry-emp:first-child td { border-top: 0; }
+.ry-tabla tr.ry-emp .ry-g span { color: var(--text-2); font-size: 13px; }
+.ry-empresas { margin: 0 0 10px; }
 .ry-g { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .ry-g-n { display: flex; align-items: baseline; gap: 10px; }
 .ry-g-n b { font-size: 14.5px; letter-spacing: -.01em; }
@@ -810,7 +816,8 @@ tr.rt-pagado td { color: var(--text-2); }
 .ry-g-c b { color: var(--text); font-weight: 600; margin-left: 4px; }
 .ry-g-ok { color: #0F7A4F !important; font-weight: 600; }
 @media (max-width: 760px) {
-  .ry-tabla tr.ry-grupo { display: block; }
+  .ry-tabla tr.ry-grupo, .ry-tabla tr.ry-emp { display: block; }
+  .ry-tabla tr.ry-emp td { display: block; padding: 12px 14px; } .ry-tabla tr.ry-emp td::before { content: none; }
   .ry-tabla tr.ry-grupo td { display: block; padding: 12px 14px; }
   .ry-tabla tr.ry-grupo td::before { content: none; }
   .ry-g-c { gap: 12px; flex-wrap: wrap; }

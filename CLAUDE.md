@@ -40,7 +40,7 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
    las secciones de ese mundo. Rutas `#/<mundo>/<módulo>` (las viejas `#/gastos` siguen sirviendo). En Treme o MEDCO,
    `estado.foco` = id de la empresa y `db()` (lib.js) agrega `.eq('empresa_id', foco)` a cada lectura de las tablas con empresa
    (`CON_EMPRESA`); `estado.empresas`/`estado.centros` quedan solo con esa empresa (las completas en `todasEmpresas`/`todosCentros`).
-   Grupo = Resumen del grupo, Patrimonio, Gastos consolidados, Importar, Usuarios. Treme = Resumen, Rentas, Mantenimiento (módulo `cobranza`:
+   Grupo = Resumen del grupo, Patrimonio, Gastos consolidados, Nómina, Banco, Importar, Usuarios. Treme = Resumen, Rentas, Mantenimiento (módulo `cobranza`:
    selector de edificio Torre Elysium · Plaza GM 202 · Plaza Hudson; Estado de cuenta anual unidad × mes, Pagos del mes, Deudores y,
    solo en Elysium, Reporte mensual), Gastos, Nómina y equipo, Bodegas, Patrimonio. MEDCO tiene "Material de obra" (mismo módulo `bodegas`).
    Selector de empresa sin burbujas: "Grupo" en texto y los dos logos; la activa con línea de su color.
@@ -49,6 +49,9 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
    **Nómina y equipo** (antes "Personal"): Hoy · Turnos · Raya semanal · Plantilla · Vacaciones · Préstamos. Raya = hoja de la semana
    (‹ semana ›, filtro por centro, días L–D para marcar faltas, sueldo, faltas, abono a préstamo editable, a pagar, Pagar);
    al pagar con abono: gasto de Nómina por el sueldo, `nomina_lineas.abono_prestamo` y un `prestamo_abonos`.
+   **Nómina del grupo (24/11/2026, petición de Andrés):** Raya semanal, Vacaciones y Préstamos viven SOLO en Grupo → "Nómina"
+   (módulo `rayas` en MODULOS, vista `personal` con `tabs`), con las dos empresas juntas: filtro Todas · Treme · MEDCO, total con
+   desglose por empresa y la hoja agrupada empresa → centro. En Treme y MEDCO "Nómina y equipo" queda con Hoy y Plantilla.
    Gastos: centros como botones con lo gastado en el mes (sin menú desplegable), también en el formulario.
    Patrimonio (reorganizado 09/11/2026): Panorama = 4 cifras (valor total con dólares, renta, rendimiento, deuda aparte), "Por revisar"
    plegado, barra de ocupación (rentado / disponible / uso propio) con la proyección plegada, tabla por plaza o dueño legal (toca una

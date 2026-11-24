@@ -90,6 +90,8 @@ export const MODULOS = [
   { id: 'inventario', grupo: 'Ventas',    titulo: 'Inventario',       icono: ICONOS.inventario, roles: ['dueno','administracion','operacion'], listo: true, opcional: true },
   { id: 'patrimonio', grupo: 'Finanzas',  titulo: 'Patrimonio',       icono: ICONOS.patrimonio, roles: ['dueno','socio'], listo: true },
   { id: 'personal',   grupo: 'Operación', titulo: 'Nómina y equipo',  icono: ICONOS.personal,   roles: ['dueno','administracion','encargado'], listo: true },
+  // Nómina del grupo: raya semanal, vacaciones y préstamos de las dos empresas en un solo lugar (en Grupo)
+  { id: 'rayas',      grupo: 'Finanzas',  titulo: 'Nómina',           icono: ICONOS.nomina,     roles: ['dueno','administracion'], listo: true, vista: 'personal', tabs: ['nomina', 'vacaciones', 'prestamos'] },
   // Personal separado en el menú (solo si la marca lo pide con sus ids en "modulos"; usan el módulo de Personal)
   { id: 'nomina',      grupo: 'Personal', titulo: 'Nómina',      icono: ICONOS.nomina,      roles: ['dueno','administracion'], listo: true, opcional: true, vista: 'personal', tab: 'nomina' },
   { id: 'asistencia',  grupo: 'Personal', titulo: 'Asistencia',  icono: ICONOS.asistencia,  roles: ['dueno','administracion','encargado'], listo: true, opcional: true, vista: 'personal', tab: 'asistencia' },
@@ -184,7 +186,7 @@ if (MARCA.modulos) MODULOS_ACTIVOS.sort((a, b) => MARCA.modulos.indexOf(a.id) - 
 // empresa: cómo se reconoce la empresa por su nombre (null = todas). titulos: nombre de la sección dentro de ese mundo.
 export const MUNDOS = [
   { id: 'grupo', nombre: 'Grupo', sub: 'Treme · MEDCO', empresa: null, color: '#101216',
-    modulos: ['inicio', 'patrimonio', 'gastos', 'banco', 'importar', 'usuarios'], titulos: { inicio: 'Resumen del grupo', gastos: 'Gastos consolidados', patrimonio: 'Patrimonio' } },
+    modulos: ['inicio', 'patrimonio', 'gastos', 'rayas', 'banco', 'importar', 'usuarios'], titulos: { inicio: 'Resumen del grupo', gastos: 'Gastos consolidados', patrimonio: 'Patrimonio' } },
   { id: 'treme', nombre: 'Treme', sub: 'Grupo Inmobiliario', empresa: /treme/i, color: '#8B1A1A', logo: 'logo-treme',
     modulos: ['inicio', 'rentas', 'cobranza', 'servicios', 'lecturas', 'gastos', 'personal', 'bodegas', 'pedidos', 'patrimonio'],
     titulos: { inicio: 'Resumen', cobranza: 'Mantenimiento', pedidos: 'Limpieza', servicios: 'Luz, gas y agua', lecturas: 'Lecturas' } },

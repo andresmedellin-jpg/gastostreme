@@ -49,7 +49,11 @@ export async function render(view, mod) {
   raiz = view;
   fijo = mod?.tab || null;
   if (fijo) st.tab = fijo;
-  const tabs = admin() ? PRINCIPALES : PRINCIPALES.slice(0, 1);
+  // En Grupo, "Nómina" junta raya, vacaciones y préstamos de las dos empresas; en Treme y MEDCO queda lo de operación
+  const NOMINA = ['nomina', 'vacaciones', 'prestamos'];
+  grupoNomina = !!mod?.tabs;
+  const tabs = grupoNomina ? PRINCIPALES.filter(([id]) => mod.tabs.includes(id))
+    : admin() ? PRINCIPALES.filter(([id]) => !estado.mundo || !NOMINA.includes(id)) : PRINCIPALES.slice(0, 1);
   if (st.tab === 'semana') st.tab = 'turnos';
   if (st.tab === 'personas') st.tab = 'empleados';
   if (!st.tab || (!PADRE[st.tab] && !tabs.some(([id]) => id === st.tab)) || (PADRE[st.tab] && !tabs.some(([id]) => id === PADRE[st.tab]))) st.tab = tabs[0][0];
@@ -71,7 +75,7 @@ export async function render(view, mod) {
       <div class="p-der">
         <div id="p-centro" class="ry-centros" role="tablist" aria-label="Centro" ${visibles.length < 2 ? 'hidden' : ''}>
           ${visibles.map((c) => `<button class="pill ${c.id === st.centro ? 'activa' : ''}" data-pc="${c.id}">${esc(c.nombre)}</button>`).join('')}</div>
-        ${tieneRol(['administracion', 'encargado']) && !fijo ? '<button class="btn btn-ghost" id="p-conf" title="Rondín, tareas de cada día, QR del elevador">Configurar</button>' : ''}
+        ${tieneRol(['administracion', 'encargado']) && !fijo && !grupoNomina ? '<button class="btn btn-ghost" id="p-conf" title="Rondín, tareas de cada día, QR del elevador">Configurar</button>' : ''}
       </div>
     </div>
     <div id="p-volver"></div>
@@ -83,6 +87,7 @@ export async function render(view, mod) {
   await pintar();
 }
 
+let grupoNomina = false;
 const irA = (t) => { st.tab = t; pintar(); window.scrollTo({ top: 0 }); };
 const contexto = () => ({ centro: st.centro, equipo, fecha: st.fecha, st, unidades: unidadesC, contratos: contratosC, irA, repintar: pintar,
   cambiarFecha: (f) => { st.fecha = f; pintar(); }, barraFecha, enlazarFecha });
@@ -432,7 +437,15 @@ async function nomina(el) {
   // Centros con gente, para filtrar la hoja
   const centrosConGente = [...new Set(emp.data.map((e) => e.centro_id || ''))].sort((a, b) => nombreCentro(a).localeCompare(nombreCentro(b), 'es'));
   if (st.rayaCentro && !centrosConGente.includes(st.rayaCentro)) st.rayaCentro = null;
-  const visibles = () => emp.data.filter((e) => !st.rayaCentro || (e.centro_id || '') === st.rayaCentro);
+  // En Grupo: las dos empresas juntas, con filtro Todos · Treme · MEDCO y subtotal por empresa
+  const empresasR = !estado.foco ? estado.empresas.filter((x) => emp.data.some((e) => e.empresa_id === x.id)) : [];
+  if (st.rayaEmp && !empresasR.some((x) => x.id === st.rayaEmp)) st.rayaEmp = null;
+  const nomEmp = (id) => estado.empresas.find((x) => x.id === id)?.nombre_corto || 'Sin empresa';
+  const empDeCentro = (c) => estado.centros.find((x) => x.id === c)?.empresa_id || emp.data.find((e) => (e.centro_id || '') === c)?.empresa_id || '';
+  const deEmp = (e) => !st.rayaEmp || e.empresa_id === st.rayaEmp;
+  if (st.rayaCentro && st.rayaEmp && empDeCentro(st.rayaCentro) !== st.rayaEmp) st.rayaCentro = null;
+  const visibles = () => emp.data.filter((e) => deEmp(e) && (!st.rayaCentro || (e.centro_id || '') === st.rayaCentro));
+  const centrosDeEmp = () => centrosConGente.filter((c) => !st.rayaEmp || empDeCentro(c) === st.rayaEmp);
   const pendientesDe = () => visibles().filter((e) => !pagoDe(e.id));
   const actual = lunesDe(hoy);
 
@@ -445,9 +458,12 @@ async function nomina(el) {
         <button class="icon-btn" data-sem="7" aria-label="Semana siguiente" ${sem >= actual ? 'disabled' : ''}>›</button>
         ${sem !== actual ? '<button class="btn btn-sm btn-ghost" data-sem="0">Ir a esta semana</button>' : ''}
       </div>
-      ${centrosConGente.length > 1 ? `<div class="ry-centros" role="tablist">
-        <button class="pill ${!st.rayaCentro ? 'activa' : ''}" data-rc="">Todos <span>${emp.data.length}</span></button>
-        ${centrosConGente.map((c) => `<button class="pill ${st.rayaCentro === c ? 'activa' : ''}" data-rc="${c}">${esc(nombreCentro(c))} <span>${emp.data.filter((e) => (e.centro_id || '') === c).length}</span></button>`).join('')}
+      ${empresasR.length > 1 ? `<div class="segmento ry-empresas" role="tablist">
+        <button class="${!st.rayaEmp ? 'activo' : ''}" data-re="">Todas · ${emp.data.length}</button>
+        ${empresasR.map((x) => `<button class="${st.rayaEmp === x.id ? 'activo' : ''}" data-re="${x.id}">${esc(x.nombre_corto)} · ${emp.data.filter((e) => e.empresa_id === x.id).length}</button>`).join('')}</div>` : ''}
+      ${centrosDeEmp().length > 1 ? `<div class="ry-centros" role="tablist">
+        <button class="pill ${!st.rayaCentro ? 'activa' : ''}" data-rc="">Todos <span>${emp.data.filter(deEmp).length}</span></button>
+        ${centrosDeEmp().map((c) => `<button class="pill ${st.rayaCentro === c ? 'activa' : ''}" data-rc="${c}">${esc(nombreCentro(c))} <span>${emp.data.filter((e) => (e.centro_id || '') === c).length}</span></button>`).join('')}
       </div>` : ''}
     </div>
     <section class="ry-resumen" id="ry-resumen"></section>
@@ -490,7 +506,9 @@ async function nomina(el) {
     const pend = pendientesDe(), hechos = lista.length - pend.length;
     const pct = lista.length ? Math.round((hechos / lista.length) * 100) : 0;
     el.querySelector('#ry-resumen').innerHTML = `
-      <div class="ry-cifra"><span>Raya de la semana</span><strong>${fmt(total)}</strong><small>${lista.length} persona${lista.length === 1 ? '' : 's'}</small></div>
+      <div class="ry-cifra"><span>Raya de la semana</span><strong>${fmt(total)}</strong><small>${empresasR.length > 1 && !st.rayaEmp
+        ? empresasR.map((x) => `${esc(x.nombre_corto)} ${fmt(lista.filter((e) => e.empresa_id === x.id).reduce((s, e) => { const p = pagoDe(e.id); return s + (p ? pagadoDe(p) : netoDe(e)); }, 0))}`).join(' · ')
+        : `${lista.length} persona${lista.length === 1 ? '' : 's'}`}</small></div>
       <div class="ry-cifra"><span>Entregado</span><strong class="pos">${fmt(pagado)}</strong><small>${hechos} de ${lista.length}</small></div>
       <div class="ry-cifra"><span>Falta entregar</span><strong>${fmt(Math.max(0, total - pagado))}</strong><small>${pend.length} pendiente${pend.length === 1 ? '' : 's'}</small></div>
       <div class="ry-avance"><div class="ry-pista"><span style="width:${pct}%"></span></div><small>${pct} % pagado</small></div>
@@ -511,10 +529,23 @@ async function nomina(el) {
     </div></td></tr>`;
   };
   const pintarFilas = () => {
-    const centros = [...new Set(visibles().map((e) => e.centro_id || ''))].sort((a, b) => nombreCentro(a).localeCompare(nombreCentro(b), 'es'));
+    const centros = [...new Set(visibles().map((e) => e.centro_id || ''))]
+      .sort((a, b) => nomEmp(empDeCentro(a)).localeCompare(nomEmp(empDeCentro(b)), 'es') || nombreCentro(a).localeCompare(nombreCentro(b), 'es'));
     // dentro de cada centro: pendientes primero y luego los pagados, por nombre
     const orden = (a, b) => (!!pagoDe(a.id) - !!pagoDe(b.id)) || a.nombre.localeCompare(b.nombre, 'es');
-    el.querySelector('#ry-filas').innerHTML = centros.map((c) => encabezado(c) + deCentro(c).sort(orden).map(fila).join('')).join('')
+    // Con las dos empresas a la vista, cada una lleva su encabezado con su total
+    const porEmpresa = empresasR.length > 1 && !st.rayaEmp;
+    const tituloEmp = (id) => {
+      const l = visibles().filter((e) => (e.empresa_id || '') === id);
+      const t = l.reduce((s, e) => { const p = pagoDe(e.id); return s + (p ? pagadoDe(p) : netoDe(e)); }, 0);
+      return `<tr class="ry-emp"><td colspan="6"><div class="ry-g"><b>${esc(nomEmp(id))}</b><span>${l.length} persona${l.length === 1 ? '' : 's'} · Raya <b>${fmt(t)}</b></span></div></td></tr>`;
+    };
+    let ultima = null;
+    el.querySelector('#ry-filas').innerHTML = centros.map((c) => {
+      const ce = empDeCentro(c), cab = porEmpresa && ce !== ultima ? tituloEmp(ce) : '';
+      ultima = ce;
+      return cab + encabezado(c) + deCentro(c).sort(orden).map(fila).join('');
+    }).join('')
       || '<tr><td colspan="6" class="vacio">Sin colaboradores activos.</td></tr>';
     pintarResumen();
   };
@@ -523,6 +554,7 @@ async function nomina(el) {
     if (tr) tr.outerHTML = fila(e);
     const g = el.querySelector(`tr[data-grupo="${e.centro_id || ''}"]`);
     if (g) g.outerHTML = encabezado(e.centro_id || '');
+    if (el.querySelector('tr.ry-emp')) { pintarFilas(); return; }
     pintarResumen();
   };
   pintarFilas();
@@ -531,6 +563,7 @@ async function nomina(el) {
   el.querySelectorAll('[data-sem]').forEach((b) => b.addEventListener('click', () => {
     st.semana = +b.dataset.sem === 0 ? actual : sumarDias(sem, +b.dataset.sem); pintar();
   }));
+  el.querySelectorAll('[data-re]').forEach((b) => b.addEventListener('click', () => { st.rayaEmp = b.dataset.re || null; st.rayaCentro = null; nomina(el.parentElement); }));
   el.querySelectorAll('[data-rc]').forEach((b) => b.addEventListener('click', () => { st.rayaCentro = b.dataset.rc || null; nomina(el.parentElement); }));
   const porId = (id) => emp.data.find((x) => x.id === id);
   el.addEventListener('input', (ev) => {
