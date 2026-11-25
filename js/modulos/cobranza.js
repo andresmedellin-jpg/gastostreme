@@ -7,6 +7,7 @@ const CONDOMINIO = MARCA.condominio || 'Torre Elysium';
 const EMISOR = MARCA.reciboEmpresa || 'Grupo Inmobiliario Treme';
 import { pintarRecibo, abrirVentanaRecibo } from '../recibo.js';
 import { db, todo, estado, tieneRol, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal } from '../lib.js';
+import { cifrasMes, tarjetasCobro } from '../cobro-mes.js';
 
 const CONCEPTOS = {
   mantenimiento: { titulo: 'Mantenimiento', icono: '' },
@@ -26,6 +27,23 @@ const st = {
   q: '',
   centroId: null,                         // edificio abierto
 };
+// Se recuerda dónde se quedó (pestaña, mantenimiento/luz y edificio) para volver directo la próxima vez
+const GUARDA = 'cb:ultimo';
+try { const g = JSON.parse(localStorage.getItem(GUARDA) || 'null'); if (g) Object.assign(st, { vista: g.vista || null, concepto: g.concepto || 'mantenimiento', centroId: g.centroId || null }); } catch (e) { /* sin memoria */ }
+const recordar = () => { try { localStorage.setItem(GUARDA, JSON.stringify({ vista: st.vista, concepto: st.concepto, centroId: st.centroId })); } catch (e) { /* sin memoria */ } };
+// Ligas directas (desde el Resumen): #/treme/cobranza?vista=mes&concepto=luz&mes=10&anio=2026&edificio=<id>
+function leerLiga() {
+  const i = location.hash.indexOf('?');
+  if (i < 0) return;
+  const q = new URLSearchParams(location.hash.slice(i + 1));
+  if (q.get('vista')) st.vista = q.get('vista');
+  if (CONCEPTOS[q.get('concepto')]) st.concepto = q.get('concepto');
+  if (q.get('mes') !== null && !isNaN(+q.get('mes'))) st.mes = Math.max(0, Math.min(11, +q.get('mes')));
+  if (+q.get('anio') > 2000) st.anio = +q.get('anio');
+  if (q.get('edificio')) st.centroId = q.get('edificio');
+  if (q.get('vista') || q.get('concepto')) { st.q = ''; st.filtro = 'todos'; }
+  history.replaceState(null, '', location.hash.slice(0, i));     // la liga se usa una vez; recargar deja la pantalla como esté
+}
 let centro, edificios = [], unidades = [], cuotas = [], pagos = [], raiz;
 // ¿Este edificio cobra luz? (Torre Elysium sí; las plazas solo mantenimiento)
 const conLuz = () => cuotas.some((c) => c.concepto === 'luz' && c.en_padron);
@@ -39,6 +57,7 @@ const veDinero = () => tieneRol(['administracion']);
 
 export async function render(view) {
   raiz = view;
+  leerLiga();
   // Edificios con unidades que esta persona puede ver
   if (!edificios.length) {
     // Edificios con cuotas que esta persona puede ver (Víctor: solo los que cobran luz)
@@ -55,8 +74,9 @@ export async function render(view) {
   if (!centro) { view.innerHTML = '<div class="vacio">No tienes edificios asignados para cobrar mantenimiento.</div>'; return; }
   st.centroId = centro.id;
   if (!esCondominio() && st.vista === 'reporte') st.vista = 'cuenta';
-  if (!st.vista) st.vista = veDinero() ? 'cuenta' : 'cobro';            // quien cobra entra directo a "Cobro del mes"
+  if (!st.vista) st.vista = veDinero() ? 'mes' : 'cobro';               // dueños: Pagos del mes; quien cobra: Cobro del mes
   if (!veDinero() && !['cobro', 'cuenta'].includes(st.vista)) st.vista = 'cobro';
+  if (veDinero() && st.vista === 'cobro') st.vista = 'mes';
   const selEdif = edificios.length > 1 ? `<select class="cb-edif-sel" id="c-edif" aria-label="Edificio">${edificios.map((c) =>
       `<option value="${c.id}" ${c.id === centro.id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select>` : '';
   view.innerHTML = `
@@ -137,6 +157,7 @@ const colorPct = (p) => p >= 80 ? 'ok' : p >= 50 ? 'medio' : 'bajo';
 
 // ---------- pintar ----------
 function pintar() {
+  recordar();
   raiz.querySelectorAll('[data-vista]').forEach((b) => b.setAttribute('aria-selected', b.dataset.vista === st.vista));
   raiz.querySelector('#c-meses').innerHTML = CORTO.map((m, i) =>
     `<button class="pill ${i === st.mes ? 'activa' : ''}" data-mes="${i}">${m}</button>`).join('');
@@ -392,15 +413,27 @@ function pintarConcepto(el, concepto) {
     return true;
   });
   const puedeCapturar = tieneRol(['administracion', 'cobranza']);
-  el.innerHTML = `
-    <div class="segmento cb-conc" ${conceptosDe().length > 1 ? '' : 'hidden'}>${Object.entries(CONCEPTOS).filter(([k]) => conceptosDe().includes(k)).map(([k, c]) => `<button data-conc="${k}" class="${k === concepto ? 'activo' : ''}">${c.titulo}</button>`).join('')}</div>
+  // Con mantenimiento y luz: una tarjeta por concepto (cuánto va cobrado de cada uno) que también sirve para cambiar de lista
+  const dos = conceptosDe().length > 1;
+  const cifras = (k) => cifrasMes(padron(k).map((r) => ({ cuota: Number(r.cuota.monto) || 0, exento: r.exento, pagado: r.pagado(m) })));
+  const tarjetas = dos ? tarjetasCobro({ conceptos: Object.fromEntries(conceptosDe().map((k) => [k, cifras(k)])),
+    periodo: `${MESES[m]} ${st.anio}`, activo: concepto, destino: () => ({}) }) : '';
+  el.innerHTML = dos ? `${tarjetas}${tablaConcepto(filas, m, puedeCapturar, concepto)}` : `
+    <div class="segmento cb-conc" hidden>${Object.entries(CONCEPTOS).filter(([k]) => conceptosDe().includes(k)).map(([k, c]) => `<button data-conc="${k}" class="${k === concepto ? 'activo' : ''}">${c.titulo}</button>`).join('')}</div>
     <div class="kpis">
       <div class="kpi"><span>Unidades que pagan</span><strong>${s.n}</strong><small>${MESES[m]} ${st.anio}</small></div>
       <div class="kpi"><span>Pagaron</span><strong class="pos">${s.pagaron}</strong><small>${fmt(s.cobrado)} cobrado</small></div>
       <div class="kpi"><span>Pendientes</span><strong class="neg">${s.n - s.pagaron}</strong><small>${fmt(s.pendiente)} por cobrar</small></div>
       <div class="kpi"><span>% de cobranza</span><strong>${s.pct}%</strong><small>unidades al corriente</small></div>
     </div>
+    ${tablaConcepto(filas, m, puedeCapturar, concepto)}`;
+  conectarConcepto(el, concepto, todas, m);
+}
+
+function tablaConcepto(filas, m, puedeCapturar, concepto) {
+  return `
     <section class="panel">
+      ${conceptosDe().length > 1 ? `<h3 class="cbm-titulo">${CONCEPTOS[concepto].titulo} · ${MESES[m]} ${st.anio}</h3>` : ''}
       <div class="panel-head">
         <div class="segmento">${[['todos','Todas'],['pagados','Pagadas'],['pendientes','Pendientes']]
           .map(([id, t]) => `<button data-filtro="${id}" class="${st.filtro === id ? 'activo' : ''}">${t}</button>`).join('')}</div>
@@ -412,7 +445,9 @@ function pintarConcepto(el, concepto) {
           : `<tr><td colspan="8" class="vacio">Sin unidades para este filtro</td></tr>`}</tbody>
       </table></div>
     </section>`;
+}
 
+function conectarConcepto(el, concepto, todas, m) {
   el.querySelectorAll('[data-filtro]').forEach((b) => b.addEventListener('click', () => { st.filtro = b.dataset.filtro; pintar(); }));
   el.querySelectorAll('[data-conc]').forEach((b) => b.addEventListener('click', () => { st.concepto = b.dataset.conc; pintar(); }));
   const q = el.querySelector('#c-q');

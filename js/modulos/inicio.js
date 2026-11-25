@@ -5,6 +5,7 @@ import { MESES, FORMAS_COBRO, MARCA } from '../config.js';
 import { db, todo, estado, tieneRol, esAdmin, fmt, fmtFecha, hoyISO, esc, toast, abrirModal, cerrarModal, normalizar } from '../lib.js';
 import { abrirVentanaRecibo } from '../recibo.js';
 import { reciboIngreso, reciboDeAbono } from '../recibo-ingreso.js';
+import { cifrasMes, tarjetasCobro } from '../cobro-mes.js';
 
 const PRIVADOS = [];   // Casa y Socios sí son gasto de la empresa (todo sale de la empresa); Victoria no los ve por la base
 const FUENTES = {
@@ -33,6 +34,9 @@ function notaFuente(k, v) {
 }
 const st = { anio: new Date().getFullYear(), mes: new Date().getMonth(), empresa: '', fuente: '', q: '', todos: false };
 let raiz, ingresos = [], gastos = [], porPagar = [], contratosAct = [];
+// Acceso directo a la cobranza de Torre Elysium (mantenimiento y luz del mes), para no dar cinco clics
+const CONDOMINIO = MARCA.condominio || 'Torre Elysium';
+let pagosCuota = [], padronEly = null;   // pagos de mantenimiento/luz del periodo y cuotas de Elysium
 
 export async function render(view) {
   raiz = view;
@@ -96,6 +100,8 @@ async function cargar() {
   ]);
   const err = p.error || i.error || g.error;
   if (err) { toast('No se pudo cargar: ' + err.message, true); return; }
+  pagosCuota = p.data.filter((r) => r.concepto === 'mantenimiento' || r.concepto === 'luz');
+  await cargarPadronEly();
   const contratos = new Map((c.data || []).map((r) => [r.id, r.arrendatario]));
   contratosAct = (c.data || []).filter((r) => r.activo && Number(r.monto) > 0 && (r.moneda || 'MXN') !== 'USD');
   const unidades = new Map((u.data || []).map((r) => [r.id, r.identificador]));
@@ -134,6 +140,38 @@ async function cargar() {
   const pp = await todo(() => db().from('gastos').select('id, empresa_id, centro_id, monto').eq('estado', 'por_pagar'));
   porPagar = (pp.data || []).filter((r) => !PRIVADOS.includes(centroDe(r.centro_id)?.tipo)).map((r) => ({ ...r, monto: Number(r.monto) }));
   pintar();
+}
+
+// Cuotas de mantenimiento y luz de las unidades activas de Elysium (solo dueños y administración ven estas cifras)
+async function cargarPadronEly() {
+  const ely = estado.centros.find((c) => c.nombre === CONDOMINIO);
+  if (!ely || !tieneRol(['administracion'])) { padronEly = null; return; }
+  if (padronEly?.centro === ely.id) return;                       // ya cargado
+  const [u, q] = await Promise.all([
+    db().from('unidades').select('id').eq('centro_id', ely.id).eq('activo', true),
+    todo(() => db().from('cuotas').select('unidad_id, concepto, monto, activo, en_padron').eq('en_padron', true).in('concepto', ['mantenimiento', 'luz'])),
+  ]);
+  if (u.error || q.error) { padronEly = null; return; }
+  const ids = new Set((u.data || []).map((x) => x.id));
+  padronEly = { centro: ely.id, cuotas: (q.data || []).filter((x) => ids.has(x.unidad_id)) };
+}
+
+function cobranzaEly(clave) {
+  if (!padronEly || (st.empresa && estado.centros.find((c) => c.id === padronEly.centro)?.empresa_id !== st.empresa)) return '';
+  const ks = ['mantenimiento', 'luz'].filter((k) => padronEly.cuotas.some((c) => c.concepto === k));
+  if (!ks.length) return '';
+  const delMes = pagosCuota.filter((r) => r.centro_id === padronEly.centro && String(r.periodo || '').slice(0, 7) === clave);
+  const cifras = (k) => {
+    const pagos = delMes.filter((r) => r.concepto === k);
+    const filas = padronEly.cuotas.filter((c) => c.concepto === k).map((c) => ({ cuota: Number(c.monto) || 0, exento: !c.activo, pagado: pagos.filter((r) => r.unidad_id === c.unidad_id).reduce((s2, r) => s2 + Number(r.monto), 0) }));
+    return cifrasMes(filas);
+  };
+  const liga = (k) => `#/treme/cobranza?vista=mes&edificio=${padronEly.centro}&mes=${st.mes}&anio=${st.anio}${k ? `&concepto=${k}` : ''}`;
+  return `<section class="panel cbm-panel">
+    <div class="panel-head"><div><h3>Cobranza de ${esc(CONDOMINIO)}</h3><span class="ex-sub">Mantenimiento y luz de ${esc(MESES[st.mes].toLowerCase())} ${st.anio}. Toca una tarjeta para ver quién falta.</span></div>
+      <a class="btn btn-ghost btn-sm" href="${liga('')}">Abrir cobranza →</a></div>
+    ${tarjetasCobro({ conceptos: Object.fromEntries(ks.map((k) => [k, cifras(k)])), periodo: MESES[st.mes], destino: (k) => ({ href: liga(k) }) })}
+  </section>`;
 }
 
 const deEmpresa = (r) => !st.empresa || r.empresa_id === st.empresa;
@@ -196,6 +234,8 @@ function pintar() {
           <small>Utilidad mensual promedio</small></div>
       </div>
     </section>
+
+    ${cobranzaEly(clave)}
 
     <section class="panel ex-flujo">
       <div class="panel-head"><div><h3>Flujo de los últimos seis meses</h3><span class="ex-sub">Ingresos y egresos por mes, con la utilidad de cada uno</span></div>

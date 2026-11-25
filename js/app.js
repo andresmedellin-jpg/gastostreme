@@ -230,7 +230,8 @@ function gruposDe(w) {
   return (GRUPOS[w.id] || []).map((g) => ({ ...g, mods: g.subs.map((id) => w.mods.find((m) => m.id === id)).filter(Boolean) }))
     .filter((g) => g.mods.length > 1);
 }
-const ultimoDeGrupo = {};                                  // la pestaña que se usó la última vez en cada grupo
+// La pestaña que se usó la última vez en cada grupo (se recuerda entre visitas: si lo último fue Mantenimiento, "Cobranza" abre ahí)
+const ultimoDeGrupo = (() => { try { return JSON.parse(localStorage.getItem('nav:grupos') || '{}') || {}; } catch (e) { return {}; } })();
 const ICONO = (id) => MODULOS.find((m) => m.id === id)?.icono || '';
 
 function pintarNav(w, todos) {
@@ -312,7 +313,7 @@ async function navegar() {
   document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('active', a.dataset.mods.split(',').includes(mod.id)));
   // Pestañas del grupo (Cobranza: Rentas | Mantenimiento; Edificio: Equipo | Bodegas)
   const grupo = gruposDe(w).find((g) => g.mods.some((x) => x.id === mod.id));
-  if (grupo) ultimoDeGrupo[grupo.id] = mod.id;
+  if (grupo) { ultimoDeGrupo[grupo.id] = mod.id; try { localStorage.setItem('nav:grupos', JSON.stringify(ultimoDeGrupo)); } catch (e) { /* sin memoria */ } }
   $('subnav').hidden = !grupo;
   $('subnav').innerHTML = grupo ? `<div class="segmento" role="tablist">${grupo.mods.map((x) =>
     `<a role="tab" href="#/${w.id}/${x.id}" class="${x.id === mod.id ? 'activo' : ''}" aria-selected="${x.id === mod.id}">${esc(grupo.etiquetas?.[x.id] || tituloEn(w, x))}</a>`).join('')}</div>` : '';

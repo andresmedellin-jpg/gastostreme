@@ -220,6 +220,12 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 - Un pago registrado siempre se ve aunque la unidad esté "sin cobro" (marca verde en el estado de cuenta; en Cobro del mes aparece ese mes).
   Revisión 11/11/2026: todo lo del sistema viejo (respaldo_20261012.pagos y catalogo_cobranza) está en app.pagos; lo único que no está
   son 5 pagos de luz (locales 7 y 31 y 32) que Victoria borró y recapturó el 02/11 (bitácora), y meses del catálogo que ya tenían pago.
+- **Acceso rápido a la cobranza de Elysium (25/11/2026, petición de Andrés: "para llegar tengo que picarle a 5 pestañas"):** el Resumen de
+  Grupo y de Treme trae la tarjeta "Cobranza de Torre Elysium" (mantenimiento, luz y total del mes: cobrado de lo esperado, unidades que
+  pagaron, por cobrar); cada tarjeta es liga directa `#/treme/cobranza?vista=mes&concepto=luz&mes=&anio=&edificio=` (cobranza.js `leerLiga`).
+  En Pagos del mes, si el edificio tiene mantenimiento y luz, las mismas tarjetas (`js/cobro-mes.js`) reemplazan los 4 KPIs y sirven para
+  cambiar de lista. Dueños entran por omisión a Pagos del mes. Se recuerda la última pestaña/concepto/edificio (`localStorage cb:ultimo`)
+  y la última sub-pestaña de cada grupo del menú (`nav:grupos`): "Cobranza" abre Mantenimiento si fue lo último.
 - Corregir pagos (11/11/2026): "Ver / corregir" → Corregir (mismo registro: mantenimiento↔luz, mes, monto, fecha, forma, nota) o Eliminar. Quien cobra puede corregir cualquier pago de sus edificios/conceptos (RLS pagos_editar/pagos_borrar); queda en la bitácora.
 - WhatsApp quitado a petición de Andrés (11/11/2026; lo verá más adelante). `unidades.telefono` se conserva (✎ de la unidad).
 - Plaza Hudson y Plaza GM 202: 11 locales cada una, importados del Excel de Barby (0036, `legacy_id 'barby:<plaza>:<local>'`),

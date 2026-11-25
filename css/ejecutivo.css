@@ -993,3 +993,30 @@ tr.rt-pagado td { color: var(--text-2); }
 .pz-liq li { align-items: center; gap: 10px; }
 .pz-liq li b { margin-left: auto; }
 .form label.check-linea { display: inline-flex; flex-direction: row; align-items: center; gap: 8px; }
+
+/* ---------- cobranza del mes: tarjetas de mantenimiento y luz (Pagos del mes y Resumen, 25/11/2026) ---------- */
+.cbm { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.cbm.uno { grid-template-columns: minmax(0, 360px); }
+.cbm-c { display: grid; gap: 4px; align-content: start; text-align: left; font: inherit; color: inherit; text-decoration: none;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow); }
+a.cbm-c, button.cbm-c { cursor: pointer; transition: border-color .15s; }
+a.cbm-c:hover, button.cbm-c:hover { border-color: #101216; }
+.cbm-c.activo { border-color: #101216; box-shadow: inset 0 0 0 1px #101216, var(--shadow); }
+.cbm-eti { font-size: 10.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--text-3); }
+.cbm-c strong { font-size: 26px; font-weight: 600; letter-spacing: -.03em; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.cbm-de { font-size: 13px; color: var(--text-2, #4A4F57); font-variant-numeric: tabular-nums; }
+.cbm-c .ry-pista { margin: 6px 0 4px; }
+.cbm-c small { font-size: 12.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.cbm-c small b { color: var(--text); font-weight: 600; } .cbm-c small b.neg { color: var(--neg); }
+.cbm-ver { font-size: 12px; font-weight: 600; color: var(--text); margin-top: 4px; }
+.cbm-c.activo .cbm-ver { color: var(--text-3); font-weight: 500; }
+.cbm-total { background: #FAF9F6; }
+.cbm-titulo { font-size: 15px; font-weight: 600; margin: 0 0 10px; }
+.cbm-panel .cbm { margin-bottom: 0; }
+@media (max-width: 760px) {
+  .cbm { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .cbm.uno { grid-template-columns: 1fr; }
+  .cbm-c { padding: 13px 14px; }
+  .cbm-c strong { font-size: 21px; }
+  .cbm-total { grid-column: 1 / -1; }
+}
