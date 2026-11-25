@@ -76,13 +76,14 @@ export async function render(view) {
   if (!esCondominio() && st.vista === 'reporte') st.vista = 'cuenta';
   if (!st.vista) st.vista = veDinero() ? 'mes' : 'cobro';               // dueños: Pagos del mes; quien cobra: Cobro del mes
   if (!veDinero() && !['cobro', 'cuenta'].includes(st.vista)) st.vista = 'cobro';
-  if (veDinero() && st.vista === 'cobro') st.vista = 'mes';
+  // Dueños: solo Pagos del mes y Reporte mensual (Estado de cuenta y Deudores se quitaron el 25/11/2026 a petición de Andrés)
+  if (veDinero() && !['mes', 'reporte'].includes(st.vista)) st.vista = 'mes';
   const selEdif = edificios.length > 1 ? `<select class="cb-edif-sel" id="c-edif" aria-label="Edificio">${edificios.map((c) =>
       `<option value="${c.id}" ${c.id === centro.id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select>` : '';
   view.innerHTML = `
     <div class="sub-head cb-subhead">
       <div class="tabs" role="tablist">
-        ${(veDinero() ? [['cuenta','Estado de cuenta'],['mes','Pagos del mes'],['deudores','Deudores'], ...(esCondominio() ? [['reporte','Reporte mensual']] : [])]
+        ${(veDinero() ? [['mes','Pagos del mes'], ...(esCondominio() ? [['reporte','Reporte mensual']] : [])]
           : [['cobro','Cobro del mes'],['cuenta','Estado de cuenta']])
           .map(([id, t]) => `<button role="tab" data-vista="${id}">${t}</button>`).join('')}
       </div>

@@ -226,6 +226,8 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   En Pagos del mes, si el edificio tiene mantenimiento y luz, las mismas tarjetas (`js/cobro-mes.js`) reemplazan los 4 KPIs y sirven para
   cambiar de lista. Dueños entran por omisión a Pagos del mes. Se recuerda la última pestaña/concepto/edificio (`localStorage cb:ultimo`)
   y la última sub-pestaña de cada grupo del menú (`nav:grupos`): "Cobranza" abre Mantenimiento si fue lo último.
+  **Mismo día:** Andrés pidió quitar "Estado de cuenta" y "Deudores" de su vista: dueños/administración ven solo Pagos del mes (+ Reporte
+  mensual en Elysium). Quien cobra (Liz, Barby, Víctor) conserva Cobro del mes y Estado de cuenta. El código de esas vistas sigue ahí.
 - Corregir pagos (11/11/2026): "Ver / corregir" → Corregir (mismo registro: mantenimiento↔luz, mes, monto, fecha, forma, nota) o Eliminar. Quien cobra puede corregir cualquier pago de sus edificios/conceptos (RLS pagos_editar/pagos_borrar); queda en la bitácora.
 - WhatsApp quitado a petición de Andrés (11/11/2026; lo verá más adelante). `unidades.telefono` se conserva (✎ de la unidad).
 - Plaza Hudson y Plaza GM 202: 11 locales cada una, importados del Excel de Barby (0036, `legacy_id 'barby:<plaza>:<local>'`),
