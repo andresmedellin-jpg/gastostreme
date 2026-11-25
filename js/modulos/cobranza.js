@@ -54,6 +54,9 @@ const esCondominio = () => centro?.nombre === CONDOMINIO;
 // Dueños y administración ven el dinero (cobrado del mes y del año, adeudos en pesos). Quien cobra (Liz, Barby, Víctor)
 // solo lleva el control mes con mes: quién ya pagó, quién no y quién debe más de un mes.
 const veDinero = () => tieneRol(['administracion']);
+// Recibos (25/11/2026): en Torre Elysium solo los da la administración (Andrés, Miguel) y solo al ver el dinero; quien cobra
+// (Liz) ya no los saca. En las plazas Barby sí. La base también lo frena (siguiente_folio_cuota, migración 0040).
+const puedeRecibo = () => veDinero() || modo === 'plazas';
 
 export async function render(view, mod) {
   raiz = view;
@@ -172,7 +175,7 @@ function pintar() {
   if (activa && fila.scrollWidth > fila.clientWidth) fila.scrollLeft = activa.offsetLeft - fila.clientWidth / 2 + activa.clientWidth / 2;
 
   // "Sacar recibo" siempre a la vista (antes había que encontrar la unidad pagada en la lista; Miguel no lo hallaba)
-  const conRecibo = ['mes', 'cobro', 'cuenta'].includes(st.vista);
+  const conRecibo = ['mes', 'cobro', 'cuenta'].includes(st.vista) && puedeRecibo();
   document.getElementById('page-actions').innerHTML = (st.vista === 'mes' && tieneRol(['administracion', 'cobranza'])
     ? `<button class="btn btn-ghost" id="c-nueva">＋ Unidad</button>` : '')
     + (conRecibo ? `<button class="btn btn-primary" id="c-recibo">Sacar recibo</button>` : '');
@@ -262,15 +265,15 @@ function pintarCuenta(el) {
         <thead><tr><th>Unidad</th>${CORTO.map((m, i) => `<th class="cb-m ${i === mesHoy ? 'hoy' : ''}">${m}</th>`).join('')}<th class="num">Cuota</th><th class="num">${dinero ? 'Adeudo' : 'Debe'}</th><th class="cb-rec-ancho"></th></tr></thead>
         <tbody>${lista.map((f) => { const ad = adeudo(f.m) + adeudo(f.l);
           return `<tr>
-            <td data-l="Unidad"><strong>${esc(etiquetaUnidad(f.u))}</strong><small class="sub">${esc(f.u.ocupante || '—')}</small>${ultimoPagado(f.u.id) >= 0 ? `<button class="btn btn-sm btn-ghost cb-rec-movil" data-rec="${f.u.id}">Recibo</button>` : ''}</td>
+            <td data-l="Unidad"><strong>${esc(etiquetaUnidad(f.u))}</strong><small class="sub">${esc(f.u.ocupante || '—')}</small>${puedeRecibo() && ultimoPagado(f.u.id) >= 0 ? `<button class="btn btn-sm btn-ghost cb-rec-movil" data-rec="${f.u.id}">Recibo</button>` : ''}</td>
             ${CORTO.map((nm, i) => `<td class="cb-m ${i === mesHoy ? 'hoy' : ''}"><button class="cb-cel" data-cel="${f.u.id}|${i}" title="${nm}:${mant ? ` mantenimiento ${({ ok: 'pagado', no: 'sin pago', na: 'no aplica', fut: '—' })[marca(f.m, i)]}` : ''}${luz ? ` · luz ${({ ok: 'pagado', no: 'sin pago', na: 'no aplica', fut: '—' })[marca(f.l, i)]}` : ''}">
               ${mant ? `<i class="${marca(f.m, i)}"></i>` : ''}${luz ? `<i class="${marca(f.l, i)}"></i>` : ''}</button></td>`).join('')}
             <td class="num mut" data-l="Cuota">${mant ? (f.m && !f.m.exento ? fmt(f.m.cuota.monto) : '—') : ''}${f.l && !f.l.exento ? `<small class="sub">luz ${fmt(f.l.cuota.monto)}</small>` : (mant ? '' : '—')}</td>
             <td class="num ${ad ? 'neg fuerte' : 'mut'}" data-l="${dinero ? 'Adeudo' : 'Debe'}">${dinero ? (ad ? fmt(ad) : 'Al corriente') : debeTxt(f)}</td>
-            <td class="acciones cb-rec-ancho">${ultimoPagado(f.u.id) >= 0 ? `<button class="btn btn-sm btn-ghost" data-rec="${f.u.id}" title="Recibo de pago de esta unidad">Recibo</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="16" class="vacio">Sin unidades</td></tr>'}</tbody>
+            <td class="acciones cb-rec-ancho">${puedeRecibo() && ultimoPagado(f.u.id) >= 0 ? `<button class="btn btn-sm btn-ghost" data-rec="${f.u.id}" title="Recibo de pago de esta unidad">Recibo</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="16" class="vacio">Sin unidades</td></tr>'}</tbody>
       </table></div>
     </section>
-    <p class="nota">Un mes cuenta como pagado si tiene al menos un pago.${dinero ? ' El adeudo se estima con la cuota de cada unidad, hasta el mes en curso.' : ' "Debe" cuenta los meses sin pago hasta el mes en curso.'} Toca un mes para registrar o ver su pago; el botón Recibo de cada unidad genera el recibo del mes que elijas.</p>`;
+    <p class="nota">Un mes cuenta como pagado si tiene al menos un pago.${dinero ? ' El adeudo se estima con la cuota de cada unidad, hasta el mes en curso.' : ' "Debe" cuenta los meses sin pago hasta el mes en curso.'} Toca un mes para registrar o ver su pago${puedeRecibo() ? '; el botón Recibo de cada unidad genera el recibo del mes que elijas' : ''}.</p>`;
   el.querySelectorAll('[data-rec]').forEach((b) => b.addEventListener('click', () => {
     const u = unidades.find((x) => x.id === b.dataset.rec);
     pedirRecibo(u, ultimoPagado(u.id), 'mantenimiento');
@@ -291,7 +294,7 @@ function pintarCuenta(el) {
     const modal = abrirModal({ titulo: `${etiquetaUnidad(f.u)} · ${MESES[m]} ${st.anio}`,
       cuerpo: `<ul class="cb-op">${opciones.map(([k, r]) => `<li><div><strong>${CONCEPTOS[k].titulo}</strong><small>${debe(r, m) ? `Sin pago · cuota ${fmt(r.cuota.monto)}` : `Pagado ${fmt(r.pagado(m))}`}</small></div>
         ${debe(r, m) ? (puede ? `<button class="btn btn-sm btn-primary" data-op="pagar:${k}">Registrar pago</button>` : '') : `<button class="btn btn-sm btn-ghost" data-op="ver:${k}">Ver pago</button>`}</li>`).join('')}</ul>
-        ${opciones.some(([, r]) => !debe(r, m)) ? '<button class="btn btn-primary" data-op="recibo:">Recibo de este mes</button>' : ''}`,
+        ${puedeRecibo() && opciones.some(([, r]) => !debe(r, m)) ? '<button class="btn btn-primary" data-op="recibo:">Recibo de este mes</button>' : ''}`,
       pie: `${pend.length === 2 && puede ? '' : ''}<button class="btn btn-ghost" id="cb-x">Cerrar</button>` });
     modal.querySelector('#cb-x').addEventListener('click', cerrarModal);
     modal.querySelectorAll('[data-op]').forEach((x) => x.addEventListener('click', () => {
@@ -344,11 +347,11 @@ function pintarCobro(el) {
             <td class="num mut" data-l="Cuota">${fmt(r.cuota.monto)}</td>
             <td data-l="${MESES[m]}">${estado}${aviso}</td>
             <td class="acciones nowrap">${debe(r, m) ? (puede ? `<button class="btn btn-primary" data-ya="${r.cuota.id}">Ya pagó</button>` : '')
-              : `<button class="btn btn-sm btn-ghost" data-recibo="${r.cuota.id}">Recibo</button><button class="btn btn-sm btn-ghost" data-ver="${r.cuota.id}">${puede ? 'Ver / corregir' : 'Ver'}</button>`}</td></tr>`;
+              : `${puedeRecibo() ? `<button class="btn btn-sm btn-ghost" data-recibo="${r.cuota.id}">Recibo</button>` : ''}<button class="btn btn-sm btn-ghost" data-ver="${r.cuota.id}">${puede ? 'Ver / corregir' : 'Ver'}</button>`}</td></tr>`;
         }).join('') || `<tr><td colspan="4" class="vacio">${filtro === 'pendientes' ? `Todas pagaron ${MESES[m].toLowerCase()}` : 'Sin unidades'}</td></tr>`}</tbody>
       </table></div>
     </section>
-    <p class="nota">Cuando una unidad te pague, toca "Ya pagó". Si debe varios meses, ahí mismo marcas cuáles paga. Arriba eliges el mes.</p>`;
+    <p class="nota">Cuando una unidad te pague, toca "Ya pagó". Si debe varios meses, ahí mismo marcas cuáles paga. Arriba eliges el mes.${puedeRecibo() ? '' : ' El recibo lo entrega la administración al recibir el dinero.'}</p>`;
   el.querySelectorAll('[data-conc]').forEach((b) => b.addEventListener('click', () => { st.concepto = b.dataset.conc; pintar(); }));
   el.querySelectorAll('[data-fc]').forEach((b) => b.addEventListener('click', () => { st.filtroCobro = b.dataset.fc; pintar(); }));
   const inp = el.querySelector('#c-q');
@@ -368,6 +371,7 @@ function yaPago(r, k, m) {
     titulo: `Ya pagó · ${etiquetaUnidad(r.u)}`,
     cuerpo: `<form class="form" id="yf" novalidate>
       <p class="nota">${esc(r.u.ocupante || '')} · ${k === 'luz' ? 'luz' : 'mantenimiento'} · cuota ${fmt(cuota)} al mes</p>
+      ${puedeRecibo() ? '' : '<p class="nota"><strong>El recibo lo entrega la administración al recibir el dinero.</strong></p>'}
       <fieldset class="opciones"><legend>¿Qué meses paga?</legend>
         ${debidos.map((i) => `<label class="opcion opcion-linea"><input type="checkbox" name="mes" value="${i}" ${i === m ? 'checked' : ''}> ${MESES[i]} ${st.anio}</label>`).join('')}
       </fieldset>
@@ -378,7 +382,8 @@ function yaPago(r, k, m) {
       <label>Cómo pagó<select name="forma">${FORMAS_COBRO.map((x) => `<option>${x}</option>`).join('')}</select></label>
       <label>Nota <small>(opcional)</small><input name="nota" maxlength="200"></label>
     </form>`,
-    pie: `<button class="btn btn-ghost" id="yf-si">Guardar</button><button class="btn btn-primary" id="yf-rec">Guardar y sacar recibo</button>`,
+    pie: puedeRecibo() ? `<button class="btn btn-ghost" id="yf-si">Guardar</button><button class="btn btn-primary" id="yf-rec">Guardar y sacar recibo</button>`
+      : `<button class="btn btn-primary" id="yf-si">Guardar</button>`,
   });
   const f = modal.querySelector('#yf');
   const meses = () => [...f.querySelectorAll('[name=mes]:checked')].map((c) => +c.value).sort((a, b) => a - b);
@@ -406,7 +411,7 @@ function yaPago(r, k, m) {
     if (conRecibo) generarRecibo(w, r.u, ms[0], { conceptos: [k], meses: ms });
   };
   modal.querySelector('#yf-si').addEventListener('click', (ev) => guardar(ev, false));
-  modal.querySelector('#yf-rec').addEventListener('click', (ev) => guardar(ev, true));
+  modal.querySelector('#yf-rec')?.addEventListener('click', (ev) => guardar(ev, true));
 }
 
 function pintarConcepto(el, concepto) {
@@ -617,11 +622,11 @@ function verPagos(r, concepto, m) {
           ${p.notas ? `<small>${esc(p.notas)}</small>` : ''}<small>Capturó: ${esc(p.capturado_por || '—')}</small></div>
         ${puedeBorrar ? `<span class="nowrap"><button class="btn btn-sm btn-ghost" data-corregir="${p.id}">Corregir</button><button class="btn btn-sm btn-ghost peligro" data-borrar="${p.id}">Eliminar</button></span>` : ''}</li>`).join('')}</ul>
       ${puedeBorrar ? '<p class="nota">Si te equivocaste (luz en vez de mantenimiento, otro mes u otro monto), toca "Corregir".</p>' : ''}`,
-    pie: `<button class="btn btn-ghost" id="vp-rec">Recibo</button>${puedeBorrar
+    pie: `${puedeRecibo() ? '<button class="btn btn-ghost" id="vp-rec">Recibo</button>' : ''}${puedeBorrar
       ? `<button class="btn btn-ghost" id="vp-otro">＋ Registrar otro pago</button><button class="btn btn-primary" id="vp-ok">Listo</button>` : ''}`,
   });
   modal.querySelector('#vp-ok')?.addEventListener('click', cerrarModal);
-  modal.querySelector('#vp-rec').addEventListener('click', () => pedirRecibo(r.u, m, concepto));
+  modal.querySelector('#vp-rec')?.addEventListener('click', () => pedirRecibo(r.u, m, concepto));
   modal.querySelector('#vp-otro')?.addEventListener('click', () => registrarPago(r, concepto, m));
   modal.querySelectorAll('[data-corregir]').forEach((b) => b.addEventListener('click', () => corregirPago(r.porMes[m].find((x) => x.id === b.dataset.corregir), r, concepto)));
   modal.querySelectorAll('[data-borrar]').forEach((b) => b.addEventListener('click', async () => {
@@ -797,6 +802,7 @@ function sacarRecibo() {
 }
 
 function pedirRecibo(u, m, concepto) {
+  if (!puedeRecibo()) return toast('El recibo lo entrega la administración al recibir el dinero', true);
   const pagados = ['mantenimiento', 'luz'].filter((k) => pagosDelMes(u.id, m, k).length);
   if (!pagados.length) {
     const otro = ultimoPagado(u.id);
@@ -862,6 +868,7 @@ function pedirRecibo(u, m, concepto) {
 }
 
 async function generarRecibo(w, u, m, op) {
+  if (!puedeRecibo()) { w?.close(); return toast('El recibo lo entrega la administración al recibir el dinero', true); }
   const ms = op.meses || [m];
   const conceptos = op.conceptos.filter((k) => ms.some((i) => pagosDelMes(u.id, i, k).length));
   const ps = pagos.filter((p) => p.unidad_id === u.id && ms.includes(mesDe(p.periodo)) && conceptos.includes(p.concepto));

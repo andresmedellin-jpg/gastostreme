@@ -85,6 +85,14 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 - Equipo dentro de Torre Elysium = solo la gente de Elysium (Hoy y Plantilla, sin selector de centro). La plantilla completa (Casa,
   Oficina, plazas, Elysium y MEDCO) está en **Grupo → Nómina → Plantilla**. Andrés NO quiere una sección nueva "Personal".
 
+## Recibos de Elysium y Víctor (25/11/2026)
+- Andrés descubrió que Víctor entregaba el dinero a destiempo (lo marcaba como no pagado, lo usaba y luego lo reportaba) y se quedaba con
+  diferencias. Regla nueva: **cada pago de mantenimiento/luz de Elysium debe llevar recibo, y el recibo solo lo da la administración
+  (Andrés, Miguel) al ver el dinero.** Liz ya no saca recibos (cobranza.js `puedeRecibo()` = `veDinero() || modo === 'plazas'`; en la base
+  `siguiente_folio_cuota` solo da folio a administración o a quien cobra sin Elysium en sus centros, migración 0040). Barby (plazas) sigue igual.
+- Usuario de Víctor **apagado** (`miembros.activo = false`) mientras Andrés decide quién cobrará. Su ficha de empleado sigue en MEDCO,
+  Bodega Santa Catarina. Para volver a darle acceso: activo = true.
+
 ## Reglas de negocio que ya se acordaron
 - Categorías de gasto: una sola lista en `CATEGORIAS` de `js/config.js` (con `CATEGORIA_AYUDA`), usada en todo. Construcción,
   Nómina, Seguro social e ISN, Gasolina, Vehículos, Mantenimiento, Limpieza, Seguridad, Luz, Agua, Gas, Teléfono e internet,
