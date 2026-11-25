@@ -69,9 +69,14 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 7. Commits como `-c user.name="Andrés Medellín" -c user.email="andres.medellin@medco.mx"`.
 
 ## Menú de Treme (25/11/2026, petición de Andrés: "no hay orden, todo está escondido")
-- Arriba solo: **Resumen · Torre Elysium · Plazas y rentas · Gastos · Patrimonio**. Solo hay UN edificio (Torre Elysium); lo demás son
-  plazas comerciales, la casa de sus papás y la oficina. `GRUPOS.treme`: `elysium` = Cobranza | Equipo | Bodega | Limpieza;
-  `plazas` = Rentas | Mantenimiento. Esto reemplaza lo de "Cobranza (Rentas | Mantenimiento)" y "Edificio (Equipo | Bodegas)" de arriba.
+- Arriba solo: **Resumen · Torre Elysium · Plazas · Rentas · Gastos · Patrimonio** (Rentas aparte de Plazas porque también tiene cosas
+  de Elysium). Solo hay UN edificio (Torre Elysium); lo demás son plazas comerciales, la casa de sus papás y la oficina.
+  `GRUPOS.treme`: `elysium` = Cobranza | Equipo | Bodega. "Plazas" = mantenimiento de GM 202 | Hudson. Esto reemplaza lo de
+  "Cobranza (Rentas | Mantenimiento)" y "Edificio (Equipo | Bodegas)" de arriba.
+- Limpieza (pedidos) ya no está en el menú de los dueños: `soloAsignado` en MODULOS, solo la ve quien la tiene en `miembros.modulos` (Barby).
+- Ficha de empleado: "Dónde trabaja" ofrece centros de las DOS empresas (agrupados) y la empresa sale del centro: así se pasa a alguien de
+  Treme a MEDCO. 25/11/2026: Víctor Olazarán pasó a MEDCO, Bodega Santa Catarina (empleado y usuario: rol encargado, solo MEDCO,
+  centros = Santa Catarina, secciones personal y bodegas; ya NO cobra luz de Elysium).
 - Cobranza de mantenimiento/luz = un solo módulo `cobranza.js` con dos entradas en MODULOS: `cobranza` (centros: 'condominio', solo
   Elysium, sin selector) y `plazas` (vista cobranza, centros: 'plazas', selector GM 202 | Hudson). app.js `centrosOk` muestra cada
   entrada solo a quien tiene ese centro en `miembros.centros` (Liz → Elysium; Barby → plazas; null = todo).

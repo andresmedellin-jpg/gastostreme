@@ -203,7 +203,7 @@ const rolLegible = (r) => ({ dueno: 'Dueño', socio: 'Socio', administracion: 'A
 // miembros.modulos (si lo tiene) limita las secciones de esa persona; p. ej. Liz y Barby solo ven Mantenimiento
 const modulosDelUsuario = () => MODULOS.filter((m) => (m.soloRoles ? misRoles().some((r) => m.soloRoles.includes(r)) : tieneRol(m.roles))
   && (!estado.miembro?.modulos || estado.miembro.modulos.includes(m.vista || m.id) || (m.id === 'cobranza' && estado.miembro.modulos.includes('luz')))
-  && centrosOk(m));
+  && centrosOk(m) && (!m.soloAsignado || !!estado.miembro?.modulos?.includes(m.id)));
 // Cobranza de Elysium y mantenimiento de plazas: solo a quien tiene ese edificio o esas plazas (Liz: Elysium; Barby: las plazas)
 const CONDOMINIO = MARCA.condominio || 'Torre Elysium';
 function centrosOk(m) {

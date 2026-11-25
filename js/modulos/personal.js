@@ -753,6 +753,16 @@ const porCentro = (lista) => {
   return [...g.entries()].sort((a, b) => nombreCentro(a[0]).localeCompare(nombreCentro(b[0]), 'es'));
 };
 
+// Centros de trabajo de las DOS empresas (25/11/2026): así se puede pasar a alguien de Treme a MEDCO (Víctor → Bodega Santa Catarina).
+// Al guardar, la empresa del empleado es la del centro elegido.
+function opcCentrosEmp(sel) {
+  const todos = estado.todosCentros || estado.centros, emps = estado.todasEmpresas || estado.empresas;
+  return emps.map((em) => {
+    const cs = todos.filter((c) => c.empresa_id === em.id).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    return cs.length ? `<optgroup label="${esc(em.nombre_corto || em.nombre)}">${cs.map((c) => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</optgroup>` : '';
+  }).join('');
+}
+
 function editarEmpleado(e) {
   const dl = (e?.dias_laborales || 'LUN,MAR,MIE,JUE,VIE,SAB').split(',');
   const modal = abrirModal({
@@ -761,7 +771,7 @@ function editarEmpleado(e) {
       <label>Nombre<input name="nombre" maxlength="100" value="${esc(e?.nombre || '')}" required></label>
       <label>Celular <small>(para escribirle por WhatsApp)</small><input name="tel" maxlength="20" inputmode="tel" value="${esc(e?.telefono || '')}"></label>
       <div class="form-2"><label>Puesto<input name="puesto" maxlength="60" value="${esc(e?.puesto || '')}"></label>
-        <label>Centro<select name="centro">${estado.centros.map((c) => `<option value="${c.id}" ${(e ? e.centro_id : soloEdificio ? st.centro : null) === c.id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select></label></div>
+        <label>Dónde trabaja<select name="centro">${opcCentrosEmp(e ? e.centro_id : soloEdificio ? st.centro : null)}</select></label></div>
       <div class="form-2"><label>Sueldo semanal<input type="number" name="sueldo" min="0" step="0.01" value="${e ? Number(e.salario_semanal) : ''}"></label>
         <label>Días por semana<select name="dias">${[3, 4, 5, 6, 7].map((n) => `<option ${(e?.dias_semana || 6) === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>
       <div class="form-2"><label>Entrada<input type="time" name="entrada" value="${String(e?.hora_entrada || '08:00').slice(0, 5)}"></label>
@@ -786,7 +796,7 @@ function editarEmpleado(e) {
   modal.querySelector('#ef-si').addEventListener('click', async (ev) => {
     const btn = ev.currentTarget;
     if (!f.nombre.value.trim()) return toast('Escribe el nombre', true);
-    const centro = estado.centros.find((c) => c.id === f.centro.value);
+    const centro = (estado.todosCentros || estado.centros).find((c) => c.id === f.centro.value);
     btn.disabled = true;
     const datos = { nombre: f.nombre.value.trim(), telefono: f.tel.value.trim() || null, puesto: f.puesto.value.trim() || null, centro_id: centro.id, empresa_id: centro.empresa_id,
       salario_semanal: Number(f.sueldo.value) || 0, dias_semana: +f.dias.value, hora_entrada: f.entrada.value || '08:00',
