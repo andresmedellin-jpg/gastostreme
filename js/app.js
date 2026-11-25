@@ -202,7 +202,15 @@ const rolLegible = (r) => ({ dueno: 'Dueño', socio: 'Socio', administracion: 'A
 // soloRoles: módulos que solo ve quien tiene ese rol (el dueño no los ve en su menú, p. ej. "Mi turno" del personal)
 // miembros.modulos (si lo tiene) limita las secciones de esa persona; p. ej. Liz y Barby solo ven Mantenimiento
 const modulosDelUsuario = () => MODULOS.filter((m) => (m.soloRoles ? misRoles().some((r) => m.soloRoles.includes(r)) : tieneRol(m.roles))
-  && (!estado.miembro?.modulos || estado.miembro.modulos.includes(m.vista || m.id) || (m.id === 'cobranza' && estado.miembro.modulos.includes('luz'))));
+  && (!estado.miembro?.modulos || estado.miembro.modulos.includes(m.vista || m.id) || (m.id === 'cobranza' && estado.miembro.modulos.includes('luz')))
+  && centrosOk(m));
+// Cobranza de Elysium y mantenimiento de plazas: solo a quien tiene ese edificio o esas plazas (Liz: Elysium; Barby: las plazas)
+const CONDOMINIO = MARCA.condominio || 'Torre Elysium';
+function centrosOk(m) {
+  if (!m.centros || !estado.miembro?.centros) return true;
+  const mios = (estado.todosCentros || []).filter((c) => estado.miembro.centros.includes(c.id));
+  return m.centros === 'condominio' ? mios.some((c) => c.nombre === CONDOMINIO) : mios.some((c) => c.nombre !== CONDOMINIO);
+}
 // Quien solo cobra luz (Víctor) ve la sección con ese nombre
 const soloLuz = () => estado.miembro?.modulos?.includes('luz') && !estado.miembro.modulos.includes('cobranza');
 
@@ -316,7 +324,7 @@ async function navegar() {
   if (grupo) { ultimoDeGrupo[grupo.id] = mod.id; try { localStorage.setItem('nav:grupos', JSON.stringify(ultimoDeGrupo)); } catch (e) { /* sin memoria */ } }
   $('subnav').hidden = !grupo;
   $('subnav').innerHTML = grupo ? `<div class="segmento" role="tablist">${grupo.mods.map((x) =>
-    `<a role="tab" href="#/${w.id}/${x.id}" class="${x.id === mod.id ? 'activo' : ''}" aria-selected="${x.id === mod.id}">${esc(grupo.etiquetas?.[x.id] || tituloEn(w, x))}</a>`).join('')}</div>` : '';
+    `<a role="tab" href="#/${w.id}/${x.id}" class="${x.id === mod.id ? 'activo' : ''}" aria-selected="${x.id === mod.id}">${esc((x.id === 'cobranza' && soloLuz() ? 'Luz' : grupo.etiquetas?.[x.id]) || tituloEn(w, x))}</a>`).join('')}</div>` : '';
   document.querySelector('#nav a.active')?.scrollIntoView({ block: 'nearest', inline: 'center' });
   const titulo = grupo ? grupo.titulo : tituloEn(w, mod);
   $('page-title').textContent = titulo;

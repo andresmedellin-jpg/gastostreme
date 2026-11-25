@@ -44,7 +44,7 @@ function leerLiga() {
   if (q.get('vista') || q.get('concepto')) { st.q = ''; st.filtro = 'todos'; }
   history.replaceState(null, '', location.hash.slice(0, i));     // la liga se usa una vez; recargar deja la pantalla como esté
 }
-let centro, edificios = [], unidades = [], cuotas = [], pagos = [], raiz;
+let centro, edificios = [], lista = [], modo = 'condominio', unidades = [], cuotas = [], pagos = [], raiz;
 // ¿Este edificio cobra luz? (Torre Elysium sí; las plazas solo mantenimiento)
 const conLuz = () => cuotas.some((c) => c.concepto === 'luz' && c.en_padron);
 // La base solo entrega las cuotas que la persona puede ver: Víctor ve la luz, no el mantenimiento
@@ -55,8 +55,10 @@ const esCondominio = () => centro?.nombre === CONDOMINIO;
 // solo lleva el control mes con mes: quién ya pagó, quién no y quién debe más de un mes.
 const veDinero = () => tieneRol(['administracion']);
 
-export async function render(view) {
+export async function render(view, mod) {
   raiz = view;
+  // Dos entradas del menú usan este módulo: "Cobranza" de Torre Elysium y "Mantenimiento" de las plazas comerciales
+  modo = mod?.centros === 'plazas' ? 'plazas' : 'condominio';
   leerLiga();
   // Edificios con unidades que esta persona puede ver
   if (!edificios.length) {
@@ -70,7 +72,9 @@ export async function render(view) {
     edificios = estado.centros.filter((c) => ids.has(c.id))
       .sort((a, b) => (b.nombre === CONDOMINIO) - (a.nombre === CONDOMINIO) || a.nombre.localeCompare(b.nombre, 'es'));
   }
-  centro = edificios.find((c) => c.id === st.centroId) || edificios[0];
+  const deModo = edificios.filter((c) => (modo === 'plazas') !== (c.nombre === CONDOMINIO));
+  lista = deModo.length ? deModo : edificios;
+  centro = lista.find((c) => c.id === st.centroId) || lista[0];
   if (!centro) { view.innerHTML = '<div class="vacio">No tienes edificios asignados para cobrar mantenimiento.</div>'; return; }
   st.centroId = centro.id;
   if (!esCondominio() && st.vista === 'reporte') st.vista = 'cuenta';
@@ -78,11 +82,11 @@ export async function render(view) {
   if (!veDinero() && !['cobro', 'cuenta'].includes(st.vista)) st.vista = 'cobro';
   // Dueños: solo Pagos del mes y Reporte mensual (Estado de cuenta y Deudores se quitaron el 25/11/2026 a petición de Andrés)
   if (veDinero() && !['mes', 'reporte'].includes(st.vista)) st.vista = 'mes';
-  const selEdif = edificios.length > 1 ? `<select class="cb-edif-sel" id="c-edif" aria-label="Edificio">${edificios.map((c) =>
+  const selEdif = lista.length > 1 ? `<select class="cb-edif-sel" id="c-edif" aria-label="Plaza">${lista.map((c) =>
       `<option value="${c.id}" ${c.id === centro.id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select>` : '';
   view.innerHTML = `
     <div class="sub-head cb-subhead">
-      <div class="tabs" role="tablist">
+      <div class="tabs" role="tablist" ${veDinero() && !esCondominio() ? 'hidden' : ''}>
         ${(veDinero() ? [['mes','Pagos del mes'], ...(esCondominio() ? [['reporte','Reporte mensual']] : [])]
           : [['cobro','Cobro del mes'],['cuenta','Estado de cuenta']])
           .map(([id, t]) => `<button role="tab" data-vista="${id}">${t}</button>`).join('')}
@@ -167,11 +171,14 @@ function pintar() {
   const fila = raiz.querySelector('#c-meses');
   if (activa && fila.scrollWidth > fila.clientWidth) fila.scrollLeft = activa.offsetLeft - fila.clientWidth / 2 + activa.clientWidth / 2;
 
-  document.getElementById('page-actions').innerHTML = st.vista === 'mes' && tieneRol(['administracion', 'cobranza'])
-    ? `<button class="btn btn-ghost" id="c-nueva">＋ Unidad</button>` : '';
+  // "Sacar recibo" siempre a la vista (antes había que encontrar la unidad pagada en la lista; Miguel no lo hallaba)
+  const conRecibo = ['mes', 'cobro', 'cuenta'].includes(st.vista);
+  document.getElementById('page-actions').innerHTML = (st.vista === 'mes' && tieneRol(['administracion', 'cobranza'])
+    ? `<button class="btn btn-ghost" id="c-nueva">＋ Unidad</button>` : '')
+    + (conRecibo ? `<button class="btn btn-primary" id="c-recibo">Sacar recibo</button>` : '');
   document.getElementById('c-nueva')?.addEventListener('click', () => editarUnidad(null, st.concepto));
+  document.getElementById('c-recibo')?.addEventListener('click', sacarRecibo);
   raiz.querySelector('.periodo').hidden = st.vista === 'cuenta' || st.vista === 'reporte';
-  if (st.vista === 'cobro') document.getElementById('page-actions').innerHTML = '';
 
   const cuerpo = raiz.querySelector('#c-cuerpo');
   // El reporte mensual vive aquí mismo (antes era otra opción del menú)
@@ -420,7 +427,6 @@ function pintarConcepto(el, concepto) {
   const tarjetas = dos ? tarjetasCobro({ conceptos: Object.fromEntries(conceptosDe().map((k) => [k, cifras(k)])),
     periodo: `${MESES[m]} ${st.anio}`, activo: concepto, destino: () => ({}) }) : '';
   el.innerHTML = dos ? `${tarjetas}${tablaConcepto(filas, m, puedeCapturar, concepto)}` : `
-    <div class="segmento cb-conc" hidden>${Object.entries(CONCEPTOS).filter(([k]) => conceptosDe().includes(k)).map(([k, c]) => `<button data-conc="${k}" class="${k === concepto ? 'activo' : ''}">${c.titulo}</button>`).join('')}</div>
     <div class="kpis">
       <div class="kpi"><span>Unidades que pagan</span><strong>${s.n}</strong><small>${MESES[m]} ${st.anio}</small></div>
       <div class="kpi"><span>Pagaron</span><strong class="pos">${s.pagaron}</strong><small>${fmt(s.cobrado)} cobrado</small></div>
@@ -755,6 +761,39 @@ function abrirVentana() {
 // Último mes del año con algún pago de la unidad (el del recibo por omisión); -1 si no hay
 function ultimoPagado(unidadId) {
   return pagos.filter((p) => p.unidad_id === unidadId).reduce((a, p) => Math.max(a, mesDe(p.periodo)), -1);
+}
+
+// Sacar recibo: se elige la unidad (solo las que tienen algún pago en el año) y luego el mes y qué recibo (mantenimiento, luz o juntos)
+function sacarRecibo() {
+  const conPago = unidades.filter((u) => ultimoPagado(u.id) >= 0).sort(orden);
+  if (!conPago.length) return toast(`No hay pagos registrados en ${st.anio} para sacar recibo`, true);
+  const modal = abrirModal({
+    titulo: 'Sacar recibo',
+    cuerpo: `<form class="form" id="sr" novalidate>
+      <label>Buscar<input type="search" name="q" placeholder="Unidad u ocupante" autocomplete="off"></label>
+      <label>Unidad<select name="u" size="8" class="sr-lista">${conPago.map((u) =>
+        `<option value="${u.id}">${esc(etiquetaUnidad(u))}${u.ocupante ? ' · ' + esc(u.ocupante) : ''}</option>`).join('')}</select></label>
+      <p class="nota">Después eliges el mes y si el recibo es de mantenimiento, de luz o de los dos juntos.</p>
+    </form>`,
+    pie: `<button class="btn btn-ghost" id="sr-no">Cancelar</button><button class="btn btn-primary" id="sr-si">Continuar</button>`,
+  });
+  const f = modal.querySelector('#sr');
+  f.u.value = conPago[0].id;
+  f.q.addEventListener('input', () => {
+    const q = f.q.value.toLowerCase();
+    [...f.u.options].forEach((o) => { o.hidden = !!q && !o.textContent.toLowerCase().includes(q); });
+    const vis = [...f.u.options].find((o) => !o.hidden); if (vis) f.u.value = vis.value;
+  });
+  const seguir = () => {
+    const u = unidades.find((x) => x.id === f.u.value);
+    if (!u) return toast('Elige la unidad', true);
+    cerrarModal();
+    const m = pagosDelMes(u.id, st.mes, 'mantenimiento').length || pagosDelMes(u.id, st.mes, 'luz').length ? st.mes : ultimoPagado(u.id);
+    pedirRecibo(u, m, st.concepto);
+  };
+  f.u.addEventListener('dblclick', seguir);
+  modal.querySelector('#sr-no').addEventListener('click', cerrarModal);
+  modal.querySelector('#sr-si').addEventListener('click', seguir);
 }
 
 function pedirRecibo(u, m, concepto) {

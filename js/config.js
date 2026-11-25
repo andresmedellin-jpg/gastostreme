@@ -78,7 +78,9 @@ export const MODULOS = [
   { id: 'inicio',     grupo: 'Dirección', titulo: 'Resumen ejecutivo',           icono: ICONOS.inicio,     roles: ['dueno','administracion'], listo: true },
   { id: 'reportes',   grupo: 'Dirección', titulo: 'Reporte mensual',  icono: ICONOS.reportes,   roles: ['dueno','administracion'], listo: true },
   { id: 'gastos',     grupo: 'Finanzas',  titulo: 'Gastos',           icono: ICONOS.gastos,     roles: ['dueno','administracion','operacion'], listo: true },
-  { id: 'cobranza',   grupo: 'Finanzas',  titulo: 'Cobranza Elysium', icono: ICONOS.cobranza,   roles: ['dueno','administracion','cobranza'], listo: true },
+  // Cobranza de mantenimiento y luz: Torre Elysium (cobranza) y las plazas comerciales (plazas) usan el mismo módulo; centros dice cuáles ve cada uno
+  { id: 'cobranza',   grupo: 'Finanzas',  titulo: 'Cobranza Elysium', icono: ICONOS.cobranza,   roles: ['dueno','administracion','cobranza'], listo: true, centros: 'condominio' },
+  { id: 'plazas',     grupo: 'Finanzas',  titulo: 'Mantenimiento de plazas', icono: ICONOS.cobranza, roles: ['dueno','administracion','cobranza'], listo: true, vista: 'cobranza', centros: 'plazas' },
   { id: 'rentas',     grupo: 'Finanzas',  titulo: 'Rentas',           icono: ICONOS.rentas,     roles: ['dueno','administracion','cobranza'], listo: true },
   { id: 'obras',      grupo: 'Finanzas',  titulo: 'Obras',            icono: ICONOS.obras,      roles: ['dueno','administracion'], listo: true },
   { id: 'prospectos', grupo: 'Ventas',    titulo: 'Prospectos',       icono: ICONOS.prospectos, roles: ['dueno','administracion'], listo: true },
@@ -91,7 +93,7 @@ export const MODULOS = [
   { id: 'patrimonio', grupo: 'Finanzas',  titulo: 'Patrimonio',       icono: ICONOS.patrimonio, roles: ['dueno','socio'], listo: true },
   { id: 'personal',   grupo: 'Operación', titulo: 'Nómina y equipo',  icono: ICONOS.personal,   roles: ['dueno','administracion','encargado'], listo: true },
   // Nómina del grupo: raya semanal, vacaciones y préstamos de las dos empresas en un solo lugar (en Grupo)
-  { id: 'rayas',      grupo: 'Finanzas',  titulo: 'Nómina',           icono: ICONOS.nomina,     roles: ['dueno','administracion'], listo: true, vista: 'personal', tabs: ['nomina', 'vacaciones', 'prestamos'] },
+  { id: 'rayas',      grupo: 'Finanzas',  titulo: 'Nómina',           icono: ICONOS.nomina,     roles: ['dueno','administracion'], listo: true, vista: 'personal', tabs: ['nomina', 'empleados', 'vacaciones', 'prestamos'] },
   // Personal separado en el menú (solo si la marca lo pide con sus ids en "modulos"; usan el módulo de Personal)
   { id: 'nomina',      grupo: 'Personal', titulo: 'Nómina',      icono: ICONOS.nomina,      roles: ['dueno','administracion'], listo: true, opcional: true, vista: 'personal', tab: 'nomina' },
   { id: 'asistencia',  grupo: 'Personal', titulo: 'Asistencia',  icono: ICONOS.asistencia,  roles: ['dueno','administracion','encargado'], listo: true, opcional: true, vista: 'personal', tab: 'asistencia' },
@@ -188,15 +190,17 @@ export const MUNDOS = [
   { id: 'grupo', nombre: 'Grupo', sub: 'Treme · MEDCO', empresa: null, color: '#101216',
     modulos: ['inicio', 'patrimonio', 'gastos', 'rayas', 'banco', 'importar', 'usuarios'], titulos: { inicio: 'Resumen del grupo', gastos: 'Gastos consolidados', patrimonio: 'Patrimonio' } },
   { id: 'treme', nombre: 'Treme', sub: 'Grupo Inmobiliario', empresa: /treme/i, color: '#8B1A1A', logo: 'logo-treme',
-    modulos: ['inicio', 'rentas', 'cobranza', 'servicios', 'lecturas', 'gastos', 'personal', 'bodegas', 'pedidos', 'patrimonio'],
-    titulos: { inicio: 'Resumen', cobranza: 'Mantenimiento', pedidos: 'Limpieza', servicios: 'Luz, gas y agua', lecturas: 'Lecturas' } },
+    // Orden del menú (25/11/2026, petición de Andrés): Resumen · Torre Elysium · Plazas y rentas · Gastos · Patrimonio
+    modulos: ['inicio', 'cobranza', 'personal', 'bodegas', 'rentas', 'plazas', 'pedidos', 'servicios', 'lecturas', 'gastos', 'patrimonio'],
+    titulos: { inicio: 'Resumen', cobranza: 'Cobranza Elysium', pedidos: 'Limpieza', servicios: 'Luz, gas y agua', lecturas: 'Lecturas' } },
   { id: 'medco', nombre: 'MEDCO', sub: 'Desarrollos y Proyectos', empresa: /medco/i, color: '#23408E', logo: 'logo-medco',
     modulos: ['inicio', 'obras', 'prospectos', 'cotizaciones', 'inventario', 'gastos', 'personal', 'bodegas', 'patrimonio'], titulos: { inicio: 'Resumen', bodegas: 'Material de obra' } },
 ];
 // Secciones que se juntan en una sola del menú (con pestañas adentro). Solo se juntan si la persona ve dos o más.
 export const GRUPOS = MARCA.grupos || {
-  treme: [{ id: 'cobro', titulo: 'Cobranza', icono: 'cobranza', subs: ['rentas', 'cobranza'] },
-          { id: 'edificio', titulo: 'Edificio', icono: 'personal', subs: ['personal', 'bodegas', 'pedidos'], etiquetas: { personal: 'Equipo' } }],
+  // Treme: un solo edificio (Torre Elysium) con todo lo suyo; las plazas comerciales junto a las rentas
+  treme: [{ id: 'elysium', titulo: 'Torre Elysium', icono: 'cobranza', subs: ['cobranza', 'personal', 'bodegas', 'pedidos'], etiquetas: { cobranza: 'Cobranza', personal: 'Equipo', bodegas: 'Bodega' } },
+          { id: 'plazas', titulo: 'Plazas y rentas', icono: 'rentas', subs: ['rentas', 'plazas'], etiquetas: { plazas: 'Mantenimiento' } }],
   medco: [{ id: 'obra', titulo: 'Obra', icono: 'personal', subs: ['personal', 'bodegas'], etiquetas: { personal: 'Equipo' } }],
 };
 export const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];

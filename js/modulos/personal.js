@@ -66,6 +66,13 @@ export async function render(view, mod) {
     const ids = new Set((conGente || []).map((x) => x.centro_id));
     if (ids.size) visibles = visibles.filter((c) => ids.has(c.id));
   }
+  // En Treme, "Equipo" vive dentro de Torre Elysium: solo la gente del edificio. La plantilla completa (Casa, Oficina, plazas)
+  // está en Grupo → Nómina → Plantilla (25/11/2026, petición de Andrés)
+  soloEdificio = estado.mundo?.id === 'treme' && !grupoNomina;
+  if (soloEdificio) {
+    const ely = estado.centros.find((c) => c.nombre === (MARCA.centroPersonal || 'Torre Elysium'));
+    if (ely) { visibles = [ely]; st.centro = ely.id; }
+  }
   if (st.centro && !visibles.some((c) => c.id === st.centro)) st.centro = null;   // se cambió de empresa arriba
   st.centro ||= (visibles.find((c) => c.nombre === (MARCA.centroPersonal || 'Torre Elysium')) || visibles[0])?.id;
 
@@ -87,7 +94,7 @@ export async function render(view, mod) {
   await pintar();
 }
 
-let grupoNomina = false;
+let grupoNomina = false, soloEdificio = false;
 const irA = (t) => { st.tab = t; pintar(); window.scrollTo({ top: 0 }); };
 const contexto = () => ({ centro: st.centro, equipo, fecha: st.fecha, st, unidades: unidadesC, contratos: contratosC, irA, repintar: pintar,
   cambiarFecha: (f) => { st.fecha = f; pintar(); }, barraFecha, enlazarFecha });
@@ -705,32 +712,34 @@ function pagarModal(e, monto, alPagar) {
 async function empleados(el) {
   document.getElementById('page-actions').innerHTML = `<button class="btn btn-primary" id="e-nuevo">＋ Empleado</button>`;
   document.getElementById('e-nuevo').addEventListener('click', () => editarEmpleado(null));
-  const [{ data: todos, error }, { data: mbs }] = await Promise.all([
+  let [{ data: todos, error }, { data: mbs }] = await Promise.all([
     db().from('empleados').select('*').order('activo', { ascending: false }).order('nombre'),
     db().from('miembros').select('empleado_id, usuario, activo')]);
   if (error) throw error;
   const acceso = (e) => (mbs || []).find((m) => m.empleado_id === e.id && m.activo);
   const esDueno = estado.miembro.rol === 'dueno';
   // Los dados de baja se guardan por su historial de nómina, pero no se muestran salvo que se pidan
+  if (soloEdificio) todos = todos.filter((e) => e.centro_id === st.centro);
   const bajas = todos.filter((e) => !e.activo).length;
   const data = verBajas ? todos : todos.filter((e) => e.activo);
   const asegurados = todos.filter((e) => e.activo && e.imss).length;
+  const filaEmp = (e) => `<tr class="${e.activo ? '' : 'inactivo'}">
+      <td data-l="Nombre"><strong>${esc(e.nombre)}</strong>${e.activo ? '' : ' <span class="tag tag-suave">baja</span>'}${e.imss ? ' <span class="tag" title="Asegurado en el IMSS (registro patronal)">IMSS</span>' : ''}</td>
+      <td class="mut" data-l="Puesto">${esc(e.puesto || '—')}</td>
+      <td class="num fuerte" data-l="Sueldo">${fmt(e.salario_semanal)}</td>
+      <td class="mut nowrap" data-l="Horario">${String(e.hora_entrada || '').slice(0, 5)}–${String(e.hora_salida || '').slice(0, 5)} · ${e.dias_semana} días</td>
+      <td class="acciones nowrap">${!e.activo ? '' : acceso(e) ? `<span class="tag tag-ok" title="Entra desde su celular">Acceso: ${esc(acceso(e).usuario || '')}</span>`
+        : esDueno ? `<button class="btn btn-sm btn-ghost" data-acceso="${e.id}" title="Crearle usuario para su celular">Dar acceso</button>` : ''}
+        <button class="btn btn-sm btn-ghost" data-editar="${e.id}">Editar</button></td></tr>`;
   el.innerHTML = `<section class="panel">
-    <div class="panel-head"><h3>${todos.length - bajas} empleado${todos.length - bajas === 1 ? '' : 's'} activo${todos.length - bajas === 1 ? '' : 's'}
+    <div class="panel-head"><h3>${soloEdificio ? 'Torre Elysium · ' : ''}${todos.length - bajas} empleado${todos.length - bajas === 1 ? '' : 's'} activo${todos.length - bajas === 1 ? '' : 's'}
       <small class="sub-meta">· ${asegurados} en el IMSS · raya semanal ${fmt(todos.filter((e) => e.activo).reduce((s, e) => s + Number(e.salario_semanal || 0), 0))}</small></h3>
       ${bajas ? `<button class="btn btn-sm btn-ghost" id="e-bajas">${verBajas ? 'Ocultar dados de baja' : `Ver dados de baja (${bajas})`}</button>` : ''}</div>
     <div class="tabla-wrap"><table class="tabla">
     <thead><tr><th>Nombre</th><th>Puesto</th><th class="num">Sueldo semanal</th><th>Horario</th><th></th></tr></thead>
-    <tbody>${porCentro(data).map(([cid, gente]) => `<tr class="pl-grupo"><td colspan="5"><strong>${esc(nombreCentro(cid))}</strong>
-      <span>${gente.length} · ${fmt(gente.filter((e) => e.activo).reduce((s, e) => s + Number(e.salario_semanal || 0), 0))} por semana</span></td></tr>
-      ${gente.map((e) => `<tr class="${e.activo ? '' : 'inactivo'}">
-      <td data-l="Nombre"><strong>${esc(e.nombre)}</strong>${e.activo ? '' : ' <span class="tag tag-suave">baja</span>'}${e.imss ? ' <span class="tag" title="Asegurado en el IMSS (registro patronal)">IMSS</span>' : ''}</td>
-      <td class="mut" data-l="Puesto">${esc(e.puesto || '—')}</td>
-            <td class="num fuerte" data-l="Sueldo">${fmt(e.salario_semanal)}</td>
-      <td class="mut nowrap" data-l="Horario">${String(e.hora_entrada || '').slice(0, 5)}–${String(e.hora_salida || '').slice(0, 5)} · ${e.dias_semana} días</td>
-      <td class="acciones nowrap">${!e.activo ? '' : acceso(e) ? `<span class="tag tag-ok" title="Entra desde su celular">Acceso: ${esc(acceso(e).usuario || '')}</span>`
-        : esDueno ? `<button class="btn btn-sm btn-ghost" data-acceso="${e.id}" title="Crearle usuario para su celular">Dar acceso</button>` : ''}
-        <button class="btn btn-sm btn-ghost" data-editar="${e.id}">Editar</button></td></tr>`).join('')}`).join('')}</tbody>
+    <tbody>${porCentro(data).map(([cid, gente]) => (soloEdificio ? '' : `<tr class="pl-grupo"><td colspan="5"><strong>${esc(nombreCentro(cid))}</strong>
+      <span>${gente.length} · ${fmt(gente.filter((e) => e.activo).reduce((s, e) => s + Number(e.salario_semanal || 0), 0))} por semana</span></td></tr>`)
+      + gente.map(filaEmp).join('')).join('') || '<tr><td colspan="5" class="vacio">Sin personal en este edificio</td></tr>'}</tbody>
   </table></div></section>`;
   el.querySelectorAll('[data-editar]').forEach((b) => b.addEventListener('click', () => editarEmpleado(data.find((x) => x.id === b.dataset.editar))));
   el.querySelector('#e-bajas')?.addEventListener('click', () => { verBajas = !verBajas; empleados(el); });
@@ -752,7 +761,7 @@ function editarEmpleado(e) {
       <label>Nombre<input name="nombre" maxlength="100" value="${esc(e?.nombre || '')}" required></label>
       <label>Celular <small>(para escribirle por WhatsApp)</small><input name="tel" maxlength="20" inputmode="tel" value="${esc(e?.telefono || '')}"></label>
       <div class="form-2"><label>Puesto<input name="puesto" maxlength="60" value="${esc(e?.puesto || '')}"></label>
-        <label>Centro<select name="centro">${estado.centros.map((c) => `<option value="${c.id}" ${e?.centro_id === c.id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select></label></div>
+        <label>Centro<select name="centro">${estado.centros.map((c) => `<option value="${c.id}" ${(e ? e.centro_id : soloEdificio ? st.centro : null) === c.id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select></label></div>
       <div class="form-2"><label>Sueldo semanal<input type="number" name="sueldo" min="0" step="0.01" value="${e ? Number(e.salario_semanal) : ''}"></label>
         <label>Días por semana<select name="dias">${[3, 4, 5, 6, 7].map((n) => `<option ${(e?.dias_semana || 6) === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>
       <div class="form-2"><label>Entrada<input type="time" name="entrada" value="${String(e?.hora_entrada || '08:00').slice(0, 5)}"></label>

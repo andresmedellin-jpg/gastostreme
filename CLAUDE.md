@@ -68,6 +68,18 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
    `supabase.min.js`), revisa escritorio y celular (390px), sin errores en consola.
 7. Commits como `-c user.name="Andrés Medellín" -c user.email="andres.medellin@medco.mx"`.
 
+## Menú de Treme (25/11/2026, petición de Andrés: "no hay orden, todo está escondido")
+- Arriba solo: **Resumen · Torre Elysium · Plazas y rentas · Gastos · Patrimonio**. Solo hay UN edificio (Torre Elysium); lo demás son
+  plazas comerciales, la casa de sus papás y la oficina. `GRUPOS.treme`: `elysium` = Cobranza | Equipo | Bodega | Limpieza;
+  `plazas` = Rentas | Mantenimiento. Esto reemplaza lo de "Cobranza (Rentas | Mantenimiento)" y "Edificio (Equipo | Bodegas)" de arriba.
+- Cobranza de mantenimiento/luz = un solo módulo `cobranza.js` con dos entradas en MODULOS: `cobranza` (centros: 'condominio', solo
+  Elysium, sin selector) y `plazas` (vista cobranza, centros: 'plazas', selector GM 202 | Hudson). app.js `centrosOk` muestra cada
+  entrada solo a quien tiene ese centro en `miembros.centros` (Liz → Elysium; Barby → plazas; null = todo).
+- Botón **"Sacar recibo"** siempre arriba en la cobranza (elige unidad con pago → mes → mantenimiento/luz/juntos). Antes Miguel no hallaba
+  cómo sacar los recibos de CFE.
+- Equipo dentro de Torre Elysium = solo la gente de Elysium (Hoy y Plantilla, sin selector de centro). La plantilla completa (Casa,
+  Oficina, plazas, Elysium y MEDCO) está en **Grupo → Nómina → Plantilla**. Andrés NO quiere una sección nueva "Personal".
+
 ## Reglas de negocio que ya se acordaron
 - Categorías de gasto: una sola lista en `CATEGORIAS` de `js/config.js` (con `CATEGORIA_AYUDA`), usada en todo. Construcción,
   Nómina, Seguro social e ISN, Gasolina, Vehículos, Mantenimiento, Limpieza, Seguridad, Luz, Agua, Gas, Teléfono e internet,
