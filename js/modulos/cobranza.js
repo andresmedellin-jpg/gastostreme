@@ -915,16 +915,20 @@ async function generarRecibo(w, u, m, op) {
 // ---------- recibo por propietario ----------
 // Un dueño con varias unidades (p. ej. Fausto Muñoz: 904, 905 y 1407) recibe UN recibo del mes con cada unidad y concepto
 // desglosado y, si se marca, el IVA (los montos capturados ya lo incluyen: se cobra lo que realmente depositan).
+// Si algo del mes aún no está pagado, aquí mismo se registra el pago (por la cuota) y luego sale el recibo.
 // El folio se guarda en todos los pagos del recibo: al reimprimir sale el mismo. Solo dueño y socio.
 const claveDueno = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
 const IVA = 0.16;
 const r2 = (n) => Math.round(n * 100) / 100;
+const CONCEPTOS_RP = ['mantenimiento', 'luz'];
+const cobraActiva = (uId, k) => { const c = cuotaDe(uId, k); return !!(c && c.activo && Number(c.monto) > 0); };
 
 function propietarios() {
   const g = new Map();
   for (const u of unidades) {
     const k = claveDueno(u.ocupante);
-    if (!k || ultimoPagado(u.id) < 0) continue;
+    if (!k) continue;
+    if (!CONCEPTOS_RP.some((c) => cobraActiva(u.id, c)) && ultimoPagado(u.id) < 0) continue;
     if (!g.has(k)) g.set(k, { clave: k, nombre: nombreBonito(u.ocupante.trim()), unidades: [] });
     g.get(k).unidades.push(u);
   }
@@ -932,60 +936,97 @@ function propietarios() {
     .sort((a, b) => (b.unidades.length > 1) - (a.unidades.length > 1) || a.nombre.localeCompare(b.nombre, 'es'));
 }
 
+// Renglones del mes de un dueño: lo pagado y lo que se puede registrar ahora (por la cuota)
+function renglonesMes(us, m) {
+  return us.flatMap((u) => CONCEPTOS_RP.map((k) => {
+    const pagado = pagosDelMes(u.id, m, k).reduce((s, p) => s + Number(p.monto), 0);
+    if (pagado > 0) return { u, k, pagado, monto: pagado };
+    if (cobraActiva(u.id, k)) return { u, k, pagado: 0, monto: Number(cuotaDe(u.id, k).monto) };
+    return null;
+  }).filter(Boolean));
+}
+
 function reciboPropietario(clave, mesPedido) {
   if (!puedeReciboDueno()) return toast('Solo la dirección saca este recibo', true);
   const lista = propietarios();
-  if (!lista.length) return toast(`No hay pagos registrados en ${st.anio}`, true);
+  if (!lista.length) return toast('No hay unidades con cuota', true);
   const d = lista.find((x) => x.clave === clave) || lista[0];
-  const pagosDe = (us, m) => pagos.filter((p) => us.some((u) => u.id === p.unidad_id) && mesDe(p.periodo) === m);
-  const meses = [...new Set(pagos.filter((p) => d.unidades.some((u) => u.id === p.unidad_id)).map((p) => mesDe(p.periodo)))].sort((a, b) => a - b);
+  const hoy = new Date();
+  const ultimo = st.anio < hoy.getFullYear() ? 11 : st.anio > hoy.getFullYear() ? -1 : hoy.getMonth();
+  const conPago = [...new Set(pagos.filter((p) => d.unidades.some((u) => u.id === p.unidad_id)).map((p) => mesDe(p.periodo)))];
+  const meses = [...new Set([...conPago, ...Array.from({ length: ultimo + 1 }, (_, i) => i)])].sort((a, b) => a - b);
+  if (!meses.length) return toast(`Nada que cobrar en ${st.anio}`, true);
   const m = meses.includes(mesPedido) ? mesPedido : meses.includes(st.mes) ? st.mes : meses.at(-1);
-  const conPago = d.unidades.filter((u) => pagosDe([u], m).length);
+  const filas = renglonesMes(d.unidades, m);
+  const nPend = filas.filter((r) => !r.pagado).length;
   const modal = abrirModal({
     titulo: 'Recibo por propietario',
     cuerpo: `<form class="form" id="rp" novalidate>
       <label>Propietario<select name="dueno">${lista.map((x) => `<option value="${esc(x.clave)}" ${x.clave === d.clave ? 'selected' : ''}>${esc(x.nombre)} · ${x.unidades.length} ${x.unidades.length === 1 ? 'unidad' : 'unidades'}</option>`).join('')}</select></label>
       <label>Mes<select name="mes">${meses.map((i) => `<option value="${i}" ${i === m ? 'selected' : ''}>${MESES[i]} ${st.anio}</option>`).join('')}</select></label>
-      <fieldset class="opciones"><legend>Unidades que incluye</legend>
-        ${conPago.map((u) => {
-          const t = pagosDe([u], m).reduce((s, p) => s + Number(p.monto), 0);
-          return `<label class="opcion opcion-linea"><input type="checkbox" name="u" value="${u.id}" checked> ${esc(etiquetaUnidad(u))} · ${fmt(t)}</label>`; }).join('')}
+      <fieldset class="opciones"><legend>Qué incluye</legend>
+        ${filas.map((r, i) => `<label class="opcion opcion-linea"><input type="checkbox" name="r" value="${i}" checked>
+          ${esc(etiquetaUnidad(r.u))} · ${NOMBRE_CORTO[r.k]} · ${fmt(r.monto)} ${r.pagado ? '<span class="badge verde">Pagado</span>' : '<span class="badge rojo">Se registra ahora</span>'}</label>`).join('')}
       </fieldset>
       <p class="nota" id="rp-total"></p>
+      <div id="rp-pago" ${nPend ? '' : 'hidden'}>
+        <label>Cómo pagó<select name="forma">${FORMAS_COBRO.map((x) => `<option>${x}</option>`).join('')}</select></label>
+      </div>
       <label>Recibí de<input name="nombre" maxlength="120" required value="${esc(d.nombre)}"></label>
-      <label>Fecha del recibo<input type="date" name="fecha" required></label>
+      <label id="rp-fecha-l">Fecha<input type="date" name="fecha" required></label>
       <label class="opcion opcion-linea"><input type="checkbox" name="iva" checked> Desglosar IVA (16 %) — los montos ya lo incluyen</label>
       <label>Nota <small>(opcional, sale en el recibo)</small><input name="nota" maxlength="200"></label>
     </form>`,
     pie: `<button class="btn btn-ghost" id="rp-no">Cancelar</button><button class="btn btn-primary" id="rp-si">Ver recibo / PDF</button>`,
   });
   const f = modal.querySelector('#rp');
-  const elegidas = () => [...f.querySelectorAll('input[name="u"]:checked')].map((c) => conPago.find((u) => u.id === c.value));
+  const elegidas = () => [...f.querySelectorAll('input[name="r"]:checked')].map((c) => filas[+c.value]);
   const resumen = () => {
-    const ps = pagosDe(elegidas(), m);
-    f.fecha.value = ps.map((p) => p.fecha).sort().pop() || hoyISO();
-    modal.querySelector('#rp-total').textContent = `Total del recibo: ${fmt(ps.reduce((s, p) => s + Number(p.monto), 0))}`;
+    const rs = elegidas(), pend = rs.filter((r) => !r.pagado);
+    const fechas = pagos.filter((p) => rs.some((r) => r.pagado && r.u.id === p.unidad_id && p.concepto === r.k && mesDe(p.periodo) === m)).map((p) => p.fecha).sort();
+    if (!f.fecha.dataset.tocada) f.fecha.value = pend.length ? hoyISO() : fechas.pop() || hoyISO();
+    modal.querySelector('#rp-pago').hidden = !pend.length;
+    modal.querySelector('#rp-fecha-l').firstChild.textContent = pend.length ? 'Fecha de pago' : 'Fecha del recibo';
+    modal.querySelector('#rp-total').textContent = `Total del recibo: ${fmt(rs.reduce((s, r) => s + r.monto, 0))}`
+      + (pend.length ? ` · se registran como pagados ${pend.length} ${pend.length === 1 ? 'concepto' : 'conceptos'} (${fmt(pend.reduce((s, r) => s + r.monto, 0))})` : '');
+    modal.querySelector('#rp-si').textContent = pend.length ? 'Registrar pago y sacar recibo' : 'Ver recibo / PDF';
   };
   resumen();
-  f.querySelectorAll('input[name="u"]').forEach((c) => c.addEventListener('change', resumen));
+  f.fecha.addEventListener('change', () => { f.fecha.dataset.tocada = '1'; });
+  f.querySelectorAll('input[name="r"]').forEach((c) => c.addEventListener('change', resumen));
   f.dueno.addEventListener('change', () => reciboPropietario(f.dueno.value));
   f.mes.addEventListener('change', () => reciboPropietario(d.clave, +f.mes.value));
   modal.querySelector('#rp-no').addEventListener('click', cerrarModal);
-  modal.querySelector('#rp-si').addEventListener('click', () => {
-    const us = elegidas(), nombre = f.nombre.value.trim();
-    if (!us.length) return toast('Elige al menos una unidad', true);
+  modal.querySelector('#rp-si').addEventListener('click', async (ev) => {
+    const rs = elegidas(), nombre = f.nombre.value.trim();
+    if (!rs.length) return toast('Elige al menos un concepto', true);
     if (!nombre) return toast('Escribe a nombre de quién va el recibo', true);
-    const w = abrirVentana();
+    if (!f.fecha.value) return toast('Escribe la fecha', true);
+    const w = abrirVentana();                                // se abre dentro del clic para que el navegador no la bloquee
     if (!w) return;
-    const op = { nombre, fecha: f.fecha.value, nota: f.nota.value.trim(), iva: f.iva.checked };
+    const btn = ev.currentTarget; btn.disabled = true; btn.textContent = 'Guardando…';
+    const pend = rs.filter((r) => !r.pagado);
+    if (pend.length) {
+      const periodo = `${st.anio}-${String(m + 1).padStart(2, '0')}-01`;
+      const { error } = await db().from('pagos').insert(pend.map((r) => ({
+        org_id: estado.miembro.org_id, empresa_id: centro.empresa_id, centro_id: centro.id, unidad_id: r.u.id,
+        concepto: r.k, periodo, monto: r.monto, forma_pago: f.forma.value, fecha: f.fecha.value,
+        notas: f.nota.value.trim() || null, capturado_por: estado.miembro.nombre,
+      })));
+      if (error) { w.close(); btn.disabled = false; resumen(); return toast('No se pudo guardar el pago: ' + error.message, true); }
+      await cargar();
+    }
+    const op = { nombre, fecha: f.fecha.value, nota: f.nota.value.trim(), iva: f.iva.checked, conceptos: rs.map((r) => `${r.u.id}:${r.k}`) };
     cerrarModal();
-    generarReciboPropietario(w, us, m, op);
+    if (pend.length) toast(`Pago registrado: ${MESES[m].toLowerCase()} ✓`);
+    generarReciboPropietario(w, [...new Set(rs.map((r) => r.u))], m, op);
   });
 }
 
 async function generarReciboPropietario(w, us, m, op) {
   if (!puedeReciboDueno()) { w?.close(); return toast('Solo la dirección saca este recibo', true); }
-  const ps = pagos.filter((p) => us.some((u) => u.id === p.unidad_id) && mesDe(p.periodo) === m);
+  const incluye = (uId, k) => !op.conceptos || op.conceptos.includes(`${uId}:${k}`);
+  const ps = pagos.filter((p) => us.some((u) => u.id === p.unidad_id) && mesDe(p.periodo) === m && incluye(p.unidad_id, p.concepto));
   if (!ps.length) { w.close(); return toast('No hay pagos para el recibo', true); }
   const folios = [...new Set(ps.map((p) => p.folio))];
   let folio = folios.length === 1 ? folios[0] : null;
@@ -998,7 +1039,7 @@ async function generarReciboPropietario(w, us, m, op) {
     }
   }
   const per = `${MESES[m]} ${st.anio}`;
-  const lineas = us.flatMap((u) => ['mantenimiento', 'luz'].map((k) => {
+  const lineas = us.flatMap((u) => CONCEPTOS_RP.filter((k) => incluye(u.id, k)).map((k) => {
     const total = pagosDelMes(u.id, m, k).reduce((s, p) => s + Number(p.monto), 0);
     if (!(total > 0)) return null;
     const cuota = Number(cuotaDe(u.id, k)?.monto || 0);

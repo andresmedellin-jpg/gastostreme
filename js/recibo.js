@@ -56,7 +56,7 @@ export async function pintarRecibo(w, d) {
   ${ff}
   @page{size:letter;margin:0} *{box-sizing:border-box}
   body{margin:0;background:#eef0f3;font-family:Inter,Arial,Helvetica,sans-serif;color:#1a1a1a;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .barra{position:sticky;top:0;z-index:2;display:flex;gap:8px;justify-content:center;padding:12px;background:#1a1a1a}
+  .barra{position:sticky;top:0;z-index:2;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:12px;background:#1a1a1a}
   .barra button{font:600 14px Inter,Arial,sans-serif;padding:9px 16px;border-radius:4px;border:0;cursor:pointer}
   .hoja{width:8.5in;min-height:11in;max-width:100%;margin:24px auto;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.1)}
   .topbar{height:8px;background:${COLOR}}
@@ -83,7 +83,7 @@ export async function pintarRecibo(w, d) {
   @media print{body{background:#fff}.barra{display:none}.hoja{margin:0;box-shadow:none;width:100%;min-height:0}}
   @media (max-width:640px){.c{padding:20px 16px}.head{flex-direction:column;align-items:flex-start}.head img{max-width:60%}.t{text-align:left}}
 </style></head><body>
-<div class="barra"><button class="ok" id="pdf">Descargar PDF</button><button onclick="print()">Imprimir</button><button onclick="close()">Cerrar</button></div>
+<div class="barra"><button class="ok" id="pdf">Descargar PDF</button><button class="ok" id="compartir" hidden>Compartir PDF</button><button onclick="print()">Imprimir</button><button onclick="close()">Cerrar</button></div>
 <div class="hoja"><div class="topbar"></div><div class="c">
   <div class="head">${img ? `<img src="${img}" alt="${esc(EMI)}">` : `<strong style="font-size:24px">${esc(EMI)}</strong>`}
     <div class="t"><h1>${esc(d.encabezado || 'RECIBO DE PAGO')}</h1><div>Folio: <b>${esc(d.folio || '—')}</b></div><div>Fecha: ${fechaLarga(d.fecha)}</div></div></div>
@@ -106,29 +106,48 @@ export async function pintarRecibo(w, d) {
   <div class="pie">${esc(EMI)}<br>${esc(d.pie || 'Este recibo es comprobante de pago válido • Consérvelo para sus registros')}</div>
 </div></div>
 <script>
-  // Descarga directa del PDF (tamaño carta), con el nombre del folio y de quien pagó
+  // PDF tamaño carta con el nombre del folio y de quien pagó. Se espera a que la letra (Inter) esté cargada para que el PDF salga
+  // igual que en pantalla. "Descargar PDF" guarda el archivo; "Compartir PDF" (celular) lo manda como archivo PDF a WhatsApp, correo, etc.
+  var ARCHIVO = ${JSON.stringify(archivo)};
+  function conLibreria(fn, b, texto) {
+    function listo() { b.disabled = false; b.textContent = texto; }
+    b.disabled = true; b.textContent = 'Generando PDF…';
+    var cargar = window.html2pdf ? Promise.resolve() : new Promise(function (ok, mal) {
+      var sc = document.createElement('script'); sc.src = ${JSON.stringify(libPDF)}; sc.onload = ok; sc.onerror = mal; document.head.appendChild(sc);
+    });
+    cargar.then(function () { return document.fonts ? document.fonts.ready : null; })
+      .then(function () { return generarPDF(); })
+      .then(function (blob) { document.body.classList.remove('pdf'); return fn(blob); })
+      .then(listo, function (e) {
+        document.body.classList.remove('pdf'); listo();
+        if (e && e.name === 'AbortError') return;             // canceló el menú de compartir
+        alert('No se pudo generar el PDF' + (e && e.message ? ': ' + e.message : '') + '. Usa Imprimir → Guardar como PDF.');
+      });
+  }
+  function generarPDF() {
+    document.body.classList.add('pdf');
+    return html2pdf().set({
+      margin: 0, filename: ARCHIVO,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 3, useCORS: true, windowWidth: Math.max(816, window.innerWidth), scrollY: 0, scrollX: 0 },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait', compress: true },
+      pagebreak: { mode: ['avoid-all'] }
+    }).from(document.querySelector('.hoja')).toContainer()
+      .then(function () { var c = this.prop.container; c.style.marginLeft = '0'; c.style.marginRight = '0'; }) // sin esto sale recorrido en pantallas anchas
+      .outputPdf('blob');
+  }
+  function archivoPDF(blob) { return new File([blob], ARCHIVO, { type: 'application/pdf' }); }
   document.getElementById('pdf').addEventListener('click', function () {
-    var b = this; b.disabled = true; b.textContent = 'Generando PDF…';
-    function listo() { b.disabled = false; b.textContent = 'Descargar PDF'; }
-    function generar() {
-      document.body.classList.add('pdf');
-      html2pdf().set({
-        margin: 0, filename: ${JSON.stringify(archivo)},
-        image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true, windowWidth: Math.max(816, window.innerWidth), scrollY: 0, scrollX: 0 },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all'] }
-      }).from(document.querySelector('.hoja')).toContainer()
-        .then(function () { var c = this.prop.container; c.style.marginLeft = '0'; c.style.marginRight = '0'; }) // sin esto sale recorrido en pantallas anchas
-        .save()
-        .then(function () { document.body.classList.remove('pdf'); listo(); })
-        .catch(function (e) { document.body.classList.remove('pdf'); listo(); alert('No se pudo generar el PDF: ' + e.message + '. Usa Imprimir → Guardar como PDF.'); });
-    }
-    if (window.html2pdf) return generar();
-    var sc = document.createElement('script'); sc.src = ${JSON.stringify(libPDF)};
-    sc.onload = generar;
-    sc.onerror = function () { listo(); alert('No se pudo cargar el generador de PDF. Usa Imprimir → Guardar como PDF.'); };
-    document.head.appendChild(sc);
+    conLibreria(function (blob) {
+      var url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+      var a = document.createElement('a'); a.href = url; a.download = ARCHIVO; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+    }, this, 'Descargar PDF');
+  });
+  var bc = document.getElementById('compartir');
+  try { if (navigator.canShare && navigator.canShare({ files: [new File(['x'], 'x.pdf', { type: 'application/pdf' })] })) bc.hidden = false; } catch (e) {}
+  bc.addEventListener('click', function () {
+    conLibreria(function (blob) { return navigator.share({ files: [archivoPDF(blob)], title: ARCHIVO.replace(/\.pdf$/, '') }); }, this, 'Compartir PDF');
   });
 </script></body></html>`;
   w.document.open(); w.document.write(html); w.document.close();
