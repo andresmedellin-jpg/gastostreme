@@ -209,6 +209,20 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   `prospectos.operacion` renta|venta|ambas; "Giro" usa la columna `ubicacion`). `registrar_prospecto` con `marca: 'treme'` lo guarda en Treme
   (página inmuebles.medco.mx, repo `rentastreme`; Andrés NO debe borrar ese repo). Importar de Meta en Treme lee espacio/busca/giro.
 
+- **Asesor virtual de Treme (26/11/2026, 0042–0043, función `asesor`, verify_jwt = false):** bot de ventas y rentas para WhatsApp
+  (número de Treme con coexistencia: la app de WhatsApp Business sigue funcionando), mensajes de Instagram (@treme.mx) y el formulario de
+  inmuebles.medco.mx (`POST …/functions/v1/asesor?fuente=web`). Andrés **autorizó una cuenta de Anthropic PROPIA de Treme** solo para esto
+  (secreto `ANTHROPIC_API_KEY`; nada de Unaria). Ofrece SOLO `activos.publicar = true` sin contrato activo ligado, con `precio_renta`,
+  `renta_mas_iva`, `precio_venta`, `descripcion_publica` (precios aprobados 26/11: oficinas $350/m² + IVA, 1401 $40,000, Bodega 3 $21,000).
+  Para quitar/poner un espacio en el asesor: `publicar`. Tablas `bot_conversaciones` (bot_activo, pidio_humano, prospecto_id) y
+  `bot_mensajes` (rol cliente|asesor|humano|sistema, meta_id único contra reintentos). Herramientas de la IA: registrar_interesado (crea/
+  actualiza el prospecto de Treme; enlaza por WhatsApp de 10 dígitos con uno de los últimos 60 días), agendar_visita (estado calificado,
+  nota, aviso), pasar_a_persona (pausa el bot, aviso). Avisos a **Miguel** por WhatsApp (`AVISO_WHATSAPP`, plantilla `AVISO_PLANTILLA`).
+  Si alguien contesta desde la app (eco smb_message_echoes / eco de Instagram) el bot se pausa en esa conversación. Si la IA falla:
+  respuesta cortés, pausa y aviso. Pantalla: Treme → Prospectos → Conversaciones (ver plática, "La tomo yo" / "Regresar al asesor").
+  Secretos pendientes los carga Andrés en Supabase: ANTHROPIC_API_KEY, META_APP_SECRET, META_VERIFY_TOKEN, WA_TOKEN, WA_PHONE_ID,
+  IG_TOKEN, IG_ID, AVISO_WHATSAPP, (AVISO_PLANTILLA, BIENVENIDA_PLANTILLA, MODELO). Nunca escribe en frío a desconocidos.
+
 ## Unaria (NO va aquí)
 - **Unaria** (producto de Andrés con su socio Angel Galván Treviño) vive **completamente aparte**: repositorio
   `andresmedellin-jpg/unaria` (unaria.mx, unaria.mx/app = la app modelo, unaria.mx/demo = demos de Galcor/inmobiliaria),
@@ -217,7 +231,7 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 - En este repo solo queda el demo propio de Treme/MEDCO (`?demo=medco`, usuario "demo"), y el código de marca configurable
   (`MARCA`, `CLIENTE` en `js/config.js`) que no se usa aquí. La app de Unaria partió de una copia de este código.
 - Restos inactivos en el proyecto de Treme: función `asistente` (sin llave, nadie la llama) y tabla `app.asistente_preguntas`
-  (migración 0026, vacía). No conectar Anthropic a este proyecto.
+  (migración 0026, vacía). No conectar la cuenta de Anthropic de Unaria a este proyecto (el asesor de Treme usa la suya propia).
 
 ## Equipo (Personal) — igual que en Unaria (02/11/2026)
 - **Solo 3 pestañas, por momento:** Hoy · Semana (turnos + nómina) · Personas (empleados; Vacaciones y Préstamos como botones).

@@ -11,7 +11,7 @@ export const estado = { user: null, miembro: null, empresas: [], centros: [], fo
 // Tablas con empresa_id: dentro de un mundo, toda lectura se limita a esa empresa (así MEDCO y Treme nunca se revuelven).
 // Escribir (insert/update/delete) no cambia: cada módulo ya guarda la empresa del centro elegido.
 const CON_EMPRESA = new Set(['activos', 'centros', 'cuentas_por_cobrar', 'empleados', 'gastos', 'ingresos', 'inversion_publicidad',
-  'nomina_periodos', 'pagos', 'pasivos', 'prospectos', 'v_gasto_mensual', 'v_saldos_cxc']);
+  'nomina_periodos', 'pagos', 'pasivos', 'prospectos', 'bot_conversaciones', 'v_gasto_mensual', 'v_saldos_cxc']);
 export const db = () => {
   const s = sb.schema(ESQUEMA);
   if (!estado.foco) return s;

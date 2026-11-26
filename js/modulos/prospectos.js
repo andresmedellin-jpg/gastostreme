@@ -155,14 +155,61 @@ function pintar() {
     <div class="sub-head">
       <div class="tabs" role="tablist">
         <button role="tab" data-vista="lista" aria-selected="${st.vista === 'lista'}">Prospectos</button>
+        ${V === V_TREME ? `<button role="tab" data-vista="chats" aria-selected="${st.vista === 'chats'}">Conversaciones</button>` : ''}
         <button role="tab" data-vista="publicidad" aria-selected="${st.vista === 'publicidad'}">Publicidad</button>
       </div>
-      <div class="sub-meta">${st.vista === 'lista' ? 'Los contactos de la página y de los anuncios se registran automáticamente' : 'Cuánto cuesta cada contacto serio, por plataforma'}</div>
+      <div class="sub-meta">${st.vista === 'lista' ? 'Los contactos de la página y de los anuncios se registran automáticamente' : st.vista === 'chats' ? 'Lo que el asesor virtual platica por WhatsApp e Instagram' : 'Cuánto cuesta cada contacto serio, por plataforma'}</div>
     </div>
     <div id="p-cuerpo"></div>`;
   raiz.querySelectorAll('[data-vista]').forEach((b) => b.addEventListener('click', () => { st.vista = b.dataset.vista; pintar(); }));
   const el = raiz.querySelector('#p-cuerpo');
-  st.vista === 'lista' ? lista(el) : publicidad(el);
+  if (st.vista === 'chats' && V !== V_TREME) st.vista = 'lista';
+  st.vista === 'lista' ? lista(el) : st.vista === 'chats' ? conversaciones(el) : publicidad(el);
+}
+
+// ---------- conversaciones del asesor virtual (Treme, 26/11/2026; función del servidor `asesor`) ----------
+const CANAL = { whatsapp: 'WhatsApp', instagram: 'Instagram', web: 'Página' };
+const estadoChat = (c) => (c.bot_activo ? { t: 'Contesta el asesor', c: 'tag-ok' }
+  : c.pidio_humano ? { t: 'Pidió hablar con una persona', c: 'tag-aviso' } : { t: 'La atiende una persona', c: 'tag-azul' });
+async function conversaciones(el) {
+  el.innerHTML = '<div class="cargando">Cargando…</div>';
+  const { data, error } = await db().from('bot_conversaciones').select('*').order('actualizado_en', { ascending: false }).limit(150);
+  if (error) { el.innerHTML = `<div class="vacio">No se pudieron cargar las conversaciones: ${esc(error.message)}</div>`; return; }
+  const pend = data.filter((c) => c.pidio_humano && !c.bot_activo).length;
+  el.innerHTML = `
+    ${pend ? `<div class="alerta-roja" role="alert">${pend} ${pend === 1 ? 'persona pidió' : 'personas pidieron'} hablar con alguien del equipo.</div>` : ''}
+    <div class="pros-lista">${data.map((c) => {
+      const e = estadoChat(c);
+      return `<button type="button" class="pros-tarjeta chat-fila" data-id="${c.id}" style="text-align:left;width:100%;cursor:pointer">
+        <div class="pros-top"><strong>${esc(c.nombre || c.contacto)}</strong> <span class="tag ${e.c}">${e.t}</span> <span class="tag tag-suave">${CANAL[c.canal] || c.canal}</span></div>
+        <span class="pros-cuando">${hace(c.actualizado_en)}</span></button>`;
+    }).join('') || '<div class="vacio">Todavía no hay conversaciones. En cuanto se conecte el número de WhatsApp y el Instagram de Treme, aquí aparecerá cada plática del asesor.</div>'}</div>`;
+  el.querySelectorAll('.chat-fila').forEach((b) => b.addEventListener('click', () => verChat(data.find((c) => c.id === b.dataset.id), el)));
+}
+async function verChat(c, el) {
+  const { data: msgs } = await db().from('bot_mensajes').select('rol, texto, creado_en').eq('conversacion_id', c.id).order('creado_en').limit(400);
+  const quien = { cliente: c.nombre || 'Cliente', asesor: 'Asesor virtual', humano: 'Equipo Treme', sistema: 'Aviso' };
+  const wa = c.canal === 'whatsapp' ? waNumero(c.contacto) : '';
+  const p = c.prospecto_id ? pros.find((x) => x.id === c.prospecto_id) : null;
+  const e = estadoChat(c);
+  const modal = abrirModal({
+    titulo: c.nombre || c.contacto, ancho: true,
+    cuerpo: `<div class="pros-ficha"><span><b>Canal</b>${CANAL[c.canal] || c.canal}</span><span><b>Estado</b>${e.t}</span>${p ? `<span><b>Prospecto</b>${esc(p.tipo_obra || p.nombre)}</span>` : ''}</div>
+      <div style="display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto;padding:4px 2px">${(msgs || []).map((m) => `
+        <div style="align-self:${m.rol === 'cliente' ? 'flex-start' : 'flex-end'};max-width:80%;background:${m.rol === 'cliente' ? '#fff' : m.rol === 'humano' ? '#E8EEF9' : m.rol === 'sistema' ? 'transparent' : '#F4EDE3'};border:1px solid var(--line, #E4E2DC);border-radius:12px;padding:8px 12px">
+          <small class="mut">${quien[m.rol]} · ${new Date(m.creado_en).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</small>
+          <div style="white-space:pre-wrap">${esc(m.texto)}</div></div>`).join('') || '<div class="vacio">Sin mensajes.</div>'}</div>
+      <p class="nota">${c.bot_activo ? 'Si usted contesta desde la app de WhatsApp Business, el asesor se pausa solo en esta conversación.' : 'El asesor está en pausa en esta conversación: solo contesta el equipo.'}</p>`,
+    pie: `${p ? '<button class="btn btn-ghost" id="ch-pros">Ver prospecto</button>' : ''}<span style="flex:1"></span>
+      ${wa ? `<a class="btn btn-ghost" href="https://wa.me/${wa}" target="_blank" rel="noopener">Abrir WhatsApp</a>` : ''}
+      ${puede() ? `<button class="btn btn-primary" id="ch-cambia">${c.bot_activo ? 'La tomo yo (pausar asesor)' : 'Regresar al asesor'}</button>` : ''}`,
+  });
+  modal.querySelector('#ch-pros')?.addEventListener('click', () => { cerrarModal(); editar(p); });
+  modal.querySelector('#ch-cambia')?.addEventListener('click', async () => {
+    const { error } = await db().from('bot_conversaciones').update(c.bot_activo ? { bot_activo: false } : { bot_activo: true, pidio_humano: false }).eq('id', c.id);
+    if (error) return toast('No se pudo cambiar: ' + error.message, true);
+    cerrarModal(); toast(c.bot_activo ? 'Usted atiende esta conversación' : 'El asesor vuelve a contestar'); conversaciones(el);
+  });
 }
 
 function lista(el) {
