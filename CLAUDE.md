@@ -164,7 +164,7 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
 - **Recibo por propietario (26/11/2026, solo dueño y socio):** en Mantenimiento, botón "Recibo por propietario" junto a "Sacar recibo".
   Agrupa las unidades por `unidades.ocupante` (sin acentos ni mayúsculas), elige mes y unidades, y saca UN recibo con cada unidad y
   concepto (mantenimiento/luz) y, si se marca, el IVA desglosado (Importe | IVA 16 % | Subtotal; los montos capturados ya incluyen IVA).
-  El folio se guarda en todos los pagos incluidos. Caso de origen: Fausto Muñoz (904, 905, 1407) paga $28,391 al mes con IVA;
+  El folio se guarda en todos los pagos incluidos. Caso de origen: Fausto Muñoz, ahora a nombre de "Interamericana de Negocios" (904, 905, 1407; cambio pedido por él el 26/11) paga $28,391 al mes con IVA;
   sus cuotas y pagos ene–oct 2026 se corrigieron a montos con IVA y la luz se repartió 4,640 / 4,640 entre 904 y 905.
 - **Limpieza 26/11/2026 (petición de Andrés: "quiero ver realmente lo que entra"):** nombres de ocupantes en MAYÚSCULAS pasados a
   nombre normal con acentos (José, Héctor, Chávez…; DHL se queda). Unidades de Treme en Elysium (según Patrimonio: 604, 605, 606, 704, 1401, 1201, 1202, 705 A, 801, 806, 901 y locales 19, 20, 21) exentas:
