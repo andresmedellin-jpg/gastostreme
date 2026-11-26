@@ -946,7 +946,7 @@ function reciboPropietario(clave, mesPedido) {
     cuerpo: `<form class="form" id="rp" novalidate>
       <label>Propietario<select name="dueno">${lista.map((x) => `<option value="${esc(x.clave)}" ${x.clave === d.clave ? 'selected' : ''}>${esc(x.nombre)} · ${x.unidades.length} ${x.unidades.length === 1 ? 'unidad' : 'unidades'}</option>`).join('')}</select></label>
       <label>Mes<select name="mes">${meses.map((i) => `<option value="${i}" ${i === m ? 'selected' : ''}>${MESES[i]} ${st.anio}</option>`).join('')}</select></label>
-      <fieldset class="rp-unidades"><legend>Unidades que incluye</legend>
+      <fieldset class="opciones"><legend>Unidades que incluye</legend>
         ${conPago.map((u) => {
           const t = pagosDe([u], m).reduce((s, p) => s + Number(p.monto), 0);
           return `<label class="opcion opcion-linea"><input type="checkbox" name="u" value="${u.id}" checked> ${esc(etiquetaUnidad(u))} · ${fmt(t)}</label>`; }).join('')}
