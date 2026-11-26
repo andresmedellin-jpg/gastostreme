@@ -146,7 +146,7 @@ function padron(concepto) {
     const u = unidades.find((x) => x.id === c.unidad_id);
     const porMes = Array.from({ length: 12 }, () => []);
     pagos.filter((p) => p.unidad_id === c.unidad_id && p.concepto === concepto).forEach((p) => porMes[mesDe(p.periodo)].push(p));
-    return { u, cuota: c, exento: !c.activo, porMes, pagado: (m) => porMes[m].reduce((s, p) => s + Number(p.monto), 0) };
+    return { u, cuota: c, exento: !c.activo || !(Number(c.monto) > 0), porMes, pagado: (m) => porMes[m].reduce((s, p) => s + Number(p.monto), 0) };
   }).filter((r) => r.u).sort((a, b) => orden(a.u, b.u));
 }
 
@@ -423,7 +423,9 @@ function pintarConcepto(el, concepto) {
   const m = st.mes;
   const todas = padron(concepto);
   const s = stats(todas, m);
+  // Solo las unidades a las que sí se les cobra (26/11/2026, petición de Andrés); una exenta aparece solo si pagó ese mes
   const filas = todas.filter((r) => {
+    if (r.exento && !(r.pagado(m) > 0)) return false;
     if (st.filtro === 'pagados' && (r.exento || debe(r, m))) return false;
     if (st.filtro === 'pendientes' && !debe(r, m)) return false;
     if (st.q && !`${r.u.identificador} ${r.u.ocupante || ''}`.toLowerCase().includes(st.q)) return false;
