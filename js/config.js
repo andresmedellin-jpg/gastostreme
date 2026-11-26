@@ -193,7 +193,7 @@ export const MUNDOS = [
     modulos: ['inicio', 'patrimonio', 'gastos', 'rayas', 'banco', 'importar', 'usuarios'], titulos: { inicio: 'Resumen del grupo', gastos: 'Gastos consolidados', patrimonio: 'Patrimonio' } },
   { id: 'treme', nombre: 'Treme', sub: 'Grupo Inmobiliario', empresa: /treme/i, color: '#8B1A1A', logo: 'logo-treme',
     // Orden del menú (25/11/2026, petición de Andrés): Resumen · Torre Elysium · Plazas y rentas · Gastos · Patrimonio
-    modulos: ['inicio', 'cobranza', 'personal', 'bodegas', 'plazas', 'rentas', 'pedidos', 'servicios', 'lecturas', 'gastos', 'patrimonio'],
+    modulos: ['inicio', 'cobranza', 'personal', 'bodegas', 'plazas', 'rentas', 'prospectos', 'pedidos', 'servicios', 'lecturas', 'gastos', 'patrimonio'],
     titulos: { inicio: 'Resumen', cobranza: 'Cobranza Elysium', plazas: 'Plazas', pedidos: 'Limpieza', servicios: 'Luz, gas y agua', lecturas: 'Lecturas' } },
   { id: 'medco', nombre: 'MEDCO', sub: 'Desarrollos y Proyectos', empresa: /medco/i, color: '#23408E', logo: 'logo-medco',
     modulos: ['inicio', 'obras', 'prospectos', 'cotizaciones', 'inventario', 'gastos', 'personal', 'bodegas', 'patrimonio'], titulos: { inicio: 'Resumen', bodegas: 'Material de obra' } },

@@ -204,6 +204,11 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   utm_source/medium/campaign/term, gclid y fbclid guardados de la URL de llegada; la función deduce el origen y frena spam
   (40 por 10 min, 3 por teléfono/correo por hora). Plan de publicidad: $7,000/mes Google, $5,000/mes Meta, 3 meses.
 
+- **Prospectos de Treme (26/11/2026, 0041):** la sección Prospectos también está en Treme (entre Rentas y Gastos). Mismo módulo y tabla;
+  el vocabulario cambia según el mundo (`V_TREME` en prospectos.js: espacio de interés = 602–606, Depto 1401, Bodega 3; "Busca" =
+  `prospectos.operacion` renta|venta|ambas; "Giro" usa la columna `ubicacion`). `registrar_prospecto` con `marca: 'treme'` lo guarda en Treme
+  (página inmuebles.medco.mx, repo `rentastreme`; Andrés NO debe borrar ese repo). Importar de Meta en Treme lee espacio/busca/giro.
+
 ## Unaria (NO va aquí)
 - **Unaria** (producto de Andrés con su socio Angel Galván Treviño) vive **completamente aparte**: repositorio
   `andresmedellin-jpg/unaria` (unaria.mx, unaria.mx/app = la app modelo, unaria.mx/demo = demos de Galcor/inmobiliaria),

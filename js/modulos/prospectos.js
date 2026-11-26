@@ -29,7 +29,7 @@ export const ORIGENES = {
 const PLATAFORMA_DE = (o) => (o === 'google' ? 'google' : ['instagram', 'facebook'].includes(o) ? 'meta' : 'organico');
 const PLATAFORMAS = { google: 'Google Ads', meta: 'Meta (Instagram y Facebook)', organico: 'Sin anuncio' };
 // Palabras del giro. Por omisión, MEDCO (construcción); otra instalación (o el demo) las cambia en MARCA.prospectos.
-const V = Object.assign({
+const V_MEDCO = Object.assign({
   negocio: 'MEDCO Construcciones', empresaCorta: 'MEDCO', sitio: 'construcciones.medco.mx',
   tipos: ['Nave o bodega', 'Plaza o locales', 'Estructura metálica', 'Edificio u oficinas', 'Otro'], campoTipo: 'Tipo de obra', columnaTipo: 'Obra',
   terreno: { si: 'Tiene terreno', buscando: 'Buscando terreno', no: 'Sin terreno' }, campoTerreno: 'Terreno',
@@ -42,7 +42,28 @@ const V = Object.assign({
   motivosNo: ['Solo cotizando', 'Sin terreno ni fecha', 'Obra muy chica', 'Fuera de zona', 'No es lo que hacemos', 'Número equivocado'],
   saludo: (nombre, tipo) => `Hola ${nombre}, te escribe MEDCO Construcciones. Recibimos tu solicitud${tipo ? ` de ${tipo.toLowerCase()}` : ''}. ¿Tienes unos minutos para platicar sobre tu proyecto?`,
 }, MARCA.prospectos || {});
-const TIPOS = V.tipos, TERRENO = V.terreno || {}, CUANDO = V.cuando, MOTIVOS = V.motivos;
+// Treme (26/11/2026): interesados en rentar o comprar espacios de Torre Elysium que llegan por inmuebles.medco.mx, Meta y WhatsApp.
+const V_TREME = {
+  negocio: 'Grupo Inmobiliario Treme', empresaCorta: 'Treme', sitio: 'inmuebles.medco.mx',
+  tipos: ['Oficina 602', 'Oficina 603', 'Oficina 604', 'Oficina 605', 'Oficina 606', 'Departamento 1401', 'Bodega 3', 'Otro espacio'],
+  campoTipo: 'Espacio de interés', columnaTipo: 'Espacio',
+  terreno: null, operacion: { renta: 'Renta', venta: 'Compra', ambas: 'Renta o compra' }, campoOperacion: 'Busca',
+  cuando: { ya: 'Inmediato', '3_meses': 'En 1 a 3 meses', '6_meses': 'En 3 a 6 meses', explorando: 'Solo explorando' }, campoCuando: '¿Cuándo lo ocupa?',
+  campoM2: 'Metros que busca', sufijoM2: 'm²', campoUbicacion: 'Giro', ubicacionEj: 'Despacho, consultorio, oficina corporativa…',
+  calificadoAyuda: 'tienen presupuesto y fecha de entrada', seVuelve: 'se vuelva contrato', ganados: 'Cierres',
+  montoGanado: 'Renta mensual o precio de venta', montoEj: 'Ej. 45000',
+  notaGanado: 'Sirve para saber cuánto cerraron los anuncios. Cuando se firme, da de alta el contrato en Rentas como siempre.',
+  motivos: ['Precio', 'Eligió otro lugar', 'No contestó', 'Lo pospuso', 'Necesita otro tamaño', 'Necesita otra zona'],
+  motivosNo: ['Solo explorando', 'Presupuesto muy bajo', 'Busca otro tipo de espacio', 'Corredor sin cliente', 'Número equivocado'],
+  saludo: (nombre, tipo) => `Hola ${nombre}, le escribe Grupo Inmobiliario Treme. Recibimos su interés${tipo ? ` en la ${tipo}` : ''} de Torre Elysium. ¿Le gustaría agendar una visita?`,
+};
+// El vocabulario sigue al mundo en el que está la persona (Treme o MEDCO); se elige al abrir la sección.
+let V = V_MEDCO, TIPOS = V.tipos, TERRENO = V.terreno || {}, CUANDO = V.cuando, MOTIVOS = V.motivos, OPERACION = {};
+function elegirVocabulario() {
+  const treme = !MARCA.prospectos && estado.empresas.length === 1 && /treme/i.test(estado.empresas[0].nombre_corto || '');
+  V = treme ? V_TREME : V_MEDCO;
+  TIPOS = V.tipos; TERRENO = V.terreno || {}; CUANDO = V.cuando; MOTIVOS = V.motivos; OPERACION = V.operacion || {};
+}
 const UNA_HORA = 3600e3;
 
 const FILTROS = {
@@ -58,6 +79,7 @@ let raiz, pros = [], inversion = [];
 
 export async function render(view) {
   raiz = view;
+  elegirVocabulario();
   document.getElementById('page-actions').innerHTML = puede() ? '<button class="btn btn-primary" id="p-nuevo">＋ Prospecto</button>' : '';
   document.getElementById('p-nuevo')?.addEventListener('click', () => editar(null));
   view.innerHTML = '<div class="cargando">Cargando…</div>';
@@ -174,7 +196,7 @@ function lista(el) {
           <input type="search" id="p-q" placeholder="Buscar nombre, empresa o teléfono" value="${esc(st.q)}" aria-label="Buscar prospecto">
         </div>
       </div>
-      <div class="pros-lista">${l.map(tarjeta).join('') || `<div class="vacio">${pros.length ? 'Nada en este filtro.' : 'Todavía no hay prospectos. Los que lleguen por ${V.sitio} aparecerán aquí solos; también puedes agregarlos con ＋ Prospecto.'}</div>`}</div>
+      <div class="pros-lista">${l.map(tarjeta).join('') || `<div class="vacio">${pros.length ? 'Nada en este filtro.' : `Todavía no hay prospectos. Los que lleguen por ${V.sitio} aparecerán aquí solos; también puedes agregarlos con ＋ Prospecto.`}</div>`}</div>
     </section>`;
 
   el.querySelector('#p-ver-atender')?.addEventListener('click', () => { st.filtro = 'atender'; st.origen = ''; st.q = ''; pintar(); });
@@ -194,7 +216,7 @@ function lista(el) {
 }
 
 function tarjeta(p) {
-  const datos = [p.tipo_obra, p.m2 ? `${Number(p.m2).toLocaleString('es-MX')} ${V.sufijoM2}` : '', TERRENO[p.tiene_terreno], CUANDO[p.cuando], p.ubicacion].filter(Boolean);
+  const datos = [OPERACION[p.operacion], p.tipo_obra, p.m2 ? `${Number(p.m2).toLocaleString('es-MX')} ${V.sufijoM2}` : '', TERRENO[p.tiene_terreno], CUANDO[p.cuando], p.ubicacion].filter(Boolean);
   const wa = waNumero(p.whatsapp);
   const msg = V.saludo(p.nombre.split(' ')[0], p.tipo_obra);
   const respuesta = p.primera_respuesta ? duracion(new Date(p.primera_respuesta) - new Date(p.creado_en)) : '';
@@ -273,7 +295,7 @@ function pedirMotivo(p, nuevo) {
 // ---------- alta y edición ----------
 function editar(p) {
   const nuevo = !p;
-  const d = p || { nombre: '', empresa: '', whatsapp: '', correo: '', tipo_obra: '', m2: '', tiene_terreno: '', cuando: '', ubicacion: '', origen: 'whatsapp', estado: 'nuevo', notas: '', mensaje: '' };
+  const d = p || { nombre: '', empresa: '', whatsapp: '', correo: '', tipo_obra: '', operacion: '', m2: '', tiene_terreno: '', cuando: '', ubicacion: '', origen: 'whatsapp', estado: 'nuevo', notas: '', mensaje: '' };
   const ro = !puede() ? 'disabled' : '';
   const opt = (obj, val, vacio) => `<option value="">${vacio}</option>` + Object.entries(obj).map(([k, t]) => `<option value="${k}" ${val === k ? 'selected' : ''}>${t}</option>`).join('');
   const respuesta = p?.primera_respuesta ? duracion(new Date(p.primera_respuesta) - new Date(p.creado_en)) : null;
@@ -298,8 +320,9 @@ function editar(p) {
       </div>
       <div class="form-3">
         ${V.terreno ? `<label>${V.campoTerreno}<select name="tiene_terreno" ${ro}>${opt(TERRENO, d.tiene_terreno, '—')}</select></label>` : ''}
+        ${V.operacion ? `<label>${V.campoOperacion}<select name="operacion" ${ro}>${opt(OPERACION, d.operacion, '—')}</select></label>` : ''}
         <label>${V.campoCuando}<select name="cuando" ${ro}>${opt(CUANDO, d.cuando, '—')}</select></label>
-        <label>Ubicación<input name="ubicacion" maxlength="120" value="${esc(d.ubicacion || '')}" placeholder="${V.ubicacionEj}" ${ro}></label>
+        <label>${V.campoUbicacion || 'Ubicación'}<input name="ubicacion" maxlength="120" value="${esc(d.ubicacion || '')}" placeholder="${V.ubicacionEj}" ${ro}></label>
       </div>
       <div class="form-3">
         <label>Origen<select name="origen" ${ro}>${Object.entries(ORIGENES).map(([k, t]) => `<option value="${k}" ${d.origen === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
@@ -327,6 +350,7 @@ function editar(p) {
     const reg = {
       nombre: v.nombre.trim(), empresa: v.empresa.trim() || null, whatsapp: v.whatsapp.trim() || null, correo: v.correo.trim().toLowerCase() || null,
       tipo_obra: v.tipo_obra || null, m2: v.m2 ? Number(v.m2) : null, tiene_terreno: v.tiene_terreno || null, cuando: v.cuando || null,
+      ...(V.operacion ? { operacion: v.operacion || null } : {}),
       ubicacion: v.ubicacion.trim() || null, origen: v.origen, estado: v.estado, monto: v.monto ? Number(v.monto) : null,
       notas: v.notas.trim() || null, ...(v.motivo !== undefined ? { motivo: v.motivo.trim() || null } : {}),
     };
@@ -540,6 +564,23 @@ function valorTipo(t) {
   if (/edificio|oficina/.test(n)) return 'Edificio u oficinas';
   return 'Otro';
 }
+// Treme: el formulario de Meta pregunta qué espacio le interesa y si busca rentar o comprar
+function valorEspacio(t) {
+  const n = normalizar(t);
+  if (!n) return null;
+  const num = (n.match(/\b(60[2-6]|1401)\b/) || [])[1];
+  if (num) return V_TREME.tipos.find((x) => x.endsWith(num));
+  if (/bodega/.test(n)) return 'Bodega 3';
+  if (/depa|depto|departamento/.test(n)) return 'Departamento 1401';
+  if (/oficina/.test(n)) return null;
+  return 'Otro espacio';
+}
+function valorOperacion(t) {
+  const n = normalizar(t);
+  if (!n) return null;
+  const r = /rent/.test(n), c = /compr|venta|adquir/.test(n);
+  return r && c ? 'ambas' : r ? 'renta' : c ? 'venta' : null;
+}
 function valorTerreno(t) {
   const n = normalizar(t);
   if (!n) return null;
@@ -568,11 +609,12 @@ export function deMeta(r) {
   return {
     nombre: nombre.slice(0, 120), empresa: campo(r, 'company_name', 'empresa').slice(0, 120) || null,
     whatsapp: tel.slice(0, 30) || null, correo: /^\S+@\S+\.\S+$/.test(correo) ? correo.slice(0, 160) : null,
-    tipo_obra: valorTipo(campo(r, 'construir', 'tipo_de_obra', 'tipo_obra', 'proyecto')),
+    tipo_obra: V === V_TREME ? valorEspacio(campo(r, 'espacio', 'interes', 'oficina', 'inmueble')) : valorTipo(campo(r, 'construir', 'tipo_de_obra', 'tipo_obra', 'proyecto')),
+    ...(V === V_TREME ? { operacion: valorOperacion(campo(r, 'busca', 'operacion', 'renta_o_compra', 'rentar_o_comprar')) } : {}),
     m2: m2 > 0 ? m2 : null,
     tiene_terreno: valorTerreno(campo(r, 'terreno')),
     cuando: valorCuando(campo(r, 'empezar', 'cuando', 'inicio')),
-    ubicacion: campo(r, 'city', 'ciudad', 'ubicacion').slice(0, 120) || null,
+    ubicacion: campo(r, ...(V === V_TREME ? ['giro', 'actividad'] : []), 'city', 'ciudad', 'ubicacion').slice(0, 120) || null,
     origen: plataforma === 'fb' || plataforma.includes('facebook') ? 'facebook' : 'instagram',
     campana: campo(r, 'campaign_name').slice(0, 160) || null,
     utm_source: plataforma === 'fb' || plataforma.includes('facebook') ? 'facebook' : 'instagram',
