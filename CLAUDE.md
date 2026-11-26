@@ -161,6 +161,11 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   $18,000 Local 20 + $22,000 estacionamiento del edificio), el inmueble lleva su parte y lo demás se muestra "aparte" en Panorama.
   Proyección (Panorama): renta posible de lo no rentado = `renta_mercado_estimada` si se capturó; si no, mediana de $/m² de los
   rentados del mismo tipo y plaza. No cuenta lo de uso propio (Operación MEDCO, casa de la familia).
+- **Recibo por propietario (26/11/2026, solo dueño y socio):** en Mantenimiento, botón "Recibo por propietario" junto a "Sacar recibo".
+  Agrupa las unidades por `unidades.ocupante` (sin acentos ni mayúsculas), elige mes y unidades, y saca UN recibo con cada unidad y
+  concepto (mantenimiento/luz) y, si se marca, el IVA desglosado (Importe | IVA 16 % | Subtotal; los montos capturados ya incluyen IVA).
+  El folio se guarda en todos los pagos incluidos. Caso de origen: Fausto Muñoz (904, 905, 1407) paga $28,391 al mes con IVA;
+  sus cuotas y pagos ene–oct 2026 se corrigieron a montos con IVA y la luz se repartió 4,640 / 4,640 entre 904 y 905.
 - **Recibo de ingresos (09/11/2026):** "＋ Ingreso" de Inicio genera recibo PDF (casilla marcada por omisión) y los movimientos tienen
   botón "Recibo". MEDCO: "Desarrollos y Proyectos MEDCO", azul #1E4F9C, `img/logo-medco.png`, fila "Obra", IVA "No desglosado",
   saldo pendiente si abona a una cuenta de obra. Treme: formato de siempre. Folio `REC-AAAAMM-NNNN` por empresa con

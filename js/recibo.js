@@ -39,7 +39,7 @@ async function fuentes() {
 }
 
 /**
- * d = { emisor, logo, color (opcionales: por omisión Treme), ivaTexto, titulo, folio, fecha (ISO), info: [[etiqueta, valor], …], lineas: [{ concepto, detalle, cantidad, precio, subtotal }],
+ * d = { subtotal (opcional: sin IVA cuando se desglosa), emisor, logo, color (opcionales: por omisión Treme), ivaTexto, titulo, folio, fecha (ISO), info: [[etiqueta, valor], …], lineas: [{ concepto, detalle, cantidad, precio, subtotal }],
  *       total, moneda, liquidado, aviso, notas }
  */
 export async function pintarRecibo(w, d) {
@@ -96,7 +96,7 @@ export async function pintarRecibo(w, d) {
       <td class="ce">${esc(l.cantidad ?? 1)}</td><td class="r">${l.precioTexto ? esc(l.precioTexto) : dinero(l.precio, m)}</td><td class="r">${dinero(l.subtotal, m)}</td></tr>`).join('')}
   </table>
   <div class="tot">
-    <div><span>Subtotal:</span><span>${dinero(d.total, m)}</span></div>
+    <div><span>Subtotal:</span><span>${dinero(d.subtotal ?? d.total, m)}</span></div>
     ${d.sinIva ? '' : d.ivaTexto ? `<div><span>IVA:</span><span>${esc(d.ivaTexto)}</span></div>` : '<div><span>IVA (incluido):</span><span>Incluido en el total</span></div>'}
     <div class="g"><span>${esc(d.totalTexto || 'TOTAL PAGADO:')}</span><span>${dinero(d.total, m)} ${m}</span></div>
   </div>

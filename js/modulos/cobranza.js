@@ -57,6 +57,8 @@ const veDinero = () => tieneRol(['administracion']);
 // Recibos (25/11/2026): en Torre Elysium solo los da la administración (Andrés, Miguel) y solo al ver el dinero; quien cobra
 // (Liz) ya no los saca. En las plazas Barby sí. La base también lo frena (siguiente_folio_cuota, migración 0040).
 const puedeRecibo = () => veDinero() || modo === 'plazas';
+// Recibo por propietario (26/11/2026): un solo recibo del mes con todas las unidades de un mismo dueño. Solo Andrés y Miguel.
+const puedeReciboDueno = () => tieneRol(['socio']);
 
 export async function render(view, mod) {
   raiz = view;
@@ -178,9 +180,11 @@ function pintar() {
   const conRecibo = ['mes', 'cobro', 'cuenta'].includes(st.vista) && puedeRecibo();
   document.getElementById('page-actions').innerHTML = (st.vista === 'mes' && tieneRol(['administracion', 'cobranza'])
     ? `<button class="btn btn-ghost" id="c-nueva">＋ Unidad</button>` : '')
+    + (conRecibo && puedeReciboDueno() ? `<button class="btn btn-ghost" id="c-recibo-dueno">Recibo por propietario</button>` : '')
     + (conRecibo ? `<button class="btn btn-primary" id="c-recibo">Sacar recibo</button>` : '');
   document.getElementById('c-nueva')?.addEventListener('click', () => editarUnidad(null, st.concepto));
   document.getElementById('c-recibo')?.addEventListener('click', sacarRecibo);
+  document.getElementById('c-recibo-dueno')?.addEventListener('click', () => reciboPropietario());
   raiz.querySelector('.periodo').hidden = st.vista === 'cuenta' || st.vista === 'reporte';
 
   const cuerpo = raiz.querySelector('#c-cuerpo');
@@ -904,6 +908,121 @@ async function generarRecibo(w, u, m, op) {
     lineas, total: lineas.reduce((s, l) => s + l.subtotal, 0), moneda: 'MXN',
     liquidado: lineas.every((l) => l.completo), notas,
     aviso: `Este recibo ampara el pago de ${textoConcepto} correspondiente al periodo indicado, para ${art} ${tipo} ${u.identificador} de ${centro.nombre}, recibido a nombre de ${nombre}.`,
+  });
+  pintar();
+}
+
+// ---------- recibo por propietario ----------
+// Un dueño con varias unidades (p. ej. Fausto Muñoz: 904, 905 y 1407) recibe UN recibo del mes con cada unidad y concepto
+// desglosado y, si se marca, el IVA (los montos capturados ya lo incluyen: se cobra lo que realmente depositan).
+// El folio se guarda en todos los pagos del recibo: al reimprimir sale el mismo. Solo dueño y socio.
+const claveDueno = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
+const IVA = 0.16;
+const r2 = (n) => Math.round(n * 100) / 100;
+
+function propietarios() {
+  const g = new Map();
+  for (const u of unidades) {
+    const k = claveDueno(u.ocupante);
+    if (!k || ultimoPagado(u.id) < 0) continue;
+    if (!g.has(k)) g.set(k, { clave: k, nombre: nombreBonito(u.ocupante.trim()), unidades: [] });
+    g.get(k).unidades.push(u);
+  }
+  return [...g.values()].map((d) => ({ ...d, unidades: d.unidades.sort(orden) }))
+    .sort((a, b) => (b.unidades.length > 1) - (a.unidades.length > 1) || a.nombre.localeCompare(b.nombre, 'es'));
+}
+
+function reciboPropietario(clave, mesPedido) {
+  if (!puedeReciboDueno()) return toast('Solo la dirección saca este recibo', true);
+  const lista = propietarios();
+  if (!lista.length) return toast(`No hay pagos registrados en ${st.anio}`, true);
+  const d = lista.find((x) => x.clave === clave) || lista[0];
+  const pagosDe = (us, m) => pagos.filter((p) => us.some((u) => u.id === p.unidad_id) && mesDe(p.periodo) === m);
+  const meses = [...new Set(pagos.filter((p) => d.unidades.some((u) => u.id === p.unidad_id)).map((p) => mesDe(p.periodo)))].sort((a, b) => a - b);
+  const m = meses.includes(mesPedido) ? mesPedido : meses.includes(st.mes) ? st.mes : meses.at(-1);
+  const conPago = d.unidades.filter((u) => pagosDe([u], m).length);
+  const modal = abrirModal({
+    titulo: 'Recibo por propietario',
+    cuerpo: `<form class="form" id="rp" novalidate>
+      <label>Propietario<select name="dueno">${lista.map((x) => `<option value="${esc(x.clave)}" ${x.clave === d.clave ? 'selected' : ''}>${esc(x.nombre)} · ${x.unidades.length} ${x.unidades.length === 1 ? 'unidad' : 'unidades'}</option>`).join('')}</select></label>
+      <label>Mes<select name="mes">${meses.map((i) => `<option value="${i}" ${i === m ? 'selected' : ''}>${MESES[i]} ${st.anio}</option>`).join('')}</select></label>
+      <fieldset class="rp-unidades"><legend>Unidades que incluye</legend>
+        ${conPago.map((u) => {
+          const t = pagosDe([u], m).reduce((s, p) => s + Number(p.monto), 0);
+          return `<label class="opcion opcion-linea"><input type="checkbox" name="u" value="${u.id}" checked> ${esc(etiquetaUnidad(u))} · ${fmt(t)}</label>`; }).join('')}
+      </fieldset>
+      <p class="nota" id="rp-total"></p>
+      <label>Recibí de<input name="nombre" maxlength="120" required value="${esc(d.nombre)}"></label>
+      <label>Fecha del recibo<input type="date" name="fecha" required></label>
+      <label class="opcion opcion-linea"><input type="checkbox" name="iva" checked> Desglosar IVA (16 %) — los montos ya lo incluyen</label>
+      <label>Nota <small>(opcional, sale en el recibo)</small><input name="nota" maxlength="200"></label>
+    </form>`,
+    pie: `<button class="btn btn-ghost" id="rp-no">Cancelar</button><button class="btn btn-primary" id="rp-si">Ver recibo / PDF</button>`,
+  });
+  const f = modal.querySelector('#rp');
+  const elegidas = () => [...f.querySelectorAll('input[name="u"]:checked')].map((c) => conPago.find((u) => u.id === c.value));
+  const resumen = () => {
+    const ps = pagosDe(elegidas(), m);
+    f.fecha.value = ps.map((p) => p.fecha).sort().pop() || hoyISO();
+    modal.querySelector('#rp-total').textContent = `Total del recibo: ${fmt(ps.reduce((s, p) => s + Number(p.monto), 0))}`;
+  };
+  resumen();
+  f.querySelectorAll('input[name="u"]').forEach((c) => c.addEventListener('change', resumen));
+  f.dueno.addEventListener('change', () => reciboPropietario(f.dueno.value));
+  f.mes.addEventListener('change', () => reciboPropietario(d.clave, +f.mes.value));
+  modal.querySelector('#rp-no').addEventListener('click', cerrarModal);
+  modal.querySelector('#rp-si').addEventListener('click', () => {
+    const us = elegidas(), nombre = f.nombre.value.trim();
+    if (!us.length) return toast('Elige al menos una unidad', true);
+    if (!nombre) return toast('Escribe a nombre de quién va el recibo', true);
+    const w = abrirVentana();
+    if (!w) return;
+    const op = { nombre, fecha: f.fecha.value, nota: f.nota.value.trim(), iva: f.iva.checked };
+    cerrarModal();
+    generarReciboPropietario(w, us, m, op);
+  });
+}
+
+async function generarReciboPropietario(w, us, m, op) {
+  if (!puedeReciboDueno()) { w?.close(); return toast('Solo la dirección saca este recibo', true); }
+  const ps = pagos.filter((p) => us.some((u) => u.id === p.unidad_id) && mesDe(p.periodo) === m);
+  if (!ps.length) { w.close(); return toast('No hay pagos para el recibo', true); }
+  const folios = [...new Set(ps.map((p) => p.folio))];
+  let folio = folios.length === 1 ? folios[0] : null;
+  if (!folio) {
+    const periodo = `${st.anio}-${String(m + 1).padStart(2, '0')}-01`;
+    const { data, error } = await db().rpc('siguiente_folio_cuota', { p_org: estado.miembro.org_id, p_periodo: periodo });
+    if (!error && data) {
+      const { error: e2 } = await db().from('pagos').update({ folio: data }).in('id', ps.map((p) => p.id));
+      if (!e2) { folio = data; ps.forEach((p) => { p.folio = data; }); }
+    }
+  }
+  const per = `${MESES[m]} ${st.anio}`;
+  const lineas = us.flatMap((u) => ['mantenimiento', 'luz'].map((k) => {
+    const total = pagosDelMes(u.id, m, k).reduce((s, p) => s + Number(p.monto), 0);
+    if (!(total > 0)) return null;
+    const cuota = Number(cuotaDe(u.id, k)?.monto || 0);
+    const base = r2(total / (1 + IVA));
+    const tipo = TIPO_RECIBO[u.tipo] || 'Unidad';
+    return { concepto: `${NOMBRE_LINEA[k]} — ${tipo} ${u.identificador}`, detalle: per,
+      cantidad: op.iva ? fmt(base) : 1, precioTexto: op.iva ? fmt(r2(total - base)) : null, precio: total, subtotal: total,
+      base, completo: !(cuota > 0) || total >= cuota };
+  }).filter(Boolean));
+  const total = r2(lineas.reduce((s, l) => s + l.subtotal, 0));
+  const subtotal = r2(lineas.reduce((s, l) => s + l.base, 0));
+  const unidadesTxt = us.map((u) => u.identificador).join(', ');
+  const conceptoTxt = ['mantenimiento', 'luz'].filter((k) => ps.some((p) => p.concepto === k)).map((k) => NOMBRE_CORTO[k]).join(' + ');
+  const formas = [...new Set(ps.map((p) => formaLegible(p.forma_pago)).filter(Boolean))].join(' / ') || '—';
+  await pintarRecibo(w, {
+    titulo: `${op.nombre} - Unidades ${unidadesTxt} - ${per}`,
+    folio, fecha: op.fecha || ps.map((p) => p.fecha).sort().pop(),
+    info: [['Recibí de', op.nombre], [us.length > 1 ? 'Unidades' : 'Unidad', `${unidadesTxt} · ${centro.nombre}`],
+      ['Concepto', conceptoTxt], ['Periodo', per],
+      ['Recibido por', 'Administración — ' + EMISOR], ['Método de pago', formas]],
+    lineas, total, moneda: 'MXN',
+    ...(op.iva ? { colCantidad: 'Importe', colPrecio: 'IVA 16 %', subtotal, ivaTexto: fmt(r2(total - subtotal)) } : {}),
+    liquidado: lineas.every((l) => l.completo), notas: op.nota,
+    aviso: `Este recibo ampara el pago de ${conceptoTxt.toLowerCase().replace(' + ', ' y ')} correspondiente a ${per}, de ${us.length > 1 ? 'las unidades' : 'la unidad'} ${unidadesTxt} de ${centro.nombre}, recibido a nombre de ${op.nombre}.`,
   });
   pintar();
 }
