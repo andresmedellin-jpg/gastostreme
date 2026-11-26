@@ -19,7 +19,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 const env = (k: string, d = '') => Deno.env.get(k) ?? d;
 const GRAPH = `https://graph.facebook.com/${env('GRAPH_VERSION', 'v23.0')}`;
 const db = createClient(env('SUPABASE_URL', 'http://localhost'), env('SUPABASE_SERVICE_ROLE_KEY', 'x'), { db: { schema: 'app' } });
-const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, x-client-info, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 
 type Canal = 'whatsapp' | 'instagram' | 'web';
 type Entrante = { canal: Canal; contacto: string; nombre?: string; texto: string; metaId?: string };
@@ -41,6 +41,12 @@ if (!env('PRUEBA_LOCAL')) Deno.serve(async (req) => {
   // Formulario de la página (inmuebles.medco.mx): registra y saluda por WhatsApp si lo autorizó
   if (url.searchParams.get('fuente') === 'web') {
     try { return await formularioWeb(JSON.parse(crudo)); }
+    catch (e) { return json({ ok: false, error: String((e as Error).message || e) }, 400); }
+  }
+
+  // Bandeja de app.medco.mx: alguien del equipo contesta desde la plataforma (con su sesión)
+  if (url.searchParams.get('fuente') === 'equipo') {
+    try { return await desdeEquipo(req, JSON.parse(crudo)); }
     catch (e) { return json({ ok: false, error: String((e as Error).message || e) }, 400); }
   }
 
@@ -360,5 +366,26 @@ async function formularioWeb(p: any) {
       await guardar(conv.id, 'sistema', `Formulario de la página: ${p.nombre} · ${p.tipo_obra || ''} · ${p.operacion || ''}. Se le mandó saludo por WhatsApp.`);
     }
   }
+  return json({ ok: true });
+}
+
+// ---------------------------------------------------------------- bandeja del equipo (Treme → Prospectos → Conversaciones)
+// La persona entra con su sesión de app.medco.mx; si la base le deja ver la conversación (rol administración), puede contestar.
+async function desdeEquipo(req: Request, p: any) {
+  const jwt = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  const { data: u } = await db.auth.getUser(jwt);
+  if (!u?.user) return json({ ok: false, error: 'Inicie sesión de nuevo.' }, 401);
+  const comoUsuario = createClient(env('SUPABASE_URL'), env('SUPABASE_ANON_KEY'), { db: { schema: 'app' }, global: { headers: { Authorization: `Bearer ${jwt}` } } });
+  const { data: conv } = await comoUsuario.from('bot_conversaciones').select('*').eq('id', p.conversacion_id).maybeSingle();
+  if (!conv) return json({ ok: false, error: 'No tiene permiso para esta conversación.' }, 403);
+  const texto = String(p.texto || '').trim().slice(0, 3500);
+  if (!texto) return json({ ok: false, error: 'Escriba un mensaje.' }, 400);
+  // Meta solo deja escribir libremente dentro de las 24 h después del último mensaje del cliente
+  const horas = conv.ultimo_cliente ? (Date.now() - new Date(conv.ultimo_cliente).getTime()) / 36e5 : 999;
+  if (horas > 24) return json({ ok: false, error: 'Pasaron más de 24 horas desde el último mensaje del cliente: WhatsApp e Instagram ya no dejan escribirle libremente. Espere a que el cliente vuelva a escribir.' }, 409);
+  const ok = await enviar(conv.canal, conv.contacto, texto);
+  if (!ok) return json({ ok: false, error: 'Meta no aceptó el mensaje. Revise que el número y el Instagram estén conectados.' }, 502);
+  await db.from('bot_mensajes').insert({ conversacion_id: conv.id, rol: 'humano', texto, enviado_por: u.user.id });
+  await db.from('bot_conversaciones').update({ bot_activo: false, pidio_humano: false, actualizado_en: new Date().toISOString() }).eq('id', conv.id);
   return json({ ok: true });
 }

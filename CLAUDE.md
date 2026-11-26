@@ -210,7 +210,7 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   (página inmuebles.medco.mx, repo `rentastreme`; Andrés NO debe borrar ese repo). Importar de Meta en Treme lee espacio/busca/giro.
 
 - **Asesor virtual de Treme (26/11/2026, 0042–0043, función `asesor`, verify_jwt = false):** bot de ventas y rentas para WhatsApp
-  (número de Treme con coexistencia: la app de WhatsApp Business sigue funcionando), mensajes de Instagram (@treme.mx) y el formulario de
+  (número de Treme dedicado al bot, sin la app del celular), mensajes de Instagram (@treme.mx) y el formulario de
   inmuebles.medco.mx (`POST …/functions/v1/asesor?fuente=web`). Andrés **autorizó una cuenta de Anthropic PROPIA de Treme** solo para esto
   (secreto `ANTHROPIC_API_KEY`; nada de Unaria). Ofrece SOLO `activos.publicar = true` sin contrato activo ligado, con `precio_renta`,
   `renta_mas_iva`, `precio_venta`, `descripcion_publica` (precios aprobados 26/11: oficinas $350/m² + IVA, 1401 $40,000, Bodega 3 $21,000).
@@ -219,7 +219,10 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   actualiza el prospecto de Treme; enlaza por WhatsApp de 10 dígitos con uno de los últimos 60 días), agendar_visita (estado calificado,
   nota, aviso), pasar_a_persona (pausa el bot, aviso). Avisos a **Miguel** por WhatsApp (`AVISO_WHATSAPP`, plantilla `AVISO_PLANTILLA`).
   Si alguien contesta desde la app (eco smb_message_echoes / eco de Instagram) el bot se pausa en esa conversación. Si la IA falla:
-  respuesta cortés, pausa y aviso. Pantalla: Treme → Prospectos → Conversaciones (ver plática, "La tomo yo" / "Regresar al asesor").
+  respuesta cortés, pausa y aviso. Pantalla: Treme → Prospectos → **Conversaciones = bandeja** (lista + plática, se actualiza cada 8 s; en
+  celular lista → plática con ←). El equipo contesta ahí mismo (`asesor?fuente=equipo` con la sesión del usuario; solo administración; Meta
+  solo permite texto libre 24 h después del último mensaje del cliente). Andrés eligió (26/11): **número propio solo para el bot (sin app en el
+  celular)**; Miguel contesta desde la bandeja. Pausar/Regresar al asesor por plática.
   Secretos pendientes los carga Andrés en Supabase: ANTHROPIC_API_KEY, META_APP_SECRET, META_VERIFY_TOKEN, WA_TOKEN, WA_PHONE_ID,
   IG_TOKEN, IG_ID, AVISO_WHATSAPP, (AVISO_PLANTILLA, BIENVENIDA_PLANTILLA, MODELO). Nunca escribe en frío a desconocidos.
 
