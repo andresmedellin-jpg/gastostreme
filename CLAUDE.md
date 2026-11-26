@@ -167,7 +167,7 @@ que hagas todo tú (GitHub, Supabase) y le digas el resultado. Lee también `REA
   El folio se guarda en todos los pagos incluidos. Caso de origen: Fausto Muñoz (904, 905, 1407) paga $28,391 al mes con IVA;
   sus cuotas y pagos ene–oct 2026 se corrigieron a montos con IVA y la luz se repartió 4,640 / 4,640 entre 904 y 905.
 - **Limpieza 26/11/2026 (petición de Andrés: "quiero ver realmente lo que entra"):** nombres de ocupantes en MAYÚSCULAS pasados a
-  nombre normal con acentos (José, Héctor, Chávez…; DHL se queda). Unidades de Treme en Elysium (604, 605, 606, 704, 1401) exentas:
+  nombre normal con acentos (José, Héctor, Chávez…; DHL se queda). Unidades de Treme en Elysium (según Patrimonio: 604, 605, 606, 704, 1401, 1201, 1202, 705 A, 801, 806, 901 y locales 19, 20, 21) exentas:
   `unidades.exento = true` y su cuota de mantenimiento `activo = false`, para que no cuenten como por cobrar.
 - **Recibo de ingresos (09/11/2026):** "＋ Ingreso" de Inicio genera recibo PDF (casilla marcada por omisión) y los movimientos tienen
   botón "Recibo". MEDCO: "Desarrollos y Proyectos MEDCO", azul #1E4F9C, `img/logo-medco.png`, fila "Obra", IVA "No desglosado",
